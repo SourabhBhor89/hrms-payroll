@@ -12,6 +12,11 @@ import lombok.Setter;
 
 import java.time.LocalDate;
 
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
+import java.util.HashSet;
+import java.util.Set;
+
 @Entity
 @Table(name = "employees")
 @Getter
@@ -43,4 +48,12 @@ public class Employee extends BaseEntity {
 
     @Column(nullable = false)
     private Boolean active = true;
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "employee_permissions",
+            joinColumns = @JoinColumn(name = "employee_id"),
+            inverseJoinColumns = @JoinColumn(name = "permission_id")
+    )
+    private Set<Permission> permissions = new HashSet<>();
 }
