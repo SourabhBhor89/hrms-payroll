@@ -1,0 +1,34 @@
+# IntelliJ
+.idea/
+*.iml
+
+# Maven
+target/
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.*
+
+# Java
+*.class
+
+# VS Code
+.vscode/
+
+# Temporary
+*.tmp
+
+# Firebase
+firebase-service-account.json
+
+# Secrets
+application-local.yml
+application-prod.yml
