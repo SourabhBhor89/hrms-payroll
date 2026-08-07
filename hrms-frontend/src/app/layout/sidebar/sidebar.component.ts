@@ -58,13 +58,13 @@ export class SidebarComponent {
       icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>`,
       permission: 'HOLIDAY_VIEW'
     },
-    {
-      path: '/timesheets',
-      title: 'Timesheets',
-      icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
-      permission: 'TIMESHEET_CATEGORIES_VIEW',
-      badge: () => this.hrms.pendingTimesheetsCount()
-    }
+    // {
+    //   path: '/timesheets',
+    //   title: 'Timesheets',
+    //   icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+    //   permission: 'TIMESHEET_CATEGORIES_VIEW',
+    //   badge: () => this.hrms.pendingTimesheetsCount()
+    // }
   ];
 
   toggleCollapse() {
