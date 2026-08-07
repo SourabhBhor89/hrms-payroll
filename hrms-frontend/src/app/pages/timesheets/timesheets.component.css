@@ -1,0 +1,116 @@
+.timesheets-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.page-header h2 { font-size: 1.5rem; }
+.subtitle { font-size: 0.875rem; color: var(--text-muted); }
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.week-pill {
+  background: var(--bg-hover);
+  border: 1px solid var(--border-color);
+  padding: 0.4rem 0.875rem;
+  border-radius: var(--radius-full);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.timesheet-card {
+  padding: 1.5rem;
+}
+
+.ts-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.user-box { display: flex; align-items: center; gap: 0.875rem; }
+.avatar-img { width: 42px; height: 42px; border-radius: 50%; object-fit: cover; }
+
+.matrix-table th { text-align: center; }
+.matrix-table th:first-child { text-align: left; width: 30%; }
+
+.task-info { display: flex; flex-direction: column; }
+.task-sub { font-size: 0.75rem; color: var(--text-muted); }
+
+.hour-input {
+  width: 54px;
+  padding: 0.35rem;
+  text-align: center;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+  background: var(--bg-input);
+  color: var(--text-main);
+  font-weight: 700;
+  outline: none;
+}
+
+.hour-input:focus { border-color: var(--primary); }
+
+.total-row {
+  background: var(--bg-hover);
+}
+
+.text-primary { color: var(--primary); font-size: 1rem; }
+
+.add-row-bar { display: flex; justify-content: flex-start; }
+
+.table-header-box {
+  padding: 1.25rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.user-cell { display: flex; align-items: center; gap: 0.75rem; }
+.table-avatar { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; }
+
+.action-buttons { display: flex; gap: 0.5rem; }
+.action-done { font-size: 0.75rem; color: var(--text-muted); font-style: italic; }
+
+@media (max-width: 768px) {
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 0.75rem;
+  }
+  
+  .header-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .ts-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  
+  .ts-card-header .btn {
+    width: 100%;
+  }
+
+  .table-header-box {
+    padding: 1rem;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+}

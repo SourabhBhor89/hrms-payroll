@@ -1,0 +1,233 @@
+.sidebar {
+  width: 260px;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  transition: width var(--transition-normal);
+  z-index: 100;
+}
+
+.sidebar.collapsed {
+  width: 76px;
+}
+
+.sidebar-header {
+  height: 70px;
+  padding: 0 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.logo-box {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  overflow: hidden;
+}
+
+.sidebar-logo-img {
+  height: 38px;
+  max-width: 175px;
+  object-fit: contain;
+  mix-blend-mode: multiply;
+  transition: all var(--transition-normal);
+}
+
+.sidebar.collapsed .sidebar-logo-img {
+  height: 32px;
+  max-width: 36px;
+  object-position: left;
+}
+
+.collapse-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0.35rem;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.collapse-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-main);
+}
+
+.role-banner {
+  margin: 1rem 1.25rem 0.5rem;
+  padding: 0.5rem 0.875rem;
+  background: var(--primary-light);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.role-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--primary);
+  box-shadow: 0 0 8px var(--primary);
+}
+
+.role-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--primary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.nav-menu {
+  flex: 1;
+  padding: 1rem 0.75rem;
+  overflow-y: auto;
+}
+
+.group-title {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+  padding: 0 0.75rem 0.5rem;
+  display: block;
+}
+
+.nav-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  padding: 0.75rem 0.875rem;
+  color: var(--text-muted);
+  text-decoration: none;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 0.875rem;
+  transition: all var(--transition-fast);
+}
+
+.nav-link:hover {
+  color: var(--text-main);
+  background-color: var(--bg-hover);
+}
+
+.nav-link.active {
+  color: #ffffff;
+  background: linear-gradient(135deg, var(--primary) 0%, #0284c7 100%);
+  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3);
+}
+
+.nav-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-badge {
+  margin-left: auto;
+  background: var(--danger);
+  color: #ffffff;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-full);
+}
+
+.sidebar-footer {
+  padding: 1rem 1.25rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.user-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.user-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--primary);
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.user-name {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--text-main);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+.user-role {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+/* Visibility helpers default */
+.close-mobile-icon {
+  display: none;
+}
+.desktop-arrow-icon {
+  display: block;
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: -260px;
+    width: 260px !important;
+    height: 100vh;
+    z-index: 100;
+    transition: transform var(--transition-normal);
+    box-shadow: 10px 0 40px rgba(14, 165, 233, 0.15);
+  }
+
+  .layout-container.mobile-sidebar-open .sidebar {
+    transform: translateX(260px);
+  }
+
+  .close-mobile-icon {
+    display: block;
+    color: #ef4444;
+  }
+  .desktop-arrow-icon {
+    display: none !important;
+  }
+  
+  .collapse-btn {
+    padding: 0.5rem;
+  }
+}
+

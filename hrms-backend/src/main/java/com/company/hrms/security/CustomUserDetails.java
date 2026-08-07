@@ -6,8 +6,10 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 
 @Getter
 public class CustomUserDetails implements UserDetails {
@@ -19,17 +21,26 @@ public class CustomUserDetails implements UserDetails {
     private final boolean active;
 
     public CustomUserDetails(User user) {
+        this(user, Set.of());
+    }
 
+    public CustomUserDetails(User user, Collection<String> permissions) {
         this.userId = user.getId();
         this.email = user.getEmail();
         this.password = user.getPassword();
 
-        this.authorities = List.of(
-                new SimpleGrantedAuthority(
-                        "ROLE_" + user.getRole().getName().name()
-                )
-        );
+        List<GrantedAuthority> auths = new ArrayList<>();
+        auths.add(new SimpleGrantedAuthority("ROLE_" + user.getRole().getName().name()));
 
+        if (permissions != null) {
+            for (String perm : permissions) {
+                if (perm != null && !perm.isBlank()) {
+                    auths.add(new SimpleGrantedAuthority(perm));
+                }
+            }
+        }
+
+        this.authorities = List.copyOf(auths);
         this.active = Boolean.TRUE.equals(user.getActive());
     }
 

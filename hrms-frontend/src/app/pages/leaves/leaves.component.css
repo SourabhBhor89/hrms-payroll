@@ -1,0 +1,132 @@
+.leaves-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.page-header h2 { font-size: 1.5rem; }
+.subtitle { font-size: 0.875rem; color: var(--text-muted); }
+
+.balance-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.25rem;
+}
+
+.balance-card {
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.b-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.b-count {
+  font-size: 1.625rem;
+  font-weight: 800;
+  margin: 0.5rem 0;
+}
+
+.progress-bar {
+  height: 6px;
+  background: var(--bg-hover);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+.progress {
+  height: 100%;
+  background: var(--primary);
+}
+
+.progress.amber { background: var(--warning); }
+.progress.emerald { background: var(--success); }
+.progress.purple { background: #a855f7; }
+
+.b-sub { font-size: 0.75rem; color: var(--text-muted); }
+
+.table-header-box {
+  padding: 1.25rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border-color);
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.filter-pills {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.pill-btn {
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-color);
+  background: var(--bg-hover);
+  color: var(--text-main);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pill-btn.active {
+  background: var(--primary);
+  color: #ffffff;
+  border-color: var(--primary);
+}
+
+.user-cell { display: flex; align-items: center; gap: 0.75rem; }
+.table-avatar { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; }
+.sub-text { font-size: 0.75rem; color: var(--text-muted); display: block; }
+.reason-cell { max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.action-buttons { display: flex; gap: 0.5rem; }
+.action-done { font-size: 0.75rem; color: var(--text-muted); font-style: italic; }
+
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem; }
+
+@media (max-width: 576px) {
+  .form-row {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+  
+  .balance-grid {
+    grid-template-columns: 1fr;
+    gap: 0.875rem;
+  }
+
+  .table-header-box {
+    padding: 1rem;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .filter-pills {
+    width: 100%;
+    overflow-x: auto;
+    padding-bottom: 0.25rem;
+  }
+
+  .pill-btn {
+    white-space: nowrap;
+  }
+}

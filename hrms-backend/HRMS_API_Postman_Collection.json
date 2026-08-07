@@ -1,0 +1,697 @@
+{
+	"info": {
+		"_postman_id": "d9817452-3214-4903-b09e-7164923f9901",
+		"name": "HRMS & Payroll Backend API Collection",
+		"description": "Complete Postman collection for HRMS Spring Boot Backend APIs including JWT Authentication, User-Specific Permission Management, Attendance, Leaves, and Role-Based Authorization.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{jwt_token}}",
+				"type": "string"
+			}
+		]
+	},
+	"item": [
+		{
+			"name": "1. Authentication",
+			"item": [
+				{
+					"name": "Login - Admin",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData.accessToken) {",
+									"        pm.collectionVariables.set(\"jwt_token\", jsonData.accessToken);",
+									"        console.log(\"JWT Token set successfully.\");",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"admin@hrms.local\",\n  \"password\": \"Admin@12345\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/auth/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"login"
+							]
+						},
+						"description": "Authenticates user (Admin/HR/Employee) and automatically updates {{jwt_token}} collection variable."
+					},
+					"response": []
+				},
+				{
+					"name": "Login - HR",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData.accessToken) {",
+									"        pm.collectionVariables.set(\"jwt_token\", jsonData.accessToken);",
+									"        console.log(\"HR JWT Token set successfully.\");",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"hr@hrms.local\",\n  \"password\": \"Hr@12345\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/auth/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"login"
+							]
+						},
+						"description": "Authenticates HR user and sets {{jwt_token}}."
+					},
+					"response": []
+				},
+				{
+					"name": "Login - Employee",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData.accessToken) {",
+									"        pm.collectionVariables.set(\"jwt_token\", jsonData.accessToken);",
+									"        console.log(\"Employee JWT Token set successfully.\");",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"employee@hrms.local\",\n  \"password\": \"Employee@12345\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/auth/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"login"
+							]
+						},
+						"description": "Authenticates Employee user and sets {{jwt_token}}."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "2. Employee Permission Management",
+			"item": [
+				{
+					"name": "Get User Permissions",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/users/:userId/permissions",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"users",
+								":userId",
+								"permissions"
+							],
+							"variable": [
+								{
+									"key": "userId",
+									"value": "2",
+									"description": "Target Employee User ID"
+								}
+							]
+						},
+						"description": "Fetches active permissions for an employee user (Allowed for ADMIN and HR)."
+					},
+					"response": []
+				},
+				{
+					"name": "Replace User Permissions (Full Update)",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"permissionIds\": [1, 2, 4, 5, 10, 11]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/users/:userId/permissions",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"users",
+								":userId",
+								"permissions"
+							],
+							"variable": [
+								{
+									"key": "userId",
+									"value": "2",
+									"description": "Target Employee User ID"
+								}
+							]
+						},
+						"description": "Replaces all permissions for an employee user with a specific list of permission IDs (Allowed for ADMIN and HR)."
+					},
+					"response": []
+				},
+				{
+					"name": "Add Single Permission to User",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/users/:userId/permissions?permissionId=3",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"users",
+								":userId",
+								"permissions"
+							],
+							"query": [
+								{
+									"key": "permissionId",
+									"value": "3",
+									"description": "Permission ID to add (e.g. 3 = ATTENDANCE_UPDATE)"
+								}
+							],
+							"variable": [
+								{
+									"key": "userId",
+									"value": "2",
+									"description": "Target Employee User ID"
+								}
+							]
+						},
+						"description": "Adds a single permission to an employee user."
+					},
+					"response": []
+				},
+				{
+					"name": "Remove Single Permission from User",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/users/:userId/permissions/:permissionId",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"users",
+								":userId",
+								"permissions",
+								":permissionId"
+							],
+							"variable": [
+								{
+									"key": "userId",
+									"value": "2",
+									"description": "Target Employee User ID"
+								},
+								{
+									"key": "permissionId",
+									"value": "3",
+									"description": "Permission ID to remove"
+								}
+							]
+						},
+						"description": "Deactivates a single permission for an employee user."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "3. HR Permission Management (Admin Only)",
+			"item": [
+				{
+					"name": "Get HR Permissions",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/hr/:userId/permissions",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"hr",
+								":userId",
+								"permissions"
+							],
+							"variable": [
+								{
+									"key": "userId",
+									"value": "3",
+									"description": "Target HR User ID"
+								}
+							]
+						},
+						"description": "Fetches permissions for an HR user (ADMIN only)."
+					},
+					"response": []
+				},
+				{
+					"name": "Replace HR Permissions",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"permissionIds\": [1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/hr/:userId/permissions",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"hr",
+								":userId",
+								"permissions"
+							],
+							"variable": [
+								{
+									"key": "userId",
+									"value": "3",
+									"description": "Target HR User ID"
+								}
+							]
+						},
+						"description": "Replaces permissions assigned to an HR user (ADMIN only)."
+					},
+					"response": []
+				},
+				{
+					"name": "Add Permission to HR",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/hr/:userId/permissions?permissionId=14",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"hr",
+								":userId",
+								"permissions"
+							],
+							"query": [
+								{
+									"key": "permissionId",
+									"value": "14",
+									"description": "Permission ID to add (e.g. 14 = LEAVE_SETUP_VIEW)"
+								}
+							],
+							"variable": [
+								{
+									"key": "userId",
+									"value": "3",
+									"description": "Target HR User ID"
+								}
+							]
+						},
+						"description": "Adds a single permission to an HR user (ADMIN only)."
+					},
+					"response": []
+				},
+				{
+					"name": "Remove Permission from HR",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/hr/:userId/permissions/:permissionId",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"hr",
+								":userId",
+								"permissions",
+								":permissionId"
+							],
+							"variable": [
+								{
+									"key": "userId",
+									"value": "3",
+									"description": "Target HR User ID"
+								},
+								{
+									"key": "permissionId",
+									"value": "14",
+									"description": "Permission ID to remove"
+								}
+							]
+						},
+						"description": "Deactivates a single permission for an HR user (ADMIN only)."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "4. Attendance Module (Permission Controlled)",
+			"item": [
+				{
+					"name": "Get Attendance Records",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/attendance",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"attendance"
+							]
+						},
+						"description": "Requires permission: ATTENDANCE_VIEW"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Attendance Record",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/attendance",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"attendance"
+							]
+						},
+						"description": "Requires permission: ATTENDANCE_CREATE"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Attendance Record",
+					"request": {
+						"method": "PUT",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/attendance",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"attendance"
+							]
+						},
+						"description": "Requires permission: ATTENDANCE_UPDATE"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "5. Leave Module (Permission Controlled)",
+			"item": [
+				{
+					"name": "Get Leave Records",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/leaves",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"leaves"
+							]
+						},
+						"description": "Requires permission: LEAVE_VIEW"
+					},
+					"response": []
+				},
+				{
+					"name": "Apply for Leave",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/leaves/apply",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"leaves",
+								"apply"
+							]
+						},
+						"description": "Requires permission: LEAVE_APPLY"
+					},
+					"response": []
+				},
+				{
+					"name": "Approve Leave Request",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/leaves/approve",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"leaves",
+								"approve"
+							]
+						},
+						"description": "Requires permission: LEAVE_APPROVE"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Leave Setup Configuration",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/leaves/setup",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"leaves",
+								"setup"
+							]
+						},
+						"description": "Requires permission: LEAVE_SETUP_VIEW"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "6. Role & Utility Testing",
+			"item": [
+				{
+					"name": "Admin Endpoint Test",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/admin/test",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"admin",
+								"test"
+							]
+						},
+						"description": "Tests Admin endpoint access."
+					},
+					"response": []
+				},
+				{
+					"name": "Employee Endpoint Test",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/employee/test",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"employee",
+								"test"
+							]
+						},
+						"description": "Tests Employee endpoint access."
+					},
+					"response": []
+				},
+				{
+					"name": "List All Roles (Database Test)",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/test/roles",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"test",
+								"roles"
+							]
+						},
+						"description": "Returns all seeded database roles."
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8080",
+			"type": "string"
+		},
+		{
+			"key": "jwt_token",
+			"value": "",
+			"type": "string"
+		}
+	]
+}

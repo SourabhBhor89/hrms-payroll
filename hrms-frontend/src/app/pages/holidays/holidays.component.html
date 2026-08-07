@@ -1,0 +1,59 @@
+<div class="holidays-page">
+  <!-- Header -->
+  <div class="page-header">
+    <div>
+      <h2>Company Holidays 2026</h2>
+      <p class="subtitle">Official company holiday calendar and regional office closures.</p>
+    </div>
+  </div>
+
+  <!-- Next Holiday Banner -->
+  <div class="next-holiday-banner glass-card">
+    <div class="banner-left">
+      <span class="badge badge-info mb-2">NEXT UPCOMING HOLIDAY</span>
+      <h3>Independence Day</h3>
+      <p>Saturday, August 15, 2026 • Mandatory National Holiday</p>
+    </div>
+    <div class="countdown-box">
+      <div class="time-unit">
+        <span class="num">09</span>
+        <span class="lbl">Days</span>
+      </div>
+      <div class="time-unit">
+        <span class="num">14</span>
+        <span class="lbl">Hours</span>
+      </div>
+      <div class="time-unit">
+        <span class="num">30</span>
+        <span class="lbl">Mins</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- All Holidays List (no filter) -->
+  <div class="holidays-list">
+    <div *ngFor="let h of hrms.holidays()" class="holiday-row glass-card" [class.upcoming]="h.isUpcoming">
+      <div class="date-badge">
+        <span class="d-num">{{ h.date.split('-')[2] }}</span>
+        <span class="d-month">{{ getMonthName(h.date) }}</span>
+      </div>
+      <div class="holiday-info">
+        <div class="holiday-title-row">
+          <h4>{{ h.title }}</h4>
+          <span class="badge"
+            [class.badge-success]="h.type === 'Mandatory'"
+            [class.badge-info]="h.type === 'Optional'"
+            [class.badge-purple]="h.type === 'Regional'">{{ h.type }}</span>
+        </div>
+        <span class="day-text">{{ h.day }} &bull; {{ h.date }}</span>
+        <p class="desc">{{ h.description }}</p>
+      </div>
+      <div class="upcoming-indicator" *ngIf="h.isUpcoming">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+        </svg>
+        <span>Upcoming</span>
+      </div>
+    </div>
+  </div>
+</div>

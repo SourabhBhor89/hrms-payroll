@@ -55,6 +55,19 @@ public class DataInitializer implements CommandLineRunner {
             );
         }
 
+        roleRepository.findByName(RoleName.HR).ifPresent(hrRole -> {
+            String hrEmail = "hr@hrms.local";
+            if (!userRepository.existsByEmail(hrEmail)) {
+                User hr = new User();
+                hr.setEmail(hrEmail);
+                hr.setPassword(passwordEncoder.encode("Hr@12345"));
+                hr.setRole(hrRole);
+                hr.setActive(true);
+                userRepository.save(hr);
+                System.out.println("Default HRMS HR user created: " + hrEmail);
+            }
+        });
+
         roleRepository.findByName(RoleName.EMPLOYEE).ifPresent(employeeRole -> {
             String empEmail = "employee@hrms.local";
             if (!userRepository.existsByEmail(empEmail)) {

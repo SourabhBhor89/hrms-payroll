@@ -6,7 +6,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
@@ -15,6 +16,9 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 @Component
 @RequiredArgsConstructor
@@ -33,65 +37,43 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String token = extractToken(request);
 
         if (token == null) {
-            Authentication authentication =
-                    SecurityContextHolder.getContext().getAuthentication();
-
-            if (authentication != null) {
-
-                System.out.println("=================================");
-                System.out.println("Authenticated User: "
-                        + authentication.getName());
-
-                System.out.println("Authorities: "
-                        + authentication.getAuthorities());
-
-                System.out.println("Authenticated: "
-                        + authentication.isAuthenticated());
-
-                System.out.println("=================================");
-            }
             filterChain.doFilter(request, response);
             return;
         }
 
         try {
-
             String username = jwtService.extractUsername(token);
 
-            if (username != null
-                    && SecurityContextHolder
-                    .getContext()
-                    .getAuthentication() == null) {
+            if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
 
-                UserDetails userDetails =
-                        userDetailsService.loadUserByUsername(username);
+                UserDetails userDetails = userDetailsService.loadUserByUsername(username);
 
-                if (jwtService.isTokenValid(
-                        token,
-                        userDetails.getUsername()
-                )) {
+                if (jwtService.isTokenValid(token, userDetails.getUsername())) {
+
+                    // Extract permissions claim from JWT and combine with user authorities
+                    List<String> jwtPermissions = jwtService.extractPermissions(token);
+                    Set<GrantedAuthority> authorities = new HashSet<>(userDetails.getAuthorities());
+
+                    if (jwtPermissions != null) {
+                        for (String perm : jwtPermissions) {
+                            if (StringUtils.hasText(perm)) {
+                                authorities.add(new SimpleGrantedAuthority(perm));
+                            }
+                        }
+                    }
 
                     UsernamePasswordAuthenticationToken authentication =
                             new UsernamePasswordAuthenticationToken(
                                     userDetails,
                                     null,
-                                    userDetails.getAuthorities()
+                                    authorities
                             );
 
                     authentication.setDetails(
-                            new WebAuthenticationDetailsSource()
-                                    .buildDetails(request)
+                            new WebAuthenticationDetailsSource().buildDetails(request)
                     );
 
-                    System.out.println("=================================");
-                    System.out.println("JWT USER: " + authentication.getName());
-                    System.out.println("AUTHORITIES: " + authentication.getAuthorities());
-                    System.out.println("AUTHENTICATED: " + authentication.isAuthenticated());
-                    System.out.println("=================================");
-
-                    SecurityContextHolder
-                            .getContext()
-                            .setAuthentication(authentication);
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
                 }
             }
 
@@ -112,34 +94,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             e.printStackTrace();
             SecurityContextHolder.clearContext();
         }
-        Authentication authentication =
-                SecurityContextHolder.getContext().getAuthentication();
 
-        if (authentication != null) {
-
-            System.out.println("=================================");
-            System.out.println("Authenticated User: "
-                    + authentication.getName());
-
-            System.out.println("Authorities: "
-                    + authentication.getAuthorities());
-
-            System.out.println("Authenticated: "
-                    + authentication.isAuthenticated());
-
-            System.out.println("=================================");
-        }
         filterChain.doFilter(request, response);
     }
 
     private String extractToken(HttpServletRequest request) {
+        String authorization = request.getHeader("Authorization");
 
-        String authorization =
-                request.getHeader("Authorization");
-
-        if (StringUtils.hasText(authorization)
-                && authorization.startsWith("Bearer ")) {
-
+        if (StringUtils.hasText(authorization) && authorization.startsWith("Bearer ")) {
             return authorization.substring(7);
         }
 
