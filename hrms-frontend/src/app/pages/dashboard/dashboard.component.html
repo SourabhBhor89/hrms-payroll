@@ -1,0 +1,173 @@
+<div class="dashboard-page">
+  <!-- Welcome Header -->
+  <div class="welcome-header">
+    <div>
+      <h1>Good day, {{ auth.currentUser()?.name }}! 👋</h1>
+      <p class="subtitle">Here is what is happening across your organization today.</p>
+    </div>
+    <div class="header-actions">
+      <span class="role-pill">Active View: <strong>{{ auth.currentRole() }}</strong></span>
+    </div>
+  </div>
+
+  <!-- KPI Summary Cards -->
+  <div class="kpi-grid">
+    <div class="kpi-card glass-card">
+      <div class="kpi-icon blue">👥</div>
+      <div class="kpi-data">
+        <span class="kpi-title">Total Workforce</span>
+        <span class="kpi-value">{{ hrms.totalEmployeesCount() }}</span>
+        <span class="kpi-trend positive">↑ +2 this month</span>
+      </div>
+    </div>
+
+    <div class="kpi-card glass-card">
+      <div class="kpi-icon emerald">🕒</div>
+      <div class="kpi-data">
+        <span class="kpi-title">Attendance Rate</span>
+        <span class="kpi-value">94.8%</span>
+        <span class="kpi-trend positive">↑ 1.2% vs last week</span>
+      </div>
+    </div>
+
+    <div class="kpi-card glass-card">
+      <div class="kpi-icon amber">🌴</div>
+      <div class="kpi-data">
+        <span class="kpi-title">On Leave Today</span>
+        <span class="kpi-value">{{ hrms.onLeaveTodayCount() }}</span>
+        <span class="kpi-sub">Out of {{ hrms.totalEmployeesCount() }} staff</span>
+      </div>
+    </div>
+
+    <div class="kpi-card glass-card">
+      <div class="kpi-icon purple">⏳</div>
+      <div class="kpi-data">
+        <span class="kpi-title">Pending Approvals</span>
+        <span class="kpi-value">{{ hrms.pendingLeavesCount() + hrms.pendingTimesheetsCount() }}</span>
+        <span class="kpi-trend warning">{{ hrms.pendingLeavesCount() }} Leaves • {{ hrms.pendingTimesheetsCount() }}
+          Timesheets</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Middle Grid: Live Punch Widget & Quick Actions -->
+  <div class="middle-grid">
+    <!-- Punch In / Clock Widget -->
+    <div class="widget-card glass-card">
+      <div class="widget-header">
+        <h3>Attendance Punch Clock</h3>
+        <span class="status-badge" [class.clocked-in]="hrms.isClockedIn()">
+          {{ hrms.isClockedIn() ? 'ONLINE • CLOCKED IN' : 'OFFLINE • CLOCKED OUT' }}
+        </span>
+      </div>
+
+      <div class="clock-display">
+        <span class="time-large">{{ formattedTimer() }}</span>
+        <span class="clock-in-info" *ngIf="hrms.isClockedIn()">
+          Clocked in at {{ hrms.clockInTime() }}
+        </span>
+      </div>
+
+      <div class="clock-actions">
+        <button class="btn" [class.btn-success]="!hrms.isClockedIn()" [class.btn-danger]="hrms.isClockedIn()"
+          (click)="hrms.toggleClockIn()">
+          {{ hrms.isClockedIn() ? 'PUNCH OUT' : 'PUNCH IN NOW' }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Quick Shortcut Actions -->
+    <div class="widget-card glass-card">
+      <div class="widget-header">
+        <h3>Quick Actions</h3>
+      </div>
+      <div class="quick-actions-list">
+        <a routerLink="/leaves" class="action-item">
+          <span class="action-icon">📝</span>
+          <div class="action-text">
+            <strong>Apply for Leave</strong>
+            <span>Submit casual or sick leave request</span>
+          </div>
+          <span class="arrow">→</span>
+        </a>
+
+        <a routerLink="/timesheets" class="action-item">
+          <span class="action-icon">⏱️</span>
+          <div class="action-text">
+            <strong>Log Weekly Timesheet</strong>
+            <span>Record task and project hours</span>
+          </div>
+          <span class="arrow">→</span>
+        </a>
+
+        <a routerLink="/employees" class="action-item" *ngIf="canAddEmployee()">
+          <span class="action-icon">➕</span>
+          <div class="action-text">
+            <strong>Add New Employee</strong>
+            <span>Register staff to organization</span>
+          </div>
+          <span class="arrow">→</span>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Grid: Recent Activity & Pending Approvals List -->
+  <div class="bottom-grid">
+    <!-- Recent Activity Feed -->
+    <div class="widget-card glass-card">
+      <div class="widget-header">
+        <h3>Recent Organization Activity</h3>
+      </div>
+      <div class="activity-feed">
+        <div class="activity-item">
+          <img src="https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80"
+            class="activity-avatar" />
+          <div class="activity-content">
+            <p><strong>Elena Rostova</strong> applied for Casual Leave (3 days).</p>
+            <span class="time-ago">2 hours ago</span>
+          </div>
+        </div>
+
+        <div class="activity-item">
+          <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80"
+            class="activity-avatar" />
+          <div class="activity-content">
+            <p><strong>Marcus Chen</strong> submitted Weekly Timesheet for review.</p>
+            <span class="time-ago">4 hours ago</span>
+          </div>
+        </div>
+
+        <div class="activity-item">
+          <img src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80"
+            class="activity-avatar" />
+          <div class="activity-content">
+            <p><strong>Sarah Jenkins</strong> updated company Holiday list for Q3.</p>
+            <span class="time-ago">1 day ago</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Upcoming Company Holidays Widget -->
+    <div class="widget-card glass-card">
+      <div class="widget-header">
+        <h3>Upcoming Holidays</h3>
+        <a routerLink="/holidays" class="link-text">View All</a>
+      </div>
+      <div class="holiday-list">
+        <div class="holiday-item" *ngFor="let h of hrms.holidays().slice(0, 3)">
+          <div class="holiday-date-badge">
+            <span class="h-date">{{ h.date.split('-')[2] }}</span>
+            <span class="h-month">AUG</span>
+          </div>
+          <div class="holiday-details">
+            <strong>{{ h.title }}</strong>
+            <span>{{ h.day }} • {{ h.type }}</span>
+          </div>
+          <span class="badge badge-success" *ngIf="h.isUpcoming">Upcoming</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

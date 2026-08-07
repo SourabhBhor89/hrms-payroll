@@ -1,0 +1,138 @@
+<div class="timesheets-page">
+  <!-- Header -->
+  <div class="page-header">
+    <div>
+      <h2>Timesheets & Project Time Tracker</h2>
+      <p class="subtitle">Log daily task hours across active projects and manage weekly approval workflows.</p>
+    </div>
+
+    <div class="header-actions">
+      <span class="week-pill">Week: Aug 03 - Aug 09, 2026</span>
+      <button class="btn btn-primary" (click)="submitActiveTimesheet()" [disabled]="activeTimesheet().status === 'Approved'">
+        {{ activeTimesheet().status === 'Submitted' ? 'Timesheet Submitted' : 'Submit Timesheet for Approval' }}
+      </button>
+    </div>
+  </div>
+
+  <!-- Active Weekly Timesheet Card -->
+  <div class="timesheet-card glass-card" *ngIf="activeTimesheet() as ts">
+    <div class="ts-card-header">
+      <div class="user-box">
+        <img [src]="ts.employeeAvatar" class="avatar-img" />
+        <div>
+          <h3>{{ ts.employeeName }}</h3>
+          <span class="sub-text">Week: {{ ts.weekStartDate }} to {{ ts.weekEndDate }}</span>
+        </div>
+      </div>
+
+      <div class="status-box">
+        <span class="badge" [class.badge-warning]="ts.status === 'Draft'" [class.badge-purple]="ts.status === 'Submitted'" [class.badge-success]="ts.status === 'Approved'">
+          STATUS: {{ ts.status }}
+        </span>
+      </div>
+    </div>
+
+    <!-- Matrix Log Grid Table -->
+    <div class="table-container mt-4">
+      <table class="custom-table matrix-table">
+        <thead>
+          <tr>
+            <th>Project & Task</th>
+            <th>Mon</th>
+            <th>Tue</th>
+            <th>Wed</th>
+            <th>Thu</th>
+            <th>Fri</th>
+            <th>Sat</th>
+            <th>Sun</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let entry of ts.entries">
+            <td>
+              <div class="task-info">
+                <strong>{{ entry.project }}</strong>
+                <span class="task-sub">{{ entry.task }}</span>
+              </div>
+            </td>
+            <td><input type="number" class="hour-input" [(ngModel)]="entry.hours.mon" min="0" max="24" /></td>
+            <td><input type="number" class="hour-input" [(ngModel)]="entry.hours.tue" min="0" max="24" /></td>
+            <td><input type="number" class="hour-input" [(ngModel)]="entry.hours.wed" min="0" max="24" /></td>
+            <td><input type="number" class="hour-input" [(ngModel)]="entry.hours.thu" min="0" max="24" /></td>
+            <td><input type="number" class="hour-input" [(ngModel)]="entry.hours.fri" min="0" max="24" /></td>
+            <td><input type="number" class="hour-input" [(ngModel)]="entry.hours.sat" min="0" max="24" /></td>
+            <td><input type="number" class="hour-input" [(ngModel)]="entry.hours.sun" min="0" max="24" /></td>
+            <td><strong>{{ calculateRowTotal(entry) }} hrs</strong></td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr class="total-row">
+            <td><strong>Total Hours Logged</strong></td>
+            <td><strong>{{ calculateDayTotal('mon') }}h</strong></td>
+            <td><strong>{{ calculateDayTotal('tue') }}h</strong></td>
+            <td><strong>{{ calculateDayTotal('wed') }}h</strong></td>
+            <td><strong>{{ calculateDayTotal('thu') }}h</strong></td>
+            <td><strong>{{ calculateDayTotal('fri') }}h</strong></td>
+            <td><strong>{{ calculateDayTotal('sat') }}h</strong></td>
+            <td><strong>{{ calculateDayTotal('sun') }}h</strong></td>
+            <td><strong class="text-primary">{{ calculateGrandTotal() }} Hours</strong></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <div class="add-row-bar mt-3">
+      <button class="btn btn-secondary btn-sm" (click)="addProjectRow()">+ Add Task Row</button>
+    </div>
+  </div>
+
+  <!-- Submitted Timesheets Review Panel for Managers -->
+  <div class="table-container glass-card mt-4" *ngIf="canApprove()">
+    <div class="table-header-box">
+      <h3>Team Timesheet Submissions (Manager Review)</h3>
+      <span class="sub-text">Pending Reviews: {{ hrms.pendingTimesheetsCount() }}</span>
+    </div>
+
+    <table class="custom-table">
+      <thead>
+        <tr>
+          <th>Employee</th>
+          <th>Week Period</th>
+          <th>Total Hours</th>
+          <th>Submitted Date</th>
+          <th>Status</th>
+          <th>Approval Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let t of hrms.timesheets()">
+          <td>
+            <div class="user-cell">
+              <img [src]="t.employeeAvatar" class="table-avatar" />
+              <strong>{{ t.employeeName }}</strong>
+            </div>
+          </td>
+          <td><code>{{ t.weekStartDate }}</code> - <code>{{ t.weekEndDate }}</code></td>
+          <td><strong>{{ t.totalHours }} hrs</strong></td>
+          <td>{{ t.submittedOn || 'Draft' }}</td>
+          <td>
+            <span class="badge" [class.badge-warning]="t.status === 'Draft'" [class.badge-purple]="t.status === 'Submitted'" [class.badge-success]="t.status === 'Approved'">
+              {{ t.status }}
+            </span>
+          </td>
+          <td>
+            <div class="action-buttons" *ngIf="t.status === 'Submitted'">
+              <button class="btn btn-success btn-sm" (click)="approveTs(t.id)">Approve</button>
+              <button class="btn btn-danger btn-sm" (click)="rejectTs(t.id)">Reject</button>
+            </div>
+            <span *ngIf="t.status !== 'Submitted'" class="action-done">
+              {{ t.approvedBy ? 'Approved by ' + t.approvedBy : 'No pending review' }}
+            </span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>

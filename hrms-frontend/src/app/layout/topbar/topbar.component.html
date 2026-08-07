@@ -1,0 +1,73 @@
+<header class="topbar">
+  <div class="topbar-left">
+    <!-- Hamburger Menu Toggle (Mobile Only) -->
+    <button class="hamburger-btn" (click)="theme.toggleMobileSidebar()" title="Toggle Sidebar">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="4" y1="12" x2="20" y2="12"/>
+        <line x1="4" y1="6" x2="20" y2="6"/>
+        <line x1="4" y1="18" x2="20" y2="18"/>
+      </svg>
+    </button>
+
+    <!-- Brand Title / Page Context -->
+    <div class="topbar-brand">
+      <span class="topbar-title">The Rapid Hire</span>
+      <span class="topbar-sub">HR Management Portal</span>
+    </div>
+  </div>
+
+  <!-- Right Controls -->
+  <div class="topbar-actions">
+
+    <!-- Notifications Drawer Dropdown -->
+    <div class="notifications-wrapper">
+      <button class="icon-btn" (click)="toggleNotifDropdown()" title="Notifications">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>
+        </svg>
+        <span class="badge-dot" *ngIf="unreadNotificationsCount > 0"></span>
+      </button>
+
+      <div class="notif-menu" *ngIf="showNotifDropdown()">
+        <div class="notif-header">
+          <span>Notifications</span>
+          <span class="badge badge-info">{{ unreadNotificationsCount }} new</span>
+        </div>
+        <div class="notif-list">
+          <div class="notif-item" *ngFor="let n of notifications">
+            <span class="notif-type-dot" [class]="n.type"></span>
+            <div class="notif-content">
+              <p class="notif-text">{{ n.message }}</p>
+              <span class="notif-time">{{ n.time }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- User Profile Dropdown -->
+    <div class="profile-wrapper">
+      <button class="profile-btn" (click)="toggleUserDropdown()">
+        <img [src]="auth.currentUser()?.avatar" [alt]="auth.currentUser()?.name" class="avatar-img" />
+        <div class="profile-info">
+          <span class="profile-name">{{ auth.currentUser()?.name }}</span>
+          <span class="profile-role">{{ auth.currentRole() }}</span>
+        </div>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+
+      <div class="user-menu" *ngIf="showUserDropdown()">
+        <div class="user-menu-header">
+          <span class="full-name">{{ auth.currentUser()?.name }}</span>
+          <span class="user-email">{{ auth.currentUser()?.email }}</span>
+        </div>
+        <div class="divider"></div>
+        <button class="menu-item logout" (click)="onLogout()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          Sign Out
+        </button>
+      </div>
+    </div>
+
+  </div>
+</header>

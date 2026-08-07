@@ -1,0 +1,166 @@
+<div class="leaves-page">
+  <!-- Header -->
+  <div class="page-header">
+    <div>
+      <h2>Leave Requests & Allocations</h2>
+      <p class="subtitle">View leave balances, submit leave applications, and manage employee approvals.</p>
+    </div>
+
+    <button class="btn btn-primary" (click)="openRequestModal()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Request Leave
+    </button>
+  </div>
+
+  <!-- Leave Balances Cards -->
+  <div class="balance-grid">
+    <div class="balance-card glass-card">
+      <div class="b-header">
+        <span>Casual Leave</span>
+        <span class="b-icon">🏖️</span>
+      </div>
+      <span class="b-count">8 / 12</span>
+      <div class="progress-bar"><div class="progress" style="width: 66%"></div></div>
+      <span class="b-sub">4 days taken</span>
+    </div>
+
+    <div class="balance-card glass-card">
+      <div class="b-header">
+        <span>Sick Leave</span>
+        <span class="b-icon">🤒</span>
+      </div>
+      <span class="b-count">5 / 7</span>
+      <div class="progress-bar"><div class="progress amber" style="width: 71%"></div></div>
+      <span class="b-sub">2 days taken</span>
+    </div>
+
+    <div class="balance-card glass-card">
+      <div class="b-header">
+        <span>Paid Leave (Earned)</span>
+        <span class="b-icon">💼</span>
+      </div>
+      <span class="b-count">14 / 15</span>
+      <div class="progress-bar"><div class="progress emerald" style="width: 93%"></div></div>
+      <span class="b-sub">1 day taken</span>
+    </div>
+
+    <div class="balance-card glass-card">
+      <div class="b-header">
+        <span>Work From Home</span>
+        <span class="b-icon">🏠</span>
+      </div>
+      <span class="b-count">6 / 10</span>
+      <div class="progress-bar"><div class="progress purple" style="width: 60%"></div></div>
+      <span class="b-sub">4 days used</span>
+    </div>
+  </div>
+
+  <!-- Requests List & Manager Approval Table -->
+  <div class="table-container glass-card mt-4">
+    <div class="table-header-box">
+      <h3>Leave Request Register</h3>
+      <div class="filter-pills">
+        <button class="pill-btn" [class.active]="filterStatus === 'All'" (click)="filterStatus = 'All'">All</button>
+        <button class="pill-btn" [class.active]="filterStatus === 'Pending'" (click)="filterStatus = 'Pending'">
+          Pending ({{ hrms.pendingLeavesCount() }})
+        </button>
+        <button class="pill-btn" [class.active]="filterStatus === 'Approved'" (click)="filterStatus = 'Approved'">Approved</button>
+        <button class="pill-btn" [class.active]="filterStatus === 'Rejected'" (click)="filterStatus = 'Rejected'">Rejected</button>
+      </div>
+    </div>
+
+    <table class="custom-table">
+      <thead>
+        <tr>
+          <th>Employee</th>
+          <th>Leave Type</th>
+          <th>Date Range</th>
+          <th>Days</th>
+          <th>Reason</th>
+          <th>Applied On</th>
+          <th>Status</th>
+          <th *ngIf="canApprove()">Manager Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let req of filteredRequests()">
+          <td>
+            <div class="user-cell">
+              <img [src]="req.employeeAvatar" class="table-avatar" />
+              <div>
+                <strong>{{ req.employeeName }}</strong>
+                <span class="sub-text">{{ req.department }}</span>
+              </div>
+            </div>
+          </td>
+          <td><span class="badge badge-purple">{{ req.leaveType }}</span></td>
+          <td><code>{{ req.startDate }}</code> to <code>{{ req.endDate }}</code></td>
+          <td><strong>{{ req.totalDays }} day(s)</strong></td>
+          <td class="reason-cell" [title]="req.reason">{{ req.reason }}</td>
+          <td>{{ req.appliedOn }}</td>
+          <td>
+            <span class="badge" [class.badge-warning]="req.status === 'Pending'" [class.badge-success]="req.status === 'Approved'" [class.badge-danger]="req.status === 'Rejected'">
+              {{ req.status }}
+            </span>
+          </td>
+          <td *ngIf="canApprove()">
+            <div class="action-buttons" *ngIf="req.status === 'Pending'">
+              <button class="btn btn-success btn-sm" (click)="approve(req.id)">Approve</button>
+              <button class="btn btn-danger btn-sm" (click)="reject(req.id)">Reject</button>
+            </div>
+            <span *ngIf="req.status !== 'Pending'" class="action-done">
+              {{ req.managerNotes || 'Decision Processed' }}
+            </span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Request Leave Modal Form -->
+  <div class="modal-backdrop" *ngIf="showModal()">
+    <div class="modal-content">
+      <h3>Apply for Leave</h3>
+      <p class="sub-text">Submit your leave request to management for approval.</p>
+
+      <form (ngSubmit)="submitForm()" class="mt-4">
+        <div class="form-group">
+          <label class="form-label">Leave Category</label>
+          <select class="form-select" [(ngModel)]="newRequest.leaveType" name="leaveType">
+            <option value="Casual Leave">Casual Leave</option>
+            <option value="Sick Leave">Sick Leave</option>
+            <option value="Paid Leave">Paid Leave</option>
+            <option value="Work From Home">Work From Home</option>
+          </select>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Start Date</label>
+            <input type="date" class="form-input" [(ngModel)]="newRequest.startDate" name="startDate" required />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">End Date</label>
+            <input type="date" class="form-input" [(ngModel)]="newRequest.endDate" name="endDate" required />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Total Days</label>
+          <input type="number" class="form-input" [(ngModel)]="newRequest.totalDays" name="totalDays" min="1" max="30" required />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Reason / Justification</label>
+          <textarea class="form-textarea" rows="3" [(ngModel)]="newRequest.reason" name="reason" placeholder="State reason for absence..." required></textarea>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" (click)="showModal.set(false)">Cancel</button>
+          <button type="submit" class="btn btn-primary">Submit Application</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

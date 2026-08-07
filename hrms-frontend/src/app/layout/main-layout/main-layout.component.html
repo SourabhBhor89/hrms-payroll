@@ -1,0 +1,10 @@
+<div class="layout-container" [class.mobile-sidebar-open]="theme.isMobileSidebarOpen()">
+  <div class="sidebar-backdrop" *ngIf="theme.isMobileSidebarOpen()" (click)="theme.closeMobileSidebar()"></div>
+  <app-sidebar></app-sidebar>
+  <div class="main-content">
+    <app-topbar></app-topbar>
+    <main class="page-body">
+      <router-outlet></router-outlet>
+    </main>
+  </div>
+</div>
