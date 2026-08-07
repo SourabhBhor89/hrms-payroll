@@ -516,6 +516,128 @@
   margin-top: 1rem;
 }
 
+.day-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.reg-overlay-badge {
+  font-size: 0.65rem;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  font-weight: 700;
+}
+
+.dot.reg-pending {
+  background: #fef08a;
+  border: 1px solid #facc15;
+}
+
+.dot.reg-approved {
+  background: #10b981;
+}
+
+.day-cell.has-reg-pending {
+  background: #fefce8 !important;
+  border: 1.5px solid #fde047 !important;
+}
+
+.day-cell.has-reg-approved {
+  border: 1.5px solid #10b981 !important;
+}
+
+.day-cell.has-reg-rejected {
+  border: 1.5px solid #f87171 !important;
+}
+
+.btn-inline-reg {
+  background: #f0f9ff;
+  border: 1px dashed #0ea5e9;
+  color: #0284c7;
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 0.15rem 0.35rem;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 0.25rem;
+  align-self: flex-start;
+  transition: all 0.2s ease;
+}
+
+.btn-inline-reg:hover {
+  background: #0ea5e9;
+  color: #ffffff;
+  border-style: solid;
+}
+
+.filters-bar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.75rem 1rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: var(--radius-md);
+}
+
+.search-input-wrapper {
+  flex: 1;
+  min-width: 220px;
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.filter-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.time-badge.orig {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #64748b;
+}
+
+.time-badge.req {
+  background: #f0f9ff;
+  border-color: #38bdf8;
+  color: #0284c7;
+}
+
+.review-details-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+}
+
+.detail-row .label {
+  font-weight: 600;
+  color: #64748b;
+}
+
+.detail-row .val {
+  font-weight: 600;
+  color: #0f172a;
+}
+
 /* ===== Attendance Responsive Modifications ===== */
 @media (max-width: 768px) {
   .page-header {

@@ -34,28 +34,41 @@ export class DashboardComponent {
   }
 
   checkIn() {
-    const now = new Date();
-    const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-    this.checkInTime.set(timeStr);
-    this.isCheckedIn.set(true);
     this.hrms.toggleClockIn();
   }
 
   checkOut() {
-    const now = new Date();
-    const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-    this.checkOutTime.set(timeStr);
-    this.isCheckedIn.set(false);
     this.hrms.toggleClockIn();
   }
 
   getWorkDuration(): string {
-    if (!this.checkInTime()) return '--';
-    const inTime = new Date(`2000-01-01 ${this.checkInTime()}`);
-    const outTime = this.checkOutTime() ? new Date(`2000-01-01 ${this.checkOutTime()}`) : new Date();
+    const inStr = this.hrms.todayClockInTime();
+    if (!inStr || inStr === '--') return '--';
+    const outStr = this.hrms.todayClockOutTime();
+    const todayStr = new Date().toISOString().split('T')[0];
+    const inTime = new Date(`${todayStr} ${inStr}`);
+    const outTime = (outStr && outStr !== '--') ? new Date(`${todayStr} ${outStr}`) : new Date();
     const diffMs = outTime.getTime() - inTime.getTime();
+    if (isNaN(diffMs) || diffMs < 0) return '--';
     const hrs = Math.floor(diffMs / 3600000);
     const mins = Math.floor((diffMs % 3600000) / 60000);
     return `${hrs}h ${mins}m`;
+  }
+
+  getDayFromDate(dateStr?: string): string {
+    if (!dateStr) return '15';
+    const parts = dateStr.split('-');
+    return parts.length >= 3 ? parts[2] : '15';
+  }
+
+  getMonthFromDate(dateStr?: string): string {
+    if (!dateStr) return 'AUG';
+    const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+    const parts = dateStr.split('-');
+    if (parts.length >= 2) {
+      const idx = parseInt(parts[1], 10) - 1;
+      return months[idx] || 'AUG';
+    }
+    return 'AUG';
   }
 }

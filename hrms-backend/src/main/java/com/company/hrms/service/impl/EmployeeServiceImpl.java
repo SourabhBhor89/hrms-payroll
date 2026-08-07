@@ -98,6 +98,10 @@ public class EmployeeServiceImpl implements EmployeeService {
         employee.setHasGap(request.getHasGap() != null ? request.getHasGap() : false);
         employee.setGapReason(request.getGapReason());
         employee.setReferenceDetails(request.getReferenceDetails());
+        employee.setCurrentAddress(request.getCurrentAddress());
+        employee.setPermanentAddress(request.getPermanentAddress());
+        employee.setMaritalStatus(request.getMaritalStatus());
+        employee.setMarriageDate(request.getMarriageDate());
         employee.setCreatedBy("ADMIN/ HR");
         employee.setUpdatedBy("ADMIN/ HR");
         employee.setActive(true);
@@ -138,6 +142,10 @@ public class EmployeeServiceImpl implements EmployeeService {
         if (request.getHasGap() != null) employee.setHasGap(request.getHasGap());
         if (request.getGapReason() != null) employee.setGapReason(request.getGapReason());
         if (request.getReferenceDetails() != null) employee.setReferenceDetails(request.getReferenceDetails());
+        if (request.getCurrentAddress() != null) employee.setCurrentAddress(request.getCurrentAddress());
+        if (request.getPermanentAddress() != null) employee.setPermanentAddress(request.getPermanentAddress());
+        if (request.getMaritalStatus() != null) employee.setMaritalStatus(request.getMaritalStatus());
+        if (request.getMarriageDate() != null) employee.setMarriageDate(request.getMarriageDate());
 
         employeeRepository.save(employee);
 
@@ -184,6 +192,10 @@ public class EmployeeServiceImpl implements EmployeeService {
                 .hasGap(emp.getHasGap())
                 .gapReason(emp.getGapReason())
                 .referenceDetails(emp.getReferenceDetails())
+                .currentAddress(emp.getCurrentAddress())
+                .permanentAddress(emp.getPermanentAddress())
+                .maritalStatus(emp.getMaritalStatus())
+                .marriageDate(emp.getMarriageDate())
                 .build();
     }
 }

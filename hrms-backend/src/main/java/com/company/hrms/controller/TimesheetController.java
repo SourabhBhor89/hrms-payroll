@@ -15,7 +15,7 @@ import java.util.Map;
 public class TimesheetController {
 
     @GetMapping
-    @PreAuthorize("hasAuthority('TIMESHEET_CATEGORIES_VIEW')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<Map<String, Object>>> getTimesheets(Authentication authentication) {
         List<Map<String, Object>> timesheets = List.of(
                 Map.of(

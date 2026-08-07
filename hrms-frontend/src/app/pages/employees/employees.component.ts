@@ -39,6 +39,11 @@ export class EmployeesComponent {
     joiningDate: new Date().toISOString().split('T')[0],
     dateOfBirth: '',
     address: '',
+    currentAddress: '',
+    permanentAddress: '',
+    sameAsCurrentAddress: false,
+    maritalStatus: 'Single',
+    marriageDate: '',
     isFresher: false,
     totalExperience: '',
     previousCompany: '',
@@ -89,6 +94,18 @@ export class EmployeesComponent {
     }
   }
 
+  onMaritalStatusChange() {
+    if (this.newEmp.maritalStatus !== 'Married') {
+      this.newEmp.marriageDate = '';
+    }
+  }
+
+  onSameAddressToggle() {
+    if (this.newEmp.sameAsCurrentAddress) {
+      this.newEmp.permanentAddress = this.newEmp.currentAddress;
+    }
+  }
+
   generateNextEmployeeCode(): string {
     const list = this.hrms.employees();
     let maxNum = list.length;
@@ -121,6 +138,11 @@ export class EmployeesComponent {
       joiningDate: new Date().toISOString().split('T')[0],
       dateOfBirth: '',
       address: '',
+      currentAddress: '',
+      permanentAddress: '',
+      sameAsCurrentAddress: false,
+      maritalStatus: 'Single',
+      marriageDate: '',
       isFresher: false,
       totalExperience: '',
       previousCompany: '',

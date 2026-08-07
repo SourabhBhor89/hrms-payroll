@@ -26,11 +26,15 @@ public class CreateEmployeeRequest {
     private String phone;
     private String department;
     private String designation;
-    private String role; // e.g. EMPLOYEE, HR
+    private String role;
     private String password;
     private LocalDate joiningDate;
     private LocalDate dateOfBirth;
+    private LocalDate MarriageDate;
     private String address;
+    private String CurrentAddress;
+    private String PermanentAddress;
+    private String MaritalStatus;
     private Boolean isFresher;
     private String totalExperience;
     private String previousCompany;

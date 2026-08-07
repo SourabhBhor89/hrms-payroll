@@ -1,13 +1,15 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, tap, catchError, of } from 'rxjs';
-import { 
-  Employee, 
-  AttendanceRecord, 
-  LeaveRequest, 
-  Holiday, 
+import {
+  Employee,
+  AttendanceRecord,
+  AttendanceStatus,
+  LeaveRequest,
+  Holiday,
   Timesheet,
-  RegularizationRequest
+  RegularizationRequest,
+  RegularizationStatus
 } from '../models/hrms.model';
 
 export interface DashboardSummary {
@@ -25,11 +27,40 @@ export interface DashboardSummary {
 export class HrmsService {
   private http = inject(HttpClient);
 
+
+
+  private restoreClockState() {
+    const today = this.getTodayStr();
+    const storedDate = localStorage.getItem('hrms_today_date');
+    if (storedDate === today) {
+      const savedIn = localStorage.getItem('hrms_today_clock_in');
+      const savedOut = localStorage.getItem('hrms_today_clock_out');
+      if (savedIn) {
+        this.clockInTime.set(savedIn);
+        this.isClockedIn.set(!savedOut);
+      }
+      if (savedOut) {
+        this.clockOutTimeSignal.set(savedOut);
+      }
+    } else if (storedDate) {
+      localStorage.removeItem('hrms_today_date');
+      localStorage.removeItem('hrms_today_clock_in');
+      localStorage.removeItem('hrms_today_clock_out');
+    }
+  }
+
+  private saveClockState(inTime?: string, outTime?: string) {
+    const today = this.getTodayStr();
+    localStorage.setItem('hrms_today_date', today);
+    if (inTime) localStorage.setItem('hrms_today_clock_in', inTime);
+    if (outTime) localStorage.setItem('hrms_today_clock_out', outTime);
+  }
+
   // State Signals
   employees = signal<Employee[]>([]);
   attendanceRecords = signal<AttendanceRecord[]>([]);
   leaveRequests = signal<LeaveRequest[]>([]);
-  holidays = signal<Holiday[]>([]);
+  holidays = signal<Holiday[]>(this.getFallbackHolidays());
   timesheets = signal<Timesheet[]>([]);
   regularizationRequests = signal<RegularizationRequest[]>([]);
   dashboardSummary = signal<DashboardSummary>({
@@ -47,8 +78,74 @@ export class HrmsService {
   // Clock-in live widget state
   isClockedIn = signal<boolean>(false);
   clockInTime = signal<string | null>(null);
+  clockOutTimeSignal = signal<string | null>(null);
   clockDurationSeconds = signal<number>(0);
   private timerInterval: any = null;
+
+  getTodayStr(): string {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  // Computed today's attendance record from backend API
+  todayRecord = computed(() => {
+    const today = this.getTodayStr();
+    const matches = this.attendanceRecords().filter(a => a.date === today);
+    if (matches.length === 0) return undefined;
+    return matches[matches.length - 1];
+  });
+
+  todayAttendanceState = signal<{
+    clockIn: string;
+    clockOut: string;
+    isClockedIn: boolean;
+    isClockedOut: boolean;
+  }>({
+    clockIn: '',
+    clockOut: '',
+    isClockedIn: false,
+    isClockedOut: false
+  });
+
+  todayClockInTime = computed(() => {
+    const apiState = this.todayAttendanceState();
+    if (apiState.clockIn) return apiState.clockIn;
+    const rec = this.todayRecord();
+    if (rec && rec.clockIn && rec.clockIn !== '--') return rec.clockIn;
+    return this.clockInTime() || '';
+  });
+
+  todayClockOutTime = computed(() => {
+    const apiState = this.todayAttendanceState();
+    if (apiState.clockOut) return apiState.clockOut;
+    const rec = this.todayRecord();
+    if (rec && rec.clockOut && rec.clockOut !== '--') return rec.clockOut;
+    return this.clockOutTimeSignal() || '';
+  });
+
+  isClockedInComputed = computed(() => {
+    const apiState = this.todayAttendanceState();
+    if (apiState.isClockedOut) return false;
+    if (apiState.isClockedIn) return true;
+    const rec = this.todayRecord();
+    if (rec && rec.clockIn && rec.clockIn !== '--' && (!rec.clockOut || rec.clockOut === '--')) {
+      return true;
+    }
+    return this.isClockedIn() && !this.isClockedOutToday();
+  });
+
+  isClockedOutToday = computed(() => {
+    const apiState = this.todayAttendanceState();
+    if (apiState.isClockedOut) return true;
+    const rec = this.todayRecord();
+    if (rec && rec.clockIn && rec.clockIn !== '--' && rec.clockOut && rec.clockOut !== '--') {
+      return true;
+    }
+    return !!(this.clockOutTimeSignal() || (rec && rec.clockOut && rec.clockOut !== '--'));
+  });
 
   // Computed metrics derived from API data
   pendingLeavesCount = computed(() => {
@@ -56,22 +153,54 @@ export class HrmsService {
     const signalCount = this.leaveRequests().filter(l => l.status === 'Pending').length;
     return Math.max(apiSummary, signalCount);
   });
-  
+
   pendingTimesheetsCount = computed(() => this.timesheets().filter(t => t.status === 'Submitted').length);
   totalEmployeesCount = computed(() => Math.max(this.dashboardSummary().totalEmployees, this.employees().length));
   onLeaveTodayCount = computed(() => this.attendanceRecords().filter(a => a.status === 'Leave').length);
 
   constructor() {
+    this.restoreClockState();
     this.refreshAllData();
   }
 
   refreshAllData() {
     this.loadDashboardSummary();
     this.loadEmployees();
+    this.loadTodayAttendance();
     this.loadAttendance();
     this.loadLeaves();
     this.loadHolidays();
     this.loadTimesheets();
+    this.loadRegularizations();
+  }
+
+  loadTodayAttendance() {
+    this.http.get<any>('/api/v1/attendance/today').pipe(
+      catchError(() => of(null))
+    ).subscribe(res => {
+      if (res && res.hasRecord) {
+        const inStr = res.clockInFormatted || '';
+        const outStr = res.clockOutFormatted || '';
+        const inState = !!res.isClockedIn;
+        const outState = !!res.isClockedOut;
+
+        this.todayAttendanceState.set({
+          clockIn: inStr,
+          clockOut: outStr,
+          isClockedIn: inState,
+          isClockedOut: outState
+        });
+
+        if (inStr) this.clockInTime.set(inStr);
+        if (outStr) this.clockOutTimeSignal.set(outStr);
+        this.isClockedIn.set(inState);
+
+        const today = this.getTodayStr();
+        localStorage.setItem('hrms_today_date', today);
+        if (inStr) localStorage.setItem('hrms_today_clock_in', inStr);
+        if (outStr) localStorage.setItem('hrms_today_clock_out', outStr);
+      }
+    });
   }
 
   // Dashboard API
@@ -125,6 +254,10 @@ export class HrmsService {
         hasGap: e.hasGap,
         gapReason: e.gapReason,
         referenceDetails: e.referenceDetails,
+        currentAddress: e.currentAddress || e.address,
+        permanentAddress: e.permanentAddress || e.address,
+        maritalStatus: e.maritalStatus || 'Single',
+        marriageDate: e.marriageDate,
         leaveBalance: { casual: 10, sick: 7, paid: 15, wfh: 8 }
       }));
 
@@ -145,7 +278,11 @@ export class HrmsService {
       password: newEmp.password,
       joiningDate: newEmp.joiningDate,
       dateOfBirth: newEmp.dateOfBirth,
-      address: newEmp.address,
+      address: newEmp.currentAddress || newEmp.address,
+      currentAddress: newEmp.currentAddress,
+      permanentAddress: newEmp.permanentAddress,
+      maritalStatus: newEmp.maritalStatus,
+      marriageDate: newEmp.maritalStatus === 'Married' ? newEmp.marriageDate : null,
       isFresher: newEmp.isFresher,
       totalExperience: newEmp.isFresher ? '0' : newEmp.totalExperience,
       previousCompany: newEmp.isFresher ? '' : newEmp.previousCompany,
@@ -189,38 +326,183 @@ export class HrmsService {
     });
   }
 
+  private parseDateTime(val: any): Date | null {
+    if (!val) return null;
+    if (Array.isArray(val)) {
+      return new Date(val[0], val[1] - 1, val[2], val[3] || 0, val[4] || 0, val[5] || 0);
+    }
+    if (typeof val === 'object') {
+      const y = val.year || val.yearValue || 2026;
+      const m = (val.monthValue || (typeof val.month === 'number' ? val.month : 1)) - 1;
+      const d = val.dayOfMonth || val.day || 1;
+      const hr = val.hour || 0;
+      const min = val.minute || 0;
+      const sec = val.second || 0;
+      return new Date(y, m, d, hr, min, sec);
+    }
+    if (typeof val === 'string') {
+      const cleanStr = val.replace(' ', 'T');
+      const d = new Date(cleanStr);
+      if (!isNaN(d.getTime())) return d;
+    }
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  private parseDateString(val: any): string {
+    if (!val) return this.getTodayStr();
+    if (Array.isArray(val)) {
+      const y = val[0];
+      const m = String(val[1]).padStart(2, '0');
+      const d = String(val[2]).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+    if (typeof val === 'object') {
+      const y = val.year || 2026;
+      const m = String(val.monthValue || (typeof val.month === 'number' ? val.month : 1)).padStart(2, '0');
+      const d = String(val.dayOfMonth || val.day || 1).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+    return String(val).split('T')[0].split(' ')[0];
+  }
+
   // Attendance API
   loadAttendance() {
-    this.http.get<any>('/api/v1/attendance').pipe(
+    this.http.get<any[]>('/api/v1/attendance').pipe(
+      catchError(() => of([]))
+    ).subscribe(data => {
+      if (data && data.length > 0) {
+        const mapped: AttendanceRecord[] = data.map((a, i) => {
+          const inDt = this.parseDateTime(a.clockIn);
+          const outDt = this.parseDateTime(a.clockOut);
+          const clockInTime = inDt ? inDt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '--';
+          const clockOutTime = outDt ? outDt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '--';
+          const hoursStr = a.totalHours != null ? `${a.totalHours} hrs` : '--';
+          let statusStr: AttendanceStatus = 'Present';
+          if (a.status === 'LATE') statusStr = 'Present';
+          else if (a.status === 'HALF_DAY') statusStr = 'Half Day';
+          else if (a.status === 'ABSENT') statusStr = 'Absent';
+          else if (a.status === 'LEAVE') statusStr = 'Leave';
+          else if (a.status === 'HOLIDAY') statusStr = 'Holiday';
+          else if (a.status === 'WEEKEND') statusStr = 'Leave';
+          else if (a.status === 'WFH') statusStr = 'WFH';
+
+          return {
+            id: String(a.id || i + 1),
+            employeeId: String(a.employeeId || '1'),
+            employeeName: a.employeeName || 'Staff Member',
+            avatar: a.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+            date: this.parseDateString(a.date),
+            clockIn: clockInTime,
+            clockOut: clockOutTime,
+            totalHours: hoursStr,
+            status: statusStr,
+            notes: a.notes,
+            isLocked: a.isLocked,
+            regularizationStatus: a.regularizationStatus ? (a.regularizationStatus.charAt(0).toUpperCase() + a.regularizationStatus.slice(1).toLowerCase() as any) : undefined
+          };
+        });
+        this.attendanceRecords.set(mapped);
+      }
+    });
+  }
+
+  // Regularization API
+  loadRegularizations() {
+    // Try fetching admin/all endpoint first; fallback to /me if restricted
+    this.http.get<any[]>('/api/v1/attendance/regularizations').pipe(
+      catchError(() => this.http.get<any[]>('/api/v1/attendance/regularizations/me').pipe(catchError(() => of([]))))
+    ).subscribe(data => {
+      if (data && data.length > 0) {
+        const mapped: RegularizationRequest[] = data.map((r, i) => {
+          const reqInTime = r.requestedClockIn ? new Date(r.requestedClockIn).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : (r.checkIn || '09:00 AM');
+          const reqOutTime = r.requestedClockOut ? new Date(r.requestedClockOut).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : (r.checkOut || '06:00 PM');
+          const origInTime = r.originalClockIn ? new Date(r.originalClockIn).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '--';
+          const origOutTime = r.originalClockOut ? new Date(r.originalClockOut).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '--';
+
+          let statusCap: RegularizationStatus = 'Pending';
+          if (r.status === 'APPROVED' || r.status === 'Approved') statusCap = 'Approved';
+          else if (r.status === 'REJECTED' || r.status === 'Rejected') statusCap = 'Rejected';
+          else if (r.status === 'CANCELLED' || r.status === 'Cancelled') statusCap = 'Cancelled';
+
+          return {
+            id: String(r.id || i + 1),
+            attendanceId: r.attendanceId ? String(r.attendanceId) : undefined,
+            employeeId: String(r.employeeId || '1'),
+            employeeCode: r.employeeCode || 'EMP-001',
+            employeeName: r.employeeName || 'Staff Member',
+            employeeAvatar: r.employeeAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+            department: r.department || 'Engineering',
+            date: r.attendanceDate ? String(r.attendanceDate) : (r.date || new Date().toISOString().split('T')[0]),
+            correctionType: r.correctionType || 'BOTH',
+            originalClockIn: origInTime,
+            originalClockOut: origOutTime,
+            requestedClockIn: reqInTime,
+            requestedClockOut: reqOutTime,
+            checkIn: reqInTime,
+            checkOut: reqOutTime,
+            originalWorkingHours: r.originalWorkingHours || 0.0,
+            requestedWorkingHours: r.requestedWorkingHours || 9.0,
+            reason: r.reason || 'Missing punch correction',
+            attachmentUrl: r.attachmentUrl,
+            status: statusCap,
+            appliedOn: r.submittedAt ? r.submittedAt.split('T')[0] : new Date().toISOString().split('T')[0],
+            submittedAt: r.submittedAt,
+            approvedAt: r.approvedAt,
+            rejectedAt: r.rejectedAt,
+            cancelledAt: r.cancelledAt,
+            reviewedBy: r.reviewedBy,
+            reviewRemarks: r.reviewRemarks,
+            notes: r.reviewRemarks || r.reason
+          };
+        });
+        this.regularizationRequests.set(mapped);
+      }
+    });
+  }
+
+  createRegularizationPayload(payload: any) {
+    return this.http.post<any>('/api/v1/attendance/regularizations', payload).pipe(
+      catchError(err => {
+        const msg = err?.error?.message || 'Failed to submit regularization request.';
+        alert(msg);
+        return of(null);
+      })
+    );
+  }
+
+  cancelRegularizationRequest(id: string) {
+    this.http.put<any>(`/api/v1/attendance/regularizations/${id}/cancel`, {}).pipe(
       catchError(() => of(null))
     ).subscribe(() => {
-      // Set attendance records
-      this.attendanceRecords.set([
-        {
-          id: 'att-1',
-          employeeId: 'EMP-001',
-          employeeName: 'Alexandra Vance',
-          avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-          date: new Date().toISOString().split('T')[0],
-          clockIn: '08:45 AM',
-          clockOut: '05:30 PM',
-          totalHours: '8h 45m',
-          status: 'Present',
-          notes: 'On time'
-        },
-        {
-          id: 'att-2',
-          employeeId: 'EMP-002',
-          employeeName: 'Marcus Chen',
-          avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-          date: new Date().toISOString().split('T')[0],
-          clockIn: '09:05 AM',
-          clockOut: '--',
-          totalHours: 'In Progress',
-          status: 'Present',
-          notes: 'Active session'
-        }
-      ]);
+      this.loadRegularizations();
+      this.loadAttendance();
+    });
+  }
+
+  approveRegularizationRequest(id: string, reviewRemarks?: string) {
+    this.http.put<any>(`/api/v1/attendance/regularizations/${id}/approve`, { reviewRemarks }).pipe(
+      catchError(err => {
+        const msg = err?.error?.message || 'Failed to approve request.';
+        alert(msg);
+        return of(null);
+      })
+    ).subscribe(() => {
+      this.loadRegularizations();
+      this.loadAttendance();
+    });
+  }
+
+  rejectRegularizationRequest(id: string, reviewRemarks?: string) {
+    this.http.put<any>(`/api/v1/attendance/regularizations/${id}/reject`, { reviewRemarks }).pipe(
+      catchError(err => {
+        const msg = err?.error?.message || 'Failed to reject request.';
+        alert(msg);
+        return of(null);
+      })
+    ).subscribe(() => {
+      this.loadRegularizations();
+      this.loadAttendance();
     });
   }
 
@@ -294,6 +576,8 @@ export class HrmsService {
           isUpcoming: true
         }));
         this.holidays.set(mapped);
+      } else {
+        this.holidays.set(this.getFallbackHolidays());
       }
     });
   }
@@ -337,22 +621,46 @@ export class HrmsService {
 
   // Clock Widget Actions
   toggleClockIn() {
-    if (!this.isClockedIn()) {
+    if (this.isClockedOutToday()) {
+      return;
+    }
+    if (!this.isClockedInComputed()) {
       const now = new Date();
       const formattedTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       this.isClockedIn.set(true);
       this.clockInTime.set(formattedTime);
       this.clockDurationSeconds.set(0);
+      this.saveClockState(formattedTime, undefined);
 
-      this.http.post('/api/v1/attendance', {}).pipe(catchError(() => of(null))).subscribe();
+      this.http.post('/api/v1/attendance/clock-in', {}).pipe(catchError(() => of(null))).subscribe(() => {
+        this.loadTodayAttendance();
+        this.loadAttendance();
+      });
 
-      this.timerInterval = setInterval(() => {
-        this.clockDurationSeconds.update(s => s + 1);
-      }, 1000);
+      if (!this.timerInterval) {
+        this.timerInterval = setInterval(() => {
+          this.clockDurationSeconds.update(s => s + 1);
+        }, 1000);
+      }
     } else {
       this.isClockedIn.set(false);
-      if (this.timerInterval) clearInterval(this.timerInterval);
-      this.http.put('/api/v1/attendance', {}).pipe(catchError(() => of(null))).subscribe();
+      if (this.timerInterval) {
+        clearInterval(this.timerInterval);
+        this.timerInterval = null;
+      }
+      this.http.post<any>('/api/v1/attendance/clock-out', {}).pipe(catchError(() => of(null))).subscribe((res) => {
+        let timeStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        if (res && res.time) {
+          const dt = this.parseDateTime(res.time);
+          if (dt) {
+            timeStr = dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+          }
+        }
+        this.clockOutTimeSignal.set(timeStr);
+        this.saveClockState(this.clockInTime() || undefined, timeStr);
+        this.loadTodayAttendance();
+        this.loadAttendance();
+      });
     }
   }
 
@@ -405,6 +713,56 @@ export class HrmsService {
         salary: 125000,
         location: 'Seattle, WA',
         leaveBalance: { casual: 12, sick: 7, paid: 18, wfh: 5 }
+      }
+    ];
+  }
+
+  getFallbackHolidays(): Holiday[] {
+    return [
+      {
+        id: '1',
+        title: 'Independence Day / National Holiday',
+        date: '2026-08-15',
+        day: 'Saturday',
+        type: 'Mandatory',
+        description: 'National holiday celebration and offices closed.',
+        isUpcoming: true
+      },
+      {
+        id: '2',
+        title: 'Ganesh Chaturthi',
+        date: '2026-09-14',
+        day: 'Monday',
+        type: 'Regional',
+        description: 'Regional festival holiday.',
+        isUpcoming: true
+      },
+      {
+        id: '3',
+        title: 'Mahatma Gandhi Jayanti',
+        date: '2026-10-02',
+        day: 'Friday',
+        type: 'Mandatory',
+        description: 'National holiday commemorating Mahatma Gandhi.',
+        isUpcoming: true
+      },
+      {
+        id: '4',
+        title: 'Diwali Festival of Lights',
+        date: '2026-11-08',
+        day: 'Sunday',
+        type: 'Mandatory',
+        description: 'Festival of Lights company wide holiday.',
+        isUpcoming: true
+      },
+      {
+        id: '5',
+        title: 'Christmas Day',
+        date: '2026-12-25',
+        day: 'Friday',
+        type: 'Mandatory',
+        description: 'Christmas Day celebration.',
+        isUpcoming: true
       }
     ];
   }

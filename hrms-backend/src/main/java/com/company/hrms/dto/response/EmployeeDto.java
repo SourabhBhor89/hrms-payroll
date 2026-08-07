@@ -42,4 +42,8 @@ public class EmployeeDto {
     private Boolean hasGap;
     private String gapReason;
     private String referenceDetails;
+    private String currentAddress;
+    private String permanentAddress;
+    private String maritalStatus;
+    private LocalDate marriageDate;
 }

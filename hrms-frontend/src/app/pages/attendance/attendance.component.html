@@ -2,7 +2,7 @@
   <div class="page-header">
     <div>
       <h2>Attendance Calendar</h2>
-      <p class="subtitle">Track your daily clock-ins, working hours, and monthly attendance overview.</p>
+      <p class="subtitle">Track daily clock-ins, working hours, and submit regularization requests for missing or late punches.</p>
     </div>
     <div class="month-selector">
       <button class="btn btn-secondary btn-sm" (click)="prevMonth()">‹ Prev</button>
@@ -13,6 +13,63 @@
       <button class="btn btn-primary btn-sm" (click)="openRegModal()">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
         Regularize Attendance
+      </button>
+    </div>
+  </div>
+
+  <!-- Today's Punch Panel -->
+  <div class="today-panel glass-card mb-4" *ngIf="auth.currentRole() === 'HR Manager' || auth.currentRole() === 'Employee'">
+    <div class="today-info">
+      <div class="today-date-label">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+          <line x1="16" y1="2" x2="16" y2="6" />
+          <line x1="8" y1="2" x2="8" y2="6" />
+          <line x1="3" y1="10" x2="21" y2="10" />
+        </svg>
+        <span>Today — {{ todayDate }}</span>
+      </div>
+
+      <div class="punch-times">
+        <div class="punch-time-item">
+          <span class="punch-label">Check In</span>
+          <span class="punch-value" [class.active]="hrms.todayClockInTime()">
+            {{ hrms.todayClockInTime() || '--:--' }}
+          </span>
+        </div>
+        <div class="punch-separator">→</div>
+        <div class="punch-time-item">
+          <span class="punch-label">Check Out</span>
+          <span class="punch-value" [class.active]="hrms.todayClockOutTime()">
+            {{ hrms.todayClockOutTime() || '--:--' }}
+          </span>
+        </div>
+        <div class="punch-separator">|</div>
+        <div class="punch-time-item">
+          <span class="punch-label">Duration</span>
+          <span class="punch-value duration">{{ getWorkDuration() }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="punch-actions">
+      <button class="btn-punch check-in" (click)="checkIn()" [disabled]="hrms.isClockedInComputed() || hrms.isClockedOutToday()"
+        [class.done]="hrms.todayClockInTime() || hrms.isClockedOutToday()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <circle cx="12" cy="12" r="10" />
+          <polyline points="12 8 12 12 14 14" />
+        </svg>
+        {{ hrms.isClockedOutToday() ? 'Completed ✓' : (hrms.isClockedInComputed() ? 'Checked In ✓' : 'Check In') }}
+      </button>
+
+      <button class="btn-punch check-out" (click)="checkOut()" [disabled]="!hrms.isClockedInComputed()"
+        [class.done]="hrms.todayClockOutTime()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+          <polyline points="16 17 21 12 16 7" />
+          <line x1="21" y1="12" x2="9" y2="12" />
+        </svg>
+        {{ hrms.todayClockOutTime() ? 'Checked Out ✓' : 'Check Out' }}
       </button>
     </div>
   </div>
@@ -28,7 +85,7 @@
       </div>
       <span class="stat-label">Days Present</span>
       <span class="stat-value text-emerald">20 Days</span>
-      <span class="stat-sub">95.2% Attendance</span>
+      <span class="stat-sub">Monthly Attendance</span>
     </div>
 
     <div class="stat-card glass-card">
@@ -52,9 +109,9 @@
           <line x1="3" y1="10" x2="21" y2="10" />
         </svg>
       </div>
-      <span class="stat-label">Leaves Taken</span>
-      <span class="stat-value text-amber">1 Day</span>
-      <span class="stat-sub">Casual Leave</span>
+      <span class="stat-label">Regularizations</span>
+      <span class="stat-value text-amber">{{ myRegularizations().length }} Requests</span>
+      <span class="stat-sub">{{ pendingApprovals().length }} Pending Approval</span>
     </div>
 
     <div class="stat-card glass-card">
@@ -73,13 +130,15 @@
   <!-- Calendar Month Grid View -->
   <div class="calendar-card glass-card">
     <div class="calendar-header">
-      <h3>{{ monthLabel }} — Attendance Grid</h3>
+      <h3>{{ monthLabel }} — Attendance & Regularization Grid</h3>
       <div class="legend">
         <span class="legend-item"><span class="dot present"></span> Present</span>
         <span class="legend-item"><span class="dot wfh"></span> WFH</span>
         <span class="legend-item"><span class="dot leave"></span> Leave</span>
         <span class="legend-item"><span class="dot holiday"></span> Holiday</span>
         <span class="legend-item"><span class="dot weekend"></span> Weekend</span>
+        <span class="legend-item"><span class="dot reg-pending"></span> Pending Reg.</span>
+        <span class="legend-item"><span class="dot reg-approved"></span> Approved Reg.</span>
       </div>
     </div>
 
@@ -88,99 +147,180 @@
       <span *ngFor="let day of weekDays">{{ day }}</span>
     </div>
 
-    <!-- Calendar Days Matrix with Tooltip -->
+    <!-- Calendar Days Matrix -->
     <div class="days-grid">
-      <div *ngFor="let cell of calendarCells" class="day-cell" [class.other-month]="cell.otherMonth"
-        [class.today]="cell.isToday" [class.weekend-cell]="cell.isWeekend" (mouseenter)="setHoveredCell(cell)"
+      <div *ngFor="let cell of calendarGrid()" class="day-cell"
+        [class.other-month]="cell.otherMonth"
+        [class.today]="cell.isToday"
+        [class.weekend-cell]="cell.isWeekend"
+        [class.has-reg-pending]="cell.regularizationStatus === 'Pending'"
+        [class.has-reg-approved]="cell.regularizationStatus === 'Approved'"
+        [class.has-reg-rejected]="cell.regularizationStatus === 'Rejected'"
+        (mouseenter)="setHoveredCell(cell)"
         (mouseleave)="setHoveredCell(null)">
 
-        <span class="day-number">{{ cell.dayNumber }}</span>
+        <div class="day-header-row">
+          <span class="day-number">{{ cell.dayNumber }}</span>
+
+          <!-- Regularization Status Overlay Badge -->
+          <span class="reg-overlay-badge badge-warning" *ngIf="cell.regularizationStatus === 'Pending'" title="Regularization Pending Approval">
+            Pending ⏳
+          </span>
+          <span class="reg-overlay-badge badge-success" *ngIf="cell.regularizationStatus === 'Approved'" title="Regularization Approved">
+            Approved ✓
+          </span>
+          <span class="reg-overlay-badge badge-danger" *ngIf="cell.regularizationStatus === 'Rejected'" title="Regularization Rejected">
+            Rejected ✕
+          </span>
+        </div>
 
         <div *ngIf="cell.status && !cell.otherMonth" class="day-status-pill"
           [class]="'pill-' + cell.status.toLowerCase()">
           {{ cell.status }}
         </div>
 
-        <!-- Hover Tooltip with check-in/out times -->
+        <!-- Inline Regularize Action Button -->
+        <button type="button" class="btn-inline-reg" *ngIf="cell.canRegularize && !cell.otherMonth" (click)="openRegModal(cell)" title="Regularize Attendance for this date">
+          + Regularize
+        </button>
+
+        <!-- Hover Tooltip -->
         <div class="day-tooltip" *ngIf="!cell.otherMonth && (cell.checkIn || cell.checkOut)">
-          <div class="tooltip-row" *ngIf="cell.checkIn">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <circle cx="12" cy="12" r="10" />
-              <polyline points="12 6 12 12 14 14" />
-            </svg>
+          <div class="tooltip-row" *ngIf="cell.checkIn && cell.checkIn !== '--'">
             <span>In: {{ cell.checkIn }}</span>
           </div>
-          <div class="tooltip-row" *ngIf="cell.checkOut">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-              <polyline points="16 17 21 12 16 7" />
-              <line x1="21" y1="12" x2="9" y2="12" />
-            </svg>
+          <div class="tooltip-row" *ngIf="cell.checkOut && cell.checkOut !== '--'">
             <span>Out: {{ cell.checkOut }}</span>
           </div>
-          <div class="tooltip-row" *ngIf="!cell.checkOut && cell.checkIn">
-            <span class="still-in">Still in office</span>
+          <div class="tooltip-row" *ngIf="cell.totalHours && cell.totalHours !== '--'">
+            <span>Hours: {{ cell.totalHours }}</span>
+          </div>
+          <div class="tooltip-row text-warning" *ngIf="cell.regularizationReason">
+            <span>Reason: {{ cell.regularizationReason }}</span>
           </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Regularization Requests Approvals (Managers / Admins only) -->
-  <div class="regularization-section glass-card mt-4" *ngIf="canApproveRequests() && pendingApprovals().length > 0">
+  <!-- Admin & HR Attendance Regularization Panel -->
+  <div class="regularization-section glass-card mt-4" *ngIf="canApproveRequests()">
     <div class="section-header">
-      <h3>Pending Regularization Approvals</h3>
-      <span class="badge badge-warning">{{ pendingApprovals().length }} pending</span>
+      <div>
+        <h3>Attendance Regularization Panel</h3>
+        <p class="subtitle mb-0">Review, approve, or reject employee punch correction requests.</p>
+      </div>
+      <span class="badge badge-warning">{{ filteredRegularizations().length }} Total Requests</span>
+    </div>
+
+    <!-- Filters & Search Bar -->
+    <div class="filters-bar mt-3 mb-3">
+      <div class="search-input-wrapper">
+        <input type="text" class="form-input search-input" placeholder="Search employee name or code..." [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)" />
+      </div>
+
+      <div class="filter-group">
+        <label class="filter-label">Status:</label>
+        <select class="form-select" [ngModel]="filterStatus()" (ngModelChange)="filterStatus.set($event)">
+          <option value="ALL">All Statuses</option>
+          <option value="Pending">Pending</option>
+          <option value="Approved">Approved</option>
+          <option value="Rejected">Rejected</option>
+          <option value="Cancelled">Cancelled</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label class="filter-label">Department:</label>
+        <select class="form-select" [ngModel]="filterDepartment()" (ngModelChange)="filterDepartment.set($event)">
+          <option value="All">All Departments</option>
+          <option value="Engineering">Engineering</option>
+          <option value="Human Resources">Human Resources</option>
+          <option value="Design">Design</option>
+          <option value="Marketing">Marketing</option>
+          <option value="Sales">Sales</option>
+          <option value="Finance">Finance</option>
+        </select>
+      </div>
     </div>
     
-    <div class="table-container">
+    <div class="table-container" *ngIf="filteredRegularizations().length > 0">
       <table class="custom-table">
         <thead>
           <tr>
             <th>Employee</th>
-            <th>Date</th>
-            <th>Correct Times</th>
+            <th>Department</th>
+            <th>Attendance Date</th>
+            <th>Original Punch</th>
+            <th>Requested Punch</th>
+            <th>Working Hours</th>
             <th>Reason</th>
+            <th>Status</th>
             <th>Actions</th>
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let req of pendingApprovals()">
+          <tr *ngFor="let req of filteredRegularizations()">
             <td>
               <div class="user-cell">
                 <img [src]="req.employeeAvatar" [alt]="req.employeeName" class="table-avatar" />
                 <div>
                   <strong>{{ req.employeeName }}</strong>
-                  <span class="sub-text">{{ req.employeeId }}</span>
+                  <span class="sub-text">{{ req.employeeCode }}</span>
                 </div>
               </div>
             </td>
+            <td><span class="badge badge-secondary">{{ req.department }}</span></td>
             <td><code>{{ req.date }}</code></td>
             <td>
               <div class="time-badges-container">
-                <span class="time-badge">In: {{ req.checkIn }}</span>
-                <span class="time-badge">Out: {{ req.checkOut }}</span>
+                <span class="time-badge orig">In: {{ req.originalClockIn || '--' }}</span>
+                <span class="time-badge orig">Out: {{ req.originalClockOut || '--' }}</span>
               </div>
+            </td>
+            <td>
+              <div class="time-badges-container">
+                <span class="time-badge req">In: {{ req.checkIn }}</span>
+                <span class="time-badge req">Out: {{ req.checkOut }}</span>
+              </div>
+            </td>
+            <td>
+              <span class="sub-text">{{ req.originalWorkingHours || 0 }}h → <strong>{{ req.requestedWorkingHours || 9 }}h</strong></span>
             </td>
             <td>
               <div class="reason-text" [title]="req.reason">{{ req.reason }}</div>
             </td>
             <td>
-              <div class="action-buttons">
-                <button class="btn btn-success btn-sm" (click)="approveRequest(req.id)">Approve</button>
-                <button class="btn btn-danger btn-sm" (click)="rejectRequest(req.id)">Reject</button>
+              <span class="badge"
+                [class.badge-warning]="req.status === 'Pending'"
+                [class.badge-success]="req.status === 'Approved'"
+                [class.badge-danger]="req.status === 'Rejected'"
+                [class.badge-secondary]="req.status === 'Cancelled'">
+                {{ req.status }}
+              </span>
+            </td>
+            <td>
+              <div class="action-buttons" *ngIf="req.status === 'Pending'">
+                <button class="btn btn-success btn-sm" (click)="openReviewModal(req, 'APPROVE')">Approve</button>
+                <button class="btn btn-danger btn-sm" (click)="openReviewModal(req, 'REJECT')">Reject</button>
               </div>
+              <span class="sub-text" *ngIf="req.status !== 'Pending'">
+                {{ req.reviewedBy ? 'Reviewed by ' + req.reviewedBy : '--' }}
+              </span>
             </td>
           </tr>
         </tbody>
       </table>
     </div>
+    <div class="no-records-box" *ngIf="filteredRegularizations().length === 0">
+      No regularization requests match the selected filters.
+    </div>
   </div>
 
-  <!-- Regularization Request History List (All Users) -->
+  <!-- Regularization Request History List (All Users / Employee View) -->
   <div class="regularization-section glass-card mt-4">
     <div class="section-header">
-      <h3>Regularization Requests History</h3>
+      <h3>My Regularization Requests History</h3>
     </div>
     
     <div class="table-container" *ngIf="myRegularizations().length > 0">
@@ -188,10 +328,12 @@
         <thead>
           <tr>
             <th>Date</th>
-            <th>Requested In/Out</th>
+            <th>Original Punch</th>
+            <th>Requested Punch</th>
             <th>Reason</th>
             <th>Status</th>
-            <th>Remarks/Notes</th>
+            <th>Reviewer Remarks</th>
+            <th>Action</th>
           </tr>
         </thead>
         <tbody>
@@ -199,8 +341,14 @@
             <td><code>{{ req.date }}</code></td>
             <td>
               <div class="time-badges-container">
-                <span class="time-badge">In: {{ req.checkIn }}</span>
-                <span class="time-badge">Out: {{ req.checkOut }}</span>
+                <span class="time-badge orig">In: {{ req.originalClockIn || '--' }}</span>
+                <span class="time-badge orig">Out: {{ req.originalClockOut || '--' }}</span>
+              </div>
+            </td>
+            <td>
+              <div class="time-badges-container">
+                <span class="time-badge req">In: {{ req.checkIn }}</span>
+                <span class="time-badge req">Out: {{ req.checkOut }}</span>
               </div>
             </td>
             <td><div class="reason-text" [title]="req.reason">{{ req.reason }}</div></td>
@@ -208,11 +356,18 @@
               <span class="badge"
                 [class.badge-success]="req.status === 'Approved'"
                 [class.badge-warning]="req.status === 'Pending'"
-                [class.badge-danger]="req.status === 'Rejected'">
+                [class.badge-danger]="req.status === 'Rejected'"
+                [class.badge-secondary]="req.status === 'Cancelled'">
                 {{ req.status }}
               </span>
             </td>
-            <td><span class="remarks-text">{{ req.notes || '--' }}</span></td>
+            <td><span class="remarks-text">{{ req.reviewRemarks || req.notes || '--' }}</span></td>
+            <td>
+              <button class="btn btn-secondary btn-sm" *ngIf="req.status === 'Pending'" (click)="cancelRequest(req.id)">
+                Cancel
+              </button>
+              <span class="sub-text" *ngIf="req.status !== 'Pending'">--</span>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -222,39 +377,91 @@
     </div>
   </div>
 
-  <!-- Request Regularization Modal -->
+  <!-- Request Regularization Modal Dialog -->
   <div class="modal-backdrop" *ngIf="showRegModal()">
-    <div class="modal-content">
+    <div class="modal-content" style="max-width: 550px;">
       <h3>Regularize Attendance Request</h3>
       <p class="sub-text">Submit missing punch times or adjustment for approval.</p>
 
       <form (ngSubmit)="submitRegRequest()" class="mt-4">
-        <div class="form-group">
-          <label class="form-label">Date to Regularize</label>
-          <input type="date" class="form-input" [(ngModel)]="regForm.date" name="date" required />
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Date to Regularize *</label>
+            <input type="date" class="form-input" [(ngModel)]="regForm.attendanceDate" name="attendanceDate" required />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Correction Type</label>
+            <select class="form-select" [(ngModel)]="regForm.correctionType" name="correctionType">
+              <option value="BOTH">Both Clock In & Clock Out</option>
+              <option value="CLOCK_IN">Clock In Only</option>
+              <option value="CLOCK_OUT">Clock Out Only</option>
+            </select>
+          </div>
         </div>
 
         <div class="form-row">
           <div class="form-group">
-            <label class="form-label">Check In Time</label>
-            <input type="text" class="form-input" [(ngModel)]="regForm.checkIn" name="checkIn" required placeholder="e.g. 09:00 AM" />
+            <label class="form-label">Requested Clock In Time *</label>
+            <input type="time" class="form-input" [(ngModel)]="regForm.requestedClockInTime" name="requestedClockInTime" required />
           </div>
+
           <div class="form-group">
-            <label class="form-label">Check Out Time</label>
-            <input type="text" class="form-input" [(ngModel)]="regForm.checkOut" name="checkOut" required placeholder="e.g. 06:00 PM" />
+            <label class="form-label">Requested Clock Out Time *</label>
+            <input type="time" class="form-input" [(ngModel)]="regForm.requestedClockOutTime" name="requestedClockOutTime" required />
           </div>
         </div>
 
         <div class="form-group">
-          <label class="form-label">Reason / Remarks</label>
-          <textarea class="form-textarea" rows="3" [(ngModel)]="regForm.reason" name="reason" required placeholder="Describe reason for correction..."></textarea>
+          <label class="form-label">Reason / Explanation *</label>
+          <textarea class="form-textarea" rows="3" [(ngModel)]="regForm.reason" name="reason" required placeholder="Describe detailed reason for punch correction..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Optional Attachment URL</label>
+          <input type="text" class="form-input" [(ngModel)]="regForm.attachmentUrl" name="attachmentUrl" placeholder="https://..." />
         </div>
 
         <div class="modal-actions">
           <button type="button" class="btn btn-secondary" (click)="showRegModal.set(false)">Cancel</button>
-          <button type="submit" class="btn btn-primary">Submit Request</button>
+          <button type="submit" class="btn btn-primary">Submit Regularization Request</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Review Modal Dialog (Admin / HR) -->
+  <div class="modal-backdrop" *ngIf="showReviewModal()">
+    <div class="modal-content" style="max-width: 500px;">
+      <h3>Review Regularization Request</h3>
+      <p class="sub-text">Actioning request for {{ selectedReq()?.employeeName }} ({{ selectedReq()?.date }}).</p>
+
+      <div class="review-details-box mt-3 mb-3">
+        <div class="detail-row">
+          <span class="label">Date:</span>
+          <span class="val">{{ selectedReq()?.date }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="label">Requested Times:</span>
+          <span class="val text-primary">{{ selectedReq()?.checkIn }} → {{ selectedReq()?.checkOut }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="label">Employee Reason:</span>
+          <span class="val">{{ selectedReq()?.reason }}</span>
+        </div>
+      </div>
+
+      <div class="form-group mb-3">
+        <label class="form-label">{{ reviewAction() === 'APPROVE' ? 'Approval Remarks' : 'Rejection Reason / Remarks *' }}</label>
+        <textarea class="form-textarea" rows="3" [(ngModel)]="reviewRemarks" name="reviewRemarks" placeholder="Enter review remarks..."></textarea>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" (click)="showReviewModal.set(false)">Cancel</button>
+        <button type="button" class="btn" [class.btn-success]="reviewAction() === 'APPROVE'" [class.btn-danger]="reviewAction() === 'REJECT'" (click)="submitReview()">
+          Confirm {{ reviewAction() === 'APPROVE' ? 'Approval' : 'Rejection' }}
+        </button>
+      </div>
     </div>
   </div>
 

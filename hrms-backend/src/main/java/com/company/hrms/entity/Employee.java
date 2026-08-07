@@ -97,6 +97,18 @@ public class Employee extends BaseEntity {
     @Column(name = "reference_details", length = 255)
     private String referenceDetails;
 
+    @Column(name = "current_address", length = 500)
+    private String currentAddress;
+
+    @Column(name = "permanent_address", length = 500)
+    private String permanentAddress;
+
+    @Column(name = "marital_status", length = 50)
+    private String maritalStatus;
+
+    @Column(name = "marriage_date")
+    private LocalDate marriageDate;
+
     @Column(nullable = false)
     private Boolean active = true;
 
