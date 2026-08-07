@@ -149,6 +149,63 @@
   margin-top: 1.5rem;
 }
 
+.modal-tabs {
+  display: flex;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
+  margin-top: 1rem;
+  margin-bottom: 1.25rem;
+  overflow-x: auto;
+}
+
+.tab-btn {
+  padding: 0.5rem 0.875rem;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted, #64748b);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.tab-btn:hover {
+  color: var(--text-main, #0f172a);
+}
+
+.tab-btn.active {
+  color: var(--primary, #0284c7);
+  border-bottom-color: var(--primary, #0284c7);
+  font-weight: 600;
+}
+
+.checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-main, #0f172a);
+  cursor: pointer;
+  user-select: none;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--primary, #0284c7);
+  cursor: pointer;
+}
+
+.form-input:disabled, .form-select:disabled {
+  background-color: var(--bg-hover, #f1f5f9) !important;
+  color: var(--text-muted, #94a3b8) !important;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
 .form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -186,11 +243,12 @@
   color: var(--text-main, #0f172a);
 }
 
-@media (max-width: 576px) {
-  .form-row {
-    grid-template-columns: 1fr;
-    gap: 0.5rem;
-  }
+.section-title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  margin-top: 0.5rem;
+  margin-bottom: 0.75rem;
+  color: var(--text-main, #0f172a);
 }
 
 .profile-header {

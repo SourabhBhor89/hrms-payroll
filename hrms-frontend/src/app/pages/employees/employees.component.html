@@ -62,90 +62,204 @@
 
   <!-- Add Employee Modal Dialog -->
   <div class="modal-backdrop" *ngIf="showAddModal()">
-    <div class="modal-content">
+    <div class="modal-content" style="max-width: 680px; width: 90%;">
       <h3>Add New Employee</h3>
-      <p class="sub-text">Register a new team member to the organization database.</p>
+      <p class="sub-text">Register a new team member with comprehensive organization profiles.</p>
 
-      <form (ngSubmit)="saveNewEmployee()" class="mt-4">
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">Employee Code *</label>
-            <input type="text" class="form-input" [(ngModel)]="newEmp.employeeCode" name="employeeCode" required placeholder="e.g. EMP-001" />
-          </div>
+      <!-- Modal Tabs Navigation -->
+      <div class="modal-tabs">
+        <button type="button" class="tab-btn" [class.active]="activeTab() === 'basic'" (click)="activeTab.set('basic')">1. Basic Details</button>
+        <button type="button" class="tab-btn" [class.active]="activeTab() === 'experience'" (click)="activeTab.set('experience')">2. Experience & Salary</button>
+        <button type="button" class="tab-btn" [class.active]="activeTab() === 'education'" (click)="activeTab.set('education')">3. Education & Gap</button>
+        <button type="button" class="tab-btn" [class.active]="activeTab() === 'contact'" (click)="activeTab.set('contact')">4. Address & Contacts</button>
+      </div>
 
-          <div class="form-group">
-            <label class="form-label">Joining Date</label>
-            <input type="date" class="form-input" [(ngModel)]="newEmp.joiningDate" name="joiningDate" />
-          </div>
-        </div>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">First Name *</label>
-            <input type="text" class="form-input" [(ngModel)]="newEmp.firstName" name="firstName" required placeholder="e.g. Jordan" />
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">Last Name</label>
-            <input type="text" class="form-input" [(ngModel)]="newEmp.lastName" name="lastName" placeholder="e.g. Miller" />
-          </div>
-        </div>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">Work Email *</label>
-            <input type="email" class="form-input" [(ngModel)]="newEmp.email" name="email" required placeholder="jordan@company.io" />
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">Phone Number</label>
-            <input type="text" class="form-input" [(ngModel)]="newEmp.phone" name="phone" placeholder="+1 (555) 000-1122" />
-          </div>
-        </div>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">Department</label>
-            <select class="form-select" [(ngModel)]="newEmp.department" name="department">
-              <option value="Engineering">Engineering</option>
-              <option value="Human Resources">Human Resources</option>
-              <option value="Design">Design</option>
-              <option value="Marketing">Marketing</option>
-              <option value="Finance">Finance</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">Designation</label>
-            <input type="text" class="form-input" [(ngModel)]="newEmp.designation" name="designation" placeholder="e.g. Senior Backend Engineer" />
-          </div>
-        </div>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">Role</label>
-            <select class="form-select" [(ngModel)]="newEmp.role" name="role">
-              <option value="EMPLOYEE">EMPLOYEE</option>
-              <option value="HR">HR</option>
-              <option value="ADMIN">ADMIN</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">Password</label>
-            <div class="password-wrapper">
-              <input [type]="showPassword() ? 'text' : 'password'" class="form-input" [(ngModel)]="newEmp.password" name="password" placeholder="Default: Employee@12345" />
-              <button type="button" class="btn-toggle-password" (click)="togglePasswordVisibility()" [title]="showPassword() ? 'Hide password' : 'Show password'">
-                <svg *ngIf="!showPassword()" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                  <circle cx="12" cy="12" r="3"></circle>
-                </svg>
-                <svg *ngIf="showPassword()" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
-                  <line x1="1" y1="1" x2="23" y2="23"></line>
-                </svg>
-              </button>
+      <form (ngSubmit)="saveNewEmployee()" class="mt-2">
+        <!-- TAB 1: BASIC DETAILS -->
+        <div *ngIf="activeTab() === 'basic'">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Employee Code *</label>
+              <input type="text" class="form-input" [(ngModel)]="newEmp.employeeCode" name="employeeCode" required placeholder="e.g. EMP-001" />
             </div>
+
+            <div class="form-group">
+              <label class="form-label">Joining Date</label>
+              <input type="date" class="form-input" [(ngModel)]="newEmp.joiningDate" name="joiningDate" />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">First Name *</label>
+              <input type="text" class="form-input" [(ngModel)]="newEmp.firstName" name="firstName" required placeholder="e.g. Jordan" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Last Name</label>
+              <input type="text" class="form-input" [(ngModel)]="newEmp.lastName" name="lastName" placeholder="e.g. Miller" />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Work Email *</label>
+              <input type="email" class="form-input" [(ngModel)]="newEmp.email" name="email" required placeholder="jordan@company.io" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Phone Number</label>
+              <input type="text" class="form-input" [(ngModel)]="newEmp.phone" name="phone" placeholder="+1 (555) 000-1122" />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Date of Birth</label>
+              <input type="date" class="form-input" [(ngModel)]="newEmp.dateOfBirth" name="dateOfBirth" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Department</label>
+              <select class="form-select" [(ngModel)]="newEmp.department" name="department">
+                <option value="Engineering">Engineering</option>
+                <option value="Human Resources">Human Resources</option>
+                <option value="Design">Design</option>
+                <option value="Marketing">Marketing</option>
+                <option value="Finance">Finance</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Designation</label>
+              <input type="text" class="form-input" [(ngModel)]="newEmp.designation" name="designation" placeholder="e.g. Senior Backend Engineer" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Role</label>
+              <select class="form-select" [(ngModel)]="newEmp.role" name="role">
+                <option value="EMPLOYEE">EMPLOYEE</option>
+                <option value="HR">HR</option>
+                <option value="ADMIN">ADMIN</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Password</label>
+              <div class="password-wrapper">
+                <input [type]="showPassword() ? 'text' : 'password'" class="form-input" [(ngModel)]="newEmp.password" name="password" placeholder="Default: Employee@12345" />
+                <button type="button" class="btn-toggle-password" (click)="togglePasswordVisibility()" [title]="showPassword() ? 'Hide password' : 'Show password'">
+                  <svg *ngIf="!showPassword()" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                  <svg *ngIf="showPassword()" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                    <line x1="1" y1="1" x2="23" y2="23"></line>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Photo URL / Avatar</label>
+              <input type="text" class="form-input" [(ngModel)]="newEmp.photoUrl" name="photoUrl" placeholder="https://images.unsplash.com/..." />
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 2: EXPERIENCE & SALARY -->
+        <div *ngIf="activeTab() === 'experience'">
+          <div class="form-group mb-3">
+            <label class="checkbox-label">
+              <input type="checkbox" [(ngModel)]="newEmp.isFresher" (change)="onFresherToggle()" name="isFresher" />
+              <span>Candidate is a Fresher (No Previous Experience)</span>
+            </label>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Total Experience</label>
+              <input type="text" class="form-input" [(ngModel)]="newEmp.totalExperience" name="totalExperience" [disabled]="newEmp.isFresher" placeholder="e.g. 3.5 Years" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Tech Stack / Skills</label>
+              <input type="text" class="form-input" [(ngModel)]="newEmp.techStack" name="techStack" placeholder="e.g. Java, Spring Boot, Angular" />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Current Salary (LPA / Annual)</label>
+              <input type="text" class="form-input" [(ngModel)]="newEmp.currentSalary" name="currentSalary" placeholder="e.g. 7,50,000" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Previous Salary</label>
+              <input type="text" class="form-input" [(ngModel)]="newEmp.previousSalary" name="previousSalary" [disabled]="newEmp.isFresher" placeholder="e.g. 5,00,000" />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Previous Company</label>
+              <input type="text" class="form-input" [(ngModel)]="newEmp.previousCompany" name="previousCompany" [disabled]="newEmp.isFresher" placeholder="e.g. Acme Corp Tech" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Previous Designation</label>
+              <input type="text" class="form-input" [(ngModel)]="newEmp.previousDesignation" name="previousDesignation" [disabled]="newEmp.isFresher" placeholder="e.g. Junior Developer" />
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 3: EDUCATION & GAP -->
+        <div *ngIf="activeTab() === 'education'">
+          <div class="form-group">
+            <label class="form-label">Highest Education</label>
+            <input type="text" class="form-input" [(ngModel)]="newEmp.education" name="education" placeholder="e.g. B.Tech Computer Science & Eng. (2020)" />
+          </div>
+
+          <div class="form-group mb-3">
+            <label class="checkbox-label">
+              <input type="checkbox" [(ngModel)]="newEmp.hasGap" (change)="onGapToggle()" name="hasGap" />
+              <span>Candidate Has Career Gap</span>
+            </label>
+          </div>
+
+          <div class="form-group" *ngIf="newEmp.hasGap">
+            <label class="form-label">Gap Reason & Details</label>
+            <textarea class="form-input" rows="3" [(ngModel)]="newEmp.gapReason" name="gapReason" placeholder="Explain the reason for career gap..."></textarea>
+          </div>
+        </div>
+
+        <!-- TAB 4: ADDRESS & CONTACTS -->
+        <div *ngIf="activeTab() === 'contact'">
+          <div class="form-group">
+            <label class="form-label">Current / Permanent Address</label>
+            <textarea class="form-input" rows="2" [(ngModel)]="newEmp.address" name="address" placeholder="Flat No, Street, City, State, Pincode"></textarea>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Emergency Contact 1 (Name & Phone)</label>
+              <input type="text" class="form-input" [(ngModel)]="newEmp.emergencyContact1" name="emergencyContact1" placeholder="e.g. Father: John Miller - 9876543210" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Emergency Contact 2 (Name & Phone)</label>
+              <input type="text" class="form-input" [(ngModel)]="newEmp.emergencyContact2" name="emergencyContact2" placeholder="e.g. Spouse: Sarah Miller - 9123456789" />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Professional Reference (if any)</label>
+            <input type="text" class="form-input" [(ngModel)]="newEmp.referenceDetails" name="referenceDetails" placeholder="e.g. Dr. Alex Vance (Ex Manager, Acme Corp) - alex@acme.io" />
           </div>
         </div>
 
@@ -159,7 +273,7 @@
 
   <!-- Employee Detail Profile Modal -->
   <div class="modal-backdrop" *ngIf="selectedEmployee()">
-    <div class="modal-content profile-modal">
+    <div class="modal-content profile-modal" style="max-width: 650px; width: 90%;">
       <div class="profile-header">
         <img [src]="selectedEmployee()?.avatar" class="large-avatar" />
         <div>
@@ -176,15 +290,59 @@
         </div>
         <div class="detail-box">
           <span class="label">Phone</span>
-          <span class="val">{{ selectedEmployee()?.phone }}</span>
+          <span class="val">{{ selectedEmployee()?.phone || 'N/A' }}</span>
         </div>
         <div class="detail-box">
-          <span class="label">Location</span>
-          <span class="val">{{ selectedEmployee()?.location }}</span>
+          <span class="label">Email</span>
+          <span class="val">{{ selectedEmployee()?.email || 'N/A' }}</span>
         </div>
         <div class="detail-box">
           <span class="label">Join Date</span>
           <span class="val">{{ selectedEmployee()?.joinDate }}</span>
+        </div>
+        <div class="detail-box" *ngIf="selectedEmployee()?.dateOfBirth">
+          <span class="label">Date of Birth</span>
+          <span class="val">{{ selectedEmployee()?.dateOfBirth }}</span>
+        </div>
+        <div class="detail-box">
+          <span class="label">Experience Status</span>
+          <span class="val">{{ selectedEmployee()?.isFresher ? 'Fresher' : (selectedEmployee()?.totalExperience || 'Experienced') }}</span>
+        </div>
+        <div class="detail-box">
+          <span class="label">Current Salary</span>
+          <span class="val">{{ selectedEmployee()?.currentSalary || 'N/A' }}</span>
+        </div>
+        <div class="detail-box" *ngIf="!selectedEmployee()?.isFresher && selectedEmployee()?.previousCompany">
+          <span class="label">Previous Company</span>
+          <span class="val">{{ selectedEmployee()?.previousCompany }} ({{ selectedEmployee()?.previousDesignation || 'N/A' }})</span>
+        </div>
+        <div class="detail-box" *ngIf="selectedEmployee()?.techStack">
+          <span class="label">Tech Stack</span>
+          <span class="val">{{ selectedEmployee()?.techStack }}</span>
+        </div>
+        <div class="detail-box" *ngIf="selectedEmployee()?.education">
+          <span class="label">Education</span>
+          <span class="val">{{ selectedEmployee()?.education }}</span>
+        </div>
+        <div class="detail-box" *ngIf="selectedEmployee()?.address">
+          <span class="label">Address</span>
+          <span class="val">{{ selectedEmployee()?.address }}</span>
+        </div>
+        <div class="detail-box" *ngIf="selectedEmployee()?.emergencyContact1">
+          <span class="label">Emergency Contact 1</span>
+          <span class="val">{{ selectedEmployee()?.emergencyContact1 }}</span>
+        </div>
+        <div class="detail-box" *ngIf="selectedEmployee()?.emergencyContact2">
+          <span class="label">Emergency Contact 2</span>
+          <span class="val">{{ selectedEmployee()?.emergencyContact2 }}</span>
+        </div>
+        <div class="detail-box" *ngIf="selectedEmployee()?.hasGap">
+          <span class="label">Career Gap Reason</span>
+          <span class="val">{{ selectedEmployee()?.gapReason || 'Yes' }}</span>
+        </div>
+        <div class="detail-box" *ngIf="selectedEmployee()?.referenceDetails">
+          <span class="label">Reference</span>
+          <span class="val">{{ selectedEmployee()?.referenceDetails }}</span>
         </div>
       </div>
 

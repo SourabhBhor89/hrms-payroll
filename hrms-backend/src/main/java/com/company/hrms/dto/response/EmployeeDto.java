@@ -24,5 +24,22 @@ public class EmployeeDto {
     private String designation;
     private String role;
     private LocalDate joiningDate;
+    private LocalDate dateOfBirth;
     private Boolean active;
+
+    private String address;
+    private Boolean isFresher;
+    private String totalExperience;
+    private String previousCompany;
+    private String previousDesignation;
+    private String previousSalary;
+    private String currentSalary;
+    private String techStack;
+    private String education;
+    private String emergencyContact1;
+    private String emergencyContact2;
+    private String photoUrl;
+    private Boolean hasGap;
+    private String gapReason;
+    private String referenceDetails;
 }

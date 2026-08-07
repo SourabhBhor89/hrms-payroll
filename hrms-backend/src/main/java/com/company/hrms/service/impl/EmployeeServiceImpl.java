@@ -49,6 +49,10 @@ public class EmployeeServiceImpl implements EmployeeService {
             throw new IllegalArgumentException("Employee code already exists: " + request.getEmployeeCode());
         }
 
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw new IllegalArgumentException("Email address already exists: " + request.getEmail());
+        }
+
         RoleName roleName = RoleName.EMPLOYEE;
         if (request.getRole() != null && request.getRole().equalsIgnoreCase("HR")) {
             roleName = RoleName.HR;
@@ -76,8 +80,26 @@ public class EmployeeServiceImpl implements EmployeeService {
         employee.setLastName(request.getLastName());
         employee.setPhone(request.getPhone());
         employee.setDepartment(request.getDepartment());
+        employee.setDateOfBirth(request.getDateOfBirth());
         employee.setDesignation(request.getDesignation());
         employee.setJoiningDate(request.getJoiningDate());
+        employee.setAddress(request.getAddress());
+        employee.setIsFresher(request.getIsFresher() != null ? request.getIsFresher() : false);
+        employee.setTotalExperience(request.getTotalExperience());
+        employee.setPreviousCompany(request.getPreviousCompany());
+        employee.setPreviousDesignation(request.getPreviousDesignation());
+        employee.setPreviousSalary(request.getPreviousSalary());
+        employee.setCurrentSalary(request.getCurrentSalary());
+        employee.setTechStack(request.getTechStack());
+        employee.setEducation(request.getEducation());
+        employee.setEmergencyContact1(request.getEmergencyContact1());
+        employee.setEmergencyContact2(request.getEmergencyContact2());
+        employee.setPhotoUrl(request.getPhotoUrl());
+        employee.setHasGap(request.getHasGap() != null ? request.getHasGap() : false);
+        employee.setGapReason(request.getGapReason());
+        employee.setReferenceDetails(request.getReferenceDetails());
+        employee.setCreatedBy("ADMIN/ HR");
+        employee.setUpdatedBy("ADMIN/ HR");
         employee.setActive(true);
         employee = employeeRepository.save(employee);
 
@@ -98,6 +120,25 @@ public class EmployeeServiceImpl implements EmployeeService {
         if (request.getJoiningDate() != null) {
             employee.setJoiningDate(request.getJoiningDate());
         }
+        if (request.getDateOfBirth() != null) {
+            employee.setDateOfBirth(request.getDateOfBirth());
+        }
+        if (request.getAddress() != null) employee.setAddress(request.getAddress());
+        if (request.getIsFresher() != null) employee.setIsFresher(request.getIsFresher());
+        if (request.getTotalExperience() != null) employee.setTotalExperience(request.getTotalExperience());
+        if (request.getPreviousCompany() != null) employee.setPreviousCompany(request.getPreviousCompany());
+        if (request.getPreviousDesignation() != null) employee.setPreviousDesignation(request.getPreviousDesignation());
+        if (request.getPreviousSalary() != null) employee.setPreviousSalary(request.getPreviousSalary());
+        if (request.getCurrentSalary() != null) employee.setCurrentSalary(request.getCurrentSalary());
+        if (request.getTechStack() != null) employee.setTechStack(request.getTechStack());
+        if (request.getEducation() != null) employee.setEducation(request.getEducation());
+        if (request.getEmergencyContact1() != null) employee.setEmergencyContact1(request.getEmergencyContact1());
+        if (request.getEmergencyContact2() != null) employee.setEmergencyContact2(request.getEmergencyContact2());
+        if (request.getPhotoUrl() != null) employee.setPhotoUrl(request.getPhotoUrl());
+        if (request.getHasGap() != null) employee.setHasGap(request.getHasGap());
+        if (request.getGapReason() != null) employee.setGapReason(request.getGapReason());
+        if (request.getReferenceDetails() != null) employee.setReferenceDetails(request.getReferenceDetails());
+
         employeeRepository.save(employee);
 
         return mapToDto(employee);
@@ -126,7 +167,23 @@ public class EmployeeServiceImpl implements EmployeeService {
                 .designation(emp.getDesignation())
                 .role(u != null && u.getRole() != null ? u.getRole().getName().name() : "EMPLOYEE")
                 .joiningDate(emp.getJoiningDate())
+                .dateOfBirth(emp.getDateOfBirth())
                 .active(emp.getActive())
+                .address(emp.getAddress())
+                .isFresher(emp.getIsFresher())
+                .totalExperience(emp.getTotalExperience())
+                .previousCompany(emp.getPreviousCompany())
+                .previousDesignation(emp.getPreviousDesignation())
+                .previousSalary(emp.getPreviousSalary())
+                .currentSalary(emp.getCurrentSalary())
+                .techStack(emp.getTechStack())
+                .education(emp.getEducation())
+                .emergencyContact1(emp.getEmergencyContact1())
+                .emergencyContact2(emp.getEmergencyContact2())
+                .photoUrl(emp.getPhotoUrl())
+                .hasGap(emp.getHasGap())
+                .gapReason(emp.getGapReason())
+                .referenceDetails(emp.getReferenceDetails())
                 .build();
     }
 }

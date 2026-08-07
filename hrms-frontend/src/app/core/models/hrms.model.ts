@@ -21,10 +21,26 @@ export interface Employee {
   department: 'Engineering' | 'Human Resources' | 'Design' | 'Marketing' | 'Sales' | 'Finance';
   designation: string;
   joinDate: string;
+  dateOfBirth?: string;
   status: 'Active' | 'On Leave' | 'Remote' | 'Terminated';
   avatar: string;
   salary: number;
   location: string;
+  address?: string;
+  isFresher?: boolean;
+  totalExperience?: string;
+  previousCompany?: string;
+  previousDesignation?: string;
+  previousSalary?: string;
+  currentSalary?: string;
+  techStack?: string;
+  education?: string;
+  emergencyContact1?: string;
+  emergencyContact2?: string;
+  photoUrl?: string;
+  hasGap?: boolean;
+  gapReason?: string;
+  referenceDetails?: string;
   leaveBalance: {
     casual: number;
     sick: number;

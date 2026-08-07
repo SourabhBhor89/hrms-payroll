@@ -52,6 +52,51 @@ public class Employee extends BaseEntity {
     @Column(name = "joining_date")
     private LocalDate joiningDate;
 
+    @Column(length = 255)
+    private String address;
+
+    @Column(name = "is_fresher")
+    private Boolean isFresher = false;
+
+    @Column(name = "total_experience", length = 50)
+    private String totalExperience;
+
+    @Column(name = "previous_company", length = 100)
+    private String previousCompany;
+
+    @Column(name = "previous_designation", length = 100)
+    private String previousDesignation;
+
+    @Column(name = "previous_salary", length = 50)
+    private String previousSalary;
+
+    @Column(name = "current_salary", length = 50)
+    private String currentSalary;
+
+    @Column(name = "tech_stack", length = 255)
+    private String techStack;
+
+    @Column(length = 255)
+    private String education;
+
+    @Column(name = "emergency_contact_1", length = 100)
+    private String emergencyContact1;
+
+    @Column(name = "emergency_contact_2", length = 100)
+    private String emergencyContact2;
+
+    @Column(name = "photo_url", length = 255)
+    private String photoUrl;
+
+    @Column(name = "has_gap")
+    private Boolean hasGap = false;
+
+    @Column(name = "gap_reason", length = 255)
+    private String gapReason;
+
+    @Column(name = "reference_details", length = 255)
+    private String referenceDetails;
+
     @Column(nullable = false)
     private Boolean active = true;
 

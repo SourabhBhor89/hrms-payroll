@@ -23,6 +23,7 @@ export class EmployeesComponent {
 
   showAddModal = signal<boolean>(false);
   showPassword = signal<boolean>(false);
+  activeTab = signal<'basic' | 'experience' | 'education' | 'contact'>('basic');
   selectedEmployee = signal<Employee | null>(null);
 
   newEmp: any = {
@@ -35,7 +36,23 @@ export class EmployeesComponent {
     designation: '',
     role: 'EMPLOYEE',
     password: '',
-    joiningDate: new Date().toISOString().split('T')[0]
+    joiningDate: new Date().toISOString().split('T')[0],
+    dateOfBirth: '',
+    address: '',
+    isFresher: false,
+    totalExperience: '',
+    previousCompany: '',
+    previousDesignation: '',
+    previousSalary: '',
+    currentSalary: '',
+    techStack: '',
+    education: '',
+    emergencyContact1: '',
+    emergencyContact2: '',
+    photoUrl: '',
+    hasGap: false,
+    gapReason: '',
+    referenceDetails: ''
   };
 
   filteredEmployees() {
@@ -57,11 +74,42 @@ export class EmployeesComponent {
     this.showPassword.update(v => !v);
   }
 
+  onFresherToggle() {
+    if (this.newEmp.isFresher) {
+      this.newEmp.totalExperience = '0';
+      this.newEmp.previousCompany = '';
+      this.newEmp.previousDesignation = '';
+      this.newEmp.previousSalary = '';
+    }
+  }
+
+  onGapToggle() {
+    if (!this.newEmp.hasGap) {
+      this.newEmp.gapReason = '';
+    }
+  }
+
+  generateNextEmployeeCode(): string {
+    const list = this.hrms.employees();
+    let maxNum = list.length;
+    for (const emp of list) {
+      const code = emp.employeeId || emp.id || '';
+      const match = code.match(/\d+/);
+      if (match) {
+        const num = parseInt(match[0], 10);
+        if (num > maxNum) {
+          maxNum = num;
+        }
+      }
+    }
+    return `EMP-${String(maxNum + 1).padStart(3, '0')}`;
+  }
+
   openAddModal() {
-    const nextNum = this.hrms.employees().length + 1;
     this.showPassword.set(false);
+    this.activeTab.set('basic');
     this.newEmp = {
-      employeeCode: `EMP-${String(nextNum).padStart(3, '0')}`,
+      employeeCode: this.generateNextEmployeeCode(),
       firstName: '',
       lastName: '',
       email: '',
@@ -70,25 +118,30 @@ export class EmployeesComponent {
       designation: '',
       role: 'EMPLOYEE',
       password: '',
-      joiningDate: new Date().toISOString().split('T')[0]
+      joiningDate: new Date().toISOString().split('T')[0],
+      dateOfBirth: '',
+      address: '',
+      isFresher: false,
+      totalExperience: '',
+      previousCompany: '',
+      previousDesignation: '',
+      previousSalary: '',
+      currentSalary: '',
+      techStack: '',
+      education: '',
+      emergencyContact1: '',
+      emergencyContact2: '',
+      photoUrl: '',
+      hasGap: false,
+      gapReason: '',
+      referenceDetails: ''
     };
     this.showAddModal.set(true);
   }
 
   saveNewEmployee() {
     if (this.newEmp.firstName && this.newEmp.email && this.newEmp.employeeCode) {
-      this.hrms.addEmployee({
-        employeeCode: this.newEmp.employeeCode,
-        firstName: this.newEmp.firstName,
-        lastName: this.newEmp.lastName,
-        email: this.newEmp.email,
-        phone: this.newEmp.phone,
-        department: this.newEmp.department,
-        designation: this.newEmp.designation,
-        role: this.newEmp.role,
-        password: this.newEmp.password,
-        joiningDate: this.newEmp.joiningDate
-      });
+      this.hrms.addEmployee({ ...this.newEmp });
       this.showAddModal.set(false);
     }
   }
