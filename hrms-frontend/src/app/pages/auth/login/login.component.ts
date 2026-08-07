@@ -22,6 +22,12 @@ export class LoginComponent {
   isLoading: boolean = false;
   errorMessage: string = '';
 
+  constructor() {
+    if (this.auth.isAuthenticated()) {
+      this.router.navigate(['/dashboard']);
+    }
+  }
+
   togglePassword() {
     this.showPassword = !this.showPassword;
   }
@@ -40,16 +46,19 @@ export class LoginComponent {
 
     this.isLoading = true;
 
-    // Simulate API call — role is determined from the login API response
-    setTimeout(() => {
-      const success = this.auth.login(this.email, this.password);
-      this.isLoading = false;
-
-      if (success) {
+    this.auth.login(this.email, this.password).subscribe({
+      next: () => {
+        this.isLoading = false;
         this.router.navigate(['/dashboard']);
-      } else {
-        this.errorMessage = 'Invalid email or password. Please try again.';
+      },
+      error: (err) => {
+        this.isLoading = false;
+        if (err.status === 401 || err.status === 403) {
+          this.errorMessage = 'Invalid email or password. Please try again.';
+        } else {
+          this.errorMessage = err.error?.message || 'Authentication failed. Please check server connection.';
+        }
       }
-    }, 900);
+    });
   }
 }

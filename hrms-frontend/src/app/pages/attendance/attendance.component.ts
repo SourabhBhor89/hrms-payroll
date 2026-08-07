@@ -105,8 +105,8 @@ export class AttendanceComponent {
     const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
     this.checkInTime.set(timeStr);
     this.isCheckedIn.set(true);
+    this.hrms.toggleClockIn();
 
-    // Update today's cell
     const todayCell = this.calendarCells.find(c => c.isToday);
     if (todayCell) {
       todayCell.checkIn = timeStr;
@@ -118,8 +118,8 @@ export class AttendanceComponent {
     const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
     this.checkOutTime.set(timeStr);
     this.isCheckedIn.set(false);
+    this.hrms.toggleClockIn();
 
-    // Update today's cell
     const todayCell = this.calendarCells.find(c => c.isToday);
     if (todayCell) {
       todayCell.checkOut = timeStr;
@@ -168,21 +168,11 @@ export class AttendanceComponent {
   submitRegRequest() {
     const user = this.auth.currentUser();
     if (user && this.regForm.date && this.regForm.checkIn && this.regForm.checkOut && this.regForm.reason) {
-      this.hrms.submitRegularization({
-        employeeId: user.employeeId,
-        employeeName: user.name,
-        employeeAvatar: user.avatar,
-        date: this.regForm.date,
-        checkIn: this.regForm.checkIn,
-        checkOut: this.regForm.checkOut,
-        reason: this.regForm.reason
-      });
       this.showRegModal.set(false);
     }
   }
 
   approveRequest(id: string) {
-    this.hrms.approveRegularization(id);
     const req = this.hrms.regularizationRequests().find(r => r.id === id);
     const user = this.auth.currentUser();
     if (req && user && req.employeeId === user.employeeId) {
@@ -197,14 +187,11 @@ export class AttendanceComponent {
   }
 
   rejectRequest(id: string) {
-    const notes = prompt('Enter rejection notes/reason:');
-    if (notes !== null) {
-      this.hrms.rejectRegularization(id, notes || 'Rejected by Manager');
-    }
+    prompt('Enter rejection notes/reason:');
   }
 
   canApproveRequests(): boolean {
-    return this.auth.hasRole(['Admin', 'HR Manager', 'Team Lead']);
+    return this.auth.hasPermission('ATTENDANCE_UPDATE');
   }
 
   myRegularizations = computed(() => {

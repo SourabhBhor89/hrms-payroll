@@ -33,7 +33,7 @@ export class LeavesComponent {
   }
 
   canApprove(): boolean {
-    return this.auth.hasRole(['Admin', 'HR Manager', 'Team Lead']);
+    return this.auth.hasPermission('LEAVE_APPROVE');
   }
 
   openRequestModal() {

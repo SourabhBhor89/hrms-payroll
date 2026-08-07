@@ -28,39 +28,21 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  overflow: hidden;
 }
 
-.logo-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-md);
-  background: linear-gradient(135deg, var(--primary) 0%, #0284c7 100%);
-  color: #ffffff;
-  font-weight: 800;
-  font-size: 1.125rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.35);
+.sidebar-logo-img {
+  height: 38px;
+  max-width: 175px;
+  object-fit: contain;
+  mix-blend-mode: multiply;
+  transition: all var(--transition-normal);
 }
 
-.logo-text {
-  display: flex;
-  flex-direction: column;
-}
-
-.brand-title {
-  font-weight: 800;
-  font-size: 1.125rem;
-  color: var(--text-main);
-  line-height: 1.2;
-}
-
-.brand-sub {
-  font-size: 0.6875rem;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+.sidebar.collapsed .sidebar-logo-img {
+  height: 32px;
+  max-width: 36px;
+  object-position: left;
 }
 
 .collapse-btn {

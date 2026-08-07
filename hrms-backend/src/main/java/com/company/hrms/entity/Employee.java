@@ -40,6 +40,12 @@ public class Employee extends BaseEntity {
     @Column(length = 30)
     private String phone;
 
+    @Column(length = 100)
+    private String department;
+
+    @Column(length = 100)
+    private String designation;
+
     @Column(name = "date_of_birth")
     private LocalDate dateOfBirth;
 

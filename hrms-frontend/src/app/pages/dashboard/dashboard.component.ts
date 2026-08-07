@@ -24,6 +24,6 @@ export class DashboardComponent {
   }
 
   canAddEmployee(): boolean {
-    return this.auth.hasRole(['Admin', 'HR Manager']);
+    return this.auth.hasPermission('EMPLOYEE_MANAGEMENT_CREATE');
   }
 }

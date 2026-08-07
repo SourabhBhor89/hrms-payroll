@@ -2,11 +2,7 @@
   <!-- Brand Logo -->
   <div class="sidebar-header">
     <div class="logo-box">
-      <div class="logo-icon">RH</div>
-      <div class="logo-text" *ngIf="!isCollapsed()">
-        <span class="brand-title">Rapid Hire</span>
-        <span class="brand-sub">Enterprise Portal</span>
-      </div>
+      <img src="assets/trh-logo.png" alt="The Rapid Hire" class="sidebar-logo-img" />
     </div>
     <button class="collapse-btn" (click)="handleHeaderBtnClick()" [title]="isCollapsed() ? 'Expand Sidebar' : 'Collapse Sidebar'">
       <!-- Close (X) icon visible on mobile header -->
@@ -33,7 +29,7 @@
       <ul class="nav-list">
         <li *ngFor="let item of navItems">
           <a 
-            *ngIf="canAccess(item.roles)"
+            *ngIf="canAccess(item)"
             [routerLink]="item.path" 
             routerLinkActive="active" 
             class="nav-link"

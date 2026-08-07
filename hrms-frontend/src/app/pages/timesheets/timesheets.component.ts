@@ -19,7 +19,7 @@ export class TimesheetsComponent {
   activeTimesheet = signal<Timesheet>(this.hrms.timesheets()[0]);
 
   canApprove(): boolean {
-    return this.auth.hasRole(['Admin', 'HR Manager', 'Team Lead']);
+    return this.auth.hasPermission('TIMESHEET_CATEGORIES_VIEW');
   }
 
   calculateRowTotal(entry: TimesheetEntry): number {

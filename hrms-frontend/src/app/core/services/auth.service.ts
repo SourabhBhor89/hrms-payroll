@@ -1,94 +1,144 @@
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, signal, computed, inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable, tap, catchError, throwError } from 'rxjs';
 import { User, UserRole } from '../models/hrms.model';
 
-export const MOCK_USERS: Record<UserRole, User> = {
-  'Admin': {
-    id: 'usr-1',
-    employeeId: 'EMP-001',
-    name: 'Alexandra Vance',
-    email: 'alexandra.vance@hrms.io',
-    role: 'Admin',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-    department: 'Executive Management',
-    designation: 'Chief Technology Officer'
-  },
-  'HR Manager': {
-    id: 'usr-2',
-    employeeId: 'EMP-004',
-    name: 'Sarah Jenkins',
-    email: 'sarah.jenkins@hrms.io',
-    role: 'HR Manager',
-    avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80',
-    department: 'Human Resources',
-    designation: 'Head of People Operations'
-  },
-  'Team Lead': {
-    id: 'usr-3',
-    employeeId: 'EMP-002',
-    name: 'Marcus Chen',
-    email: 'marcus.chen@hrms.io',
-    role: 'Team Lead',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-    department: 'Engineering',
-    designation: 'Lead Architect'
-  },
-  'Employee': {
-    id: 'usr-4',
-    employeeId: 'EMP-003',
-    name: 'Elena Rostova',
-    email: 'elena.rostova@hrms.io',
-    role: 'Employee',
-    avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80',
-    department: 'Design',
-    designation: 'Senior Product Designer'
-  }
-};
+export interface LoginResponse {
+  accessToken: string;
+  refreshToken?: string;
+  expiresIn: number;
+  user: {
+    id: number;
+    name: string;
+    role: string;
+  };
+}
 
 @Injectable({
   providedIn: 'root'
 })
 export class AuthService {
-  // Active authenticated user signal
-  currentUser = signal<User | null>(MOCK_USERS['Admin']);
-  
+  private http = inject(HttpClient);
+  private apiUrl = '/api/v1/auth';
+
+  currentUser = signal<User | null>(this.loadStoredUser());
+  userPermissions = signal<string[]>(this.loadStoredPermissions());
+
   isAuthenticated = computed(() => this.currentUser() !== null);
-  currentRole = computed(() => this.currentUser()?.role || 'Employee');
+  currentRole = computed<UserRole>(() => {
+    const r = (this.currentUser()?.role || '') as string;
+    if (r === 'ADMIN' || r === 'Admin') return 'Admin';
+    if (r === 'HR' || r === 'HR Manager') return 'HR Manager';
+    if (r === 'TEAM_LEAD' || r === 'Team Lead') return 'Team Lead';
+    return 'Employee';
+  });
 
-  login(email: string, password: string): boolean {
-    // Role is derived from the API response (matched user's permissions)
-    const matchedUser = Object.values(MOCK_USERS).find(
-      u => u.email.toLowerCase() === email.toLowerCase()
-    );
-
-    if (!matchedUser || !password) {
-      return false;
+  constructor() {
+    // Refresh permissions state if token exists
+    const token = localStorage.getItem('access_token');
+    if (token) {
+      this.userPermissions.set(this.extractPermissionsFromToken(token));
     }
-
-    this.currentUser.set(matchedUser);
-    localStorage.setItem('active_role', matchedUser.role);
-    return true;
   }
 
-  quickRoleSelect(role: UserRole) {
-    this.currentUser.set(MOCK_USERS[role]);
-    localStorage.setItem('active_role', role);
+  login(email: string, password: string): Observable<LoginResponse> {
+    return this.http.post<LoginResponse>(`${this.apiUrl}/login`, { email, password }).pipe(
+      tap((res) => {
+        if (res && res.accessToken) {
+          localStorage.setItem('access_token', res.accessToken);
+
+          const perms = this.extractPermissionsFromToken(res.accessToken);
+          this.userPermissions.set(perms);
+          localStorage.setItem('user_permissions', JSON.stringify(perms));
+
+          const mappedUser: User = {
+            id: String(res.user?.id || '1'),
+            employeeId: `EMP-00${res.user?.id || 1}`,
+            name: res.user?.name || email.split('@')[0],
+            email: email,
+            role: this.mapRole(res.user?.role),
+            avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+            department: res.user?.role === 'ADMIN' ? 'Executive' : 'Operations',
+            designation: res.user?.role === 'ADMIN' ? 'Administrator' : 'Staff Member'
+          };
+
+          this.currentUser.set(mappedUser);
+          localStorage.setItem('user_info', JSON.stringify(mappedUser));
+        }
+      }),
+      catchError((err) => throwError(() => err))
+    );
   }
 
   logout() {
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('user_info');
+    localStorage.removeItem('user_permissions');
     this.currentUser.set(null);
-    localStorage.removeItem('active_role');
-  }
-
-  switchRole(role: UserRole) {
-    if (this.currentUser()) {
-      const updatedUser = { ...this.currentUser()!, role };
-      this.currentUser.set(updatedUser);
-      localStorage.setItem('active_role', role);
-    }
+    this.userPermissions.set([]);
   }
 
   hasRole(allowedRoles: UserRole[]): boolean {
     const role = this.currentRole();
     return allowedRoles.includes(role);
+  }
+
+  hasPermission(permission: string): boolean {
+    const perms = this.userPermissions();
+    if (!perms || perms.length === 0) {
+      // If role is Admin, default grant permissions
+      return this.currentRole() === 'Admin';
+    }
+    return perms.includes(permission) || this.currentRole() === 'Admin';
+  }
+
+  hasAnyPermission(permissions: string[]): boolean {
+    return permissions.some(p => this.hasPermission(p));
+  }
+
+  private mapRole(roleStr?: string): UserRole {
+    if (!roleStr) return 'Employee';
+    const r = roleStr.toUpperCase();
+    if (r === 'ADMIN') return 'Admin';
+    if (r === 'HR') return 'HR Manager';
+    if (r === 'TEAM_LEAD') return 'Team Lead';
+    return 'Employee';
+  }
+
+  private extractPermissionsFromToken(token: string): string[] {
+    try {
+      const parts = token.split('.');
+      if (parts.length < 2) return [];
+      const payloadBase64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(
+        atob(payloadBase64)
+          .split('')
+          .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+          .join('')
+      );
+      const parsed = JSON.parse(jsonPayload);
+      return Array.isArray(parsed.permissions) ? parsed.permissions : [];
+    } catch (e) {
+      console.error('Failed to parse JWT permissions claim:', e);
+      return [];
+    }
+  }
+
+  private loadStoredUser(): User | null {
+    try {
+      const stored = localStorage.getItem('user_info');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private loadStoredPermissions(): string[] {
+    try {
+      const stored = localStorage.getItem('user_permissions');
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
   }
 }

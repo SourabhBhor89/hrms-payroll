@@ -64,43 +64,89 @@
   <div class="modal-backdrop" *ngIf="showAddModal()">
     <div class="modal-content">
       <h3>Add New Employee</h3>
-      <p class="sub-text">Register a new team member to The Rapid Hire database.</p>
+      <p class="sub-text">Register a new team member to the organization database.</p>
 
       <form (ngSubmit)="saveNewEmployee()" class="mt-4">
-        <div class="form-group">
-          <label class="form-label">Full Name</label>
-          <input type="text" class="form-input" [(ngModel)]="newEmp.name" name="name" required placeholder="e.g. Jordan Miller" />
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Employee Code *</label>
+            <input type="text" class="form-input" [(ngModel)]="newEmp.employeeCode" name="employeeCode" required placeholder="e.g. EMP-001" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Joining Date</label>
+            <input type="date" class="form-input" [(ngModel)]="newEmp.joiningDate" name="joiningDate" />
+          </div>
         </div>
 
-        <div class="form-group">
-          <label class="form-label">Work Email</label>
-          <input type="email" class="form-input" [(ngModel)]="newEmp.email" name="email" required placeholder="jordan@company.io" />
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">First Name *</label>
+            <input type="text" class="form-input" [(ngModel)]="newEmp.firstName" name="firstName" required placeholder="e.g. Jordan" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Last Name</label>
+            <input type="text" class="form-input" [(ngModel)]="newEmp.lastName" name="lastName" placeholder="e.g. Miller" />
+          </div>
         </div>
 
-        <div class="form-group">
-          <label class="form-label">Department</label>
-          <select class="form-select" [(ngModel)]="newEmp.department" name="department">
-            <option value="Engineering">Engineering</option>
-            <option value="Human Resources">Human Resources</option>
-            <option value="Design">Design</option>
-            <option value="Marketing">Marketing</option>
-            <option value="Finance">Finance</option>
-          </select>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Work Email *</label>
+            <input type="email" class="form-input" [(ngModel)]="newEmp.email" name="email" required placeholder="jordan@company.io" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Phone Number</label>
+            <input type="text" class="form-input" [(ngModel)]="newEmp.phone" name="phone" placeholder="+1 (555) 000-1122" />
+          </div>
         </div>
 
-        <div class="form-group">
-          <label class="form-label">Designation</label>
-          <input type="text" class="form-input" [(ngModel)]="newEmp.designation" name="designation" required placeholder="e.g. Senior Backend Engineer" />
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Department</label>
+            <select class="form-select" [(ngModel)]="newEmp.department" name="department">
+              <option value="Engineering">Engineering</option>
+              <option value="Human Resources">Human Resources</option>
+              <option value="Design">Design</option>
+              <option value="Marketing">Marketing</option>
+              <option value="Finance">Finance</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Designation</label>
+            <input type="text" class="form-input" [(ngModel)]="newEmp.designation" name="designation" placeholder="e.g. Senior Backend Engineer" />
+          </div>
         </div>
 
-        <div class="form-group">
-          <label class="form-label">Role Permission</label>
-          <select class="form-select" [(ngModel)]="newEmp.role" name="role">
-            <option value="Admin">Admin</option>
-            <option value="HR Manager">HR Manager</option>
-            <option value="Team Lead">Team Lead</option>
-            <option value="Employee">Employee</option>
-          </select>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Role</label>
+            <select class="form-select" [(ngModel)]="newEmp.role" name="role">
+              <option value="EMPLOYEE">EMPLOYEE</option>
+              <option value="HR">HR</option>
+              <option value="ADMIN">ADMIN</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Password</label>
+            <div class="password-wrapper">
+              <input [type]="showPassword() ? 'text' : 'password'" class="form-input" [(ngModel)]="newEmp.password" name="password" placeholder="Default: Employee@12345" />
+              <button type="button" class="btn-toggle-password" (click)="togglePasswordVisibility()" [title]="showPassword() ? 'Hide password' : 'Show password'">
+                <svg *ngIf="!showPassword()" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+                <svg *ngIf="showPassword()" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                  <line x1="1" y1="1" x2="23" y2="23"></line>
+                </svg>
+              </button>
+            </div>
+          </div>
         </div>
 
         <div class="modal-actions">
