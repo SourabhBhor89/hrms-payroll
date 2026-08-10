@@ -7,17 +7,17 @@ DROP TABLE IF EXISTS user_permissions;
 -- 1. CREATE USER_PERMISSIONS TABLE
 CREATE TABLE user_permissions
 (
-    id BIGINT NOT NULL AUTO_INCREMENT,
+    id BIGSERIAL NOT NULL,
     user_id BIGINT NOT NULL,
     permission_id BIGINT NOT NULL,
 
     assigned_by BIGINT NULL,
-    assigned_at DATETIME(6) NOT NULL,
+    assigned_at TIMESTAMP NOT NULL,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
 
-    created_at DATETIME(6) NOT NULL DEFAULT NOW(6),
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     created_by BIGINT NULL,
-    updated_at DATETIME(6) NULL,
+    updated_at TIMESTAMP NULL,
     updated_by BIGINT NULL,
 
     PRIMARY KEY (id),
@@ -47,7 +47,7 @@ CREATE INDEX idx_user_permissions_active ON user_permissions(is_active);
 
 -- 3. INITIAL MIGRATION OF ROLE PERMISSIONS TO USER_PERMISSIONS FOR EXISTING USERS
 INSERT INTO user_permissions (user_id, permission_id, assigned_by, assigned_at, is_active, created_at, updated_at)
-SELECT u.id, rp.permission_id, NULL, NOW(6), TRUE, NOW(6), NOW(6)
+SELECT u.id, rp.permission_id, NULL, NOW(), TRUE, NOW(), NOW()
 FROM users u
 JOIN role_permissions rp ON u.role_id = rp.role_id
-ON DUPLICATE KEY UPDATE is_active = TRUE;
+ON CONFLICT (user_id, permission_id) DO UPDATE SET is_active = TRUE;
