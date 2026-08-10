@@ -265,8 +265,8 @@ export class HrmsService {
     });
   }
 
-  addEmployee(newEmp: any) {
-    this.http.post<any>('/api/v1/employees', {
+  addEmployee(newEmp: any): Observable<any> {
+    return this.http.post<any>('/api/v1/employees', {
       employeeCode: newEmp.employeeCode || `EMP-00${this.employees().length + 1}`,
       firstName: newEmp.firstName,
       lastName: newEmp.lastName,
@@ -298,10 +298,10 @@ export class HrmsService {
       gapReason: newEmp.hasGap ? newEmp.gapReason : '',
       referenceDetails: newEmp.referenceDetails
     }).pipe(
-      catchError(() => of(null))
-    ).subscribe(() => {
-      this.loadEmployees();
-    });
+      tap(() => {
+        this.loadEmployees();
+      })
+    );
   }
 
   updateEmployee(updated: Employee) {
@@ -318,12 +318,12 @@ export class HrmsService {
     });
   }
 
-  deleteEmployee(id: string) {
-    this.http.delete(`/api/v1/employees/${id}`).pipe(
-      catchError(() => of(null))
-    ).subscribe(() => {
-      this.loadEmployees();
-    });
+  deleteEmployee(id: string): Observable<any> {
+    return this.http.delete(`/api/v1/employees/${id}`).pipe(
+      tap(() => {
+        this.loadEmployees();
+      })
+    );
   }
 
   private parseDateTime(val: any): Date | null {

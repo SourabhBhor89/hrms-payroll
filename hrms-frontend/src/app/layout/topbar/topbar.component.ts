@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, HostListener, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
@@ -15,6 +15,7 @@ export class TopbarComponent {
   auth = inject(AuthService);
   theme = inject(ThemeService);
   router = inject(Router);
+  elementRef = inject(ElementRef);
 
   showNotifDropdown = signal<boolean>(false);
   showUserDropdown = signal<boolean>(false);
@@ -38,5 +39,13 @@ export class TopbarComponent {
   onLogout() {
     this.auth.logout();
     this.router.navigate(['/auth/login']);
+  }
+
+  @HostListener('document:click', ['$event'])
+  onClickOutside(event: Event) {
+    if (!this.elementRef.nativeElement.contains(event.target)) {
+      this.showUserDropdown.set(false);
+      this.showNotifDropdown.set(false);
+    }
   }
 }

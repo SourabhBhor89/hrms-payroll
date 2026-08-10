@@ -25,6 +25,9 @@ export class EmployeesComponent {
   showPassword = signal<boolean>(false);
   activeTab = signal<'basic' | 'experience' | 'education' | 'contact'>('basic');
   selectedEmployee = signal<Employee | null>(null);
+  isSaving = signal<boolean>(false);
+  popupMessage = signal<{ text: string; type: 'success' | 'error' } | null>(null);
+  employeeToDelete = signal<string | null>(null);
 
   newEmp: any = {
     employeeCode: '',
@@ -63,8 +66,8 @@ export class EmployeesComponent {
   filteredEmployees() {
     return this.hrms.employees().filter(e => {
       const matchSearch = e.name.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
-                          e.email.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
-                          e.designation.toLowerCase().includes(this.searchQuery.toLowerCase());
+        e.email.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
+        e.designation.toLowerCase().includes(this.searchQuery.toLowerCase());
       const matchDept = this.selectedDept === 'All' || e.department === this.selectedDept;
       const matchRole = this.selectedRoleFilter === 'All' || e.role === this.selectedRoleFilter;
       return matchSearch && matchDept && matchRole;
@@ -163,15 +166,52 @@ export class EmployeesComponent {
 
   saveNewEmployee() {
     if (this.newEmp.firstName && this.newEmp.email && this.newEmp.employeeCode) {
-      this.hrms.addEmployee({ ...this.newEmp });
-      this.showAddModal.set(false);
+      this.isSaving.set(true);
+      this.hrms.addEmployee({ ...this.newEmp }).subscribe({
+        next: (res) => {
+          this.isSaving.set(false);
+          this.showAddModal.set(false);
+          this.showPopup('Employee created successfully!', 'success');
+        },
+        error: (err) => {
+          this.isSaving.set(false);
+          const errorMsg = err?.error?.message || 'Failed to create employee. Please try again.';
+          this.showPopup(errorMsg, 'error');
+        }
+      });
     }
   }
 
+  showPopup(text: string, type: 'success' | 'error') {
+    this.popupMessage.set({ text, type });
+    setTimeout(() => {
+      this.popupMessage.set(null);
+    }, 4000);
+  }
+
   deleteEmp(id: string) {
-    if (confirm('Are you sure you want to remove this employee?')) {
-      this.hrms.deleteEmployee(id);
+    this.employeeToDelete.set(id);
+  }
+
+  confirmDelete() {
+    const id = this.employeeToDelete();
+    if (id) {
+      this.hrms.deleteEmployee(id).subscribe({
+        next: () => {
+          this.employeeToDelete.set(null);
+          this.showPopup('Employee removed successfully!', 'success');
+        },
+        error: (err) => {
+          this.employeeToDelete.set(null);
+          const errorMsg = err?.error?.message || 'Failed to remove employee.';
+          this.showPopup(errorMsg, 'error');
+        }
+      });
     }
+  }
+
+  cancelDelete() {
+    this.employeeToDelete.set(null);
   }
 
   viewEmployeeDetails(emp: Employee) {
