@@ -21,10 +21,30 @@ export interface Employee {
   department: 'Engineering' | 'Human Resources' | 'Design' | 'Marketing' | 'Sales' | 'Finance';
   designation: string;
   joinDate: string;
+  dateOfBirth?: string;
   status: 'Active' | 'On Leave' | 'Remote' | 'Terminated';
   avatar: string;
   salary: number;
   location: string;
+  address?: string;
+  isFresher?: boolean;
+  totalExperience?: string;
+  previousCompany?: string;
+  previousDesignation?: string;
+  previousSalary?: string;
+  currentSalary?: string;
+  techStack?: string;
+  education?: string;
+  emergencyContact1?: string;
+  emergencyContact2?: string;
+  photoUrl?: string;
+  hasGap?: boolean;
+  gapReason?: string;
+  referenceDetails?: string;
+  currentAddress?: string;
+  permanentAddress?: string;
+  maritalStatus?: string;
+  marriageDate?: string;
   leaveBalance: {
     casual: number;
     sick: number;
@@ -46,6 +66,8 @@ export interface AttendanceRecord {
   totalHours: string;
   status: AttendanceStatus;
   notes?: string;
+  isLocked?: boolean;
+  regularizationStatus?: 'Pending' | 'Approved' | 'Rejected' | 'Cancelled';
 }
 
 export type LeaveType = 'Casual Leave' | 'Sick Leave' | 'Paid Leave' | 'Work From Home';
@@ -110,19 +132,36 @@ export interface Timesheet {
   approvedBy?: string;
 }
 
-export type RegularizationStatus = 'Pending' | 'Approved' | 'Rejected';
+export type RegularizationStatus = 'Pending' | 'Approved' | 'Rejected' | 'Cancelled';
 
 export interface RegularizationRequest {
   id: string;
+  attendanceId?: string;
   employeeId: string;
+  employeeCode?: string;
   employeeName: string;
   employeeAvatar: string;
+  department?: string;
   date: string; // YYYY-MM-DD
+  correctionType?: 'CLOCK_IN' | 'CLOCK_OUT' | 'BOTH';
+  originalClockIn?: string;
+  originalClockOut?: string;
+  requestedClockIn?: string;
+  requestedClockOut?: string;
   checkIn: string;
   checkOut: string;
+  originalWorkingHours?: number;
+  requestedWorkingHours?: number;
   reason: string;
+  attachmentUrl?: string;
   status: RegularizationStatus;
   appliedOn: string;
+  submittedAt?: string;
+  approvedAt?: string;
+  rejectedAt?: string;
+  cancelledAt?: string;
+  reviewedBy?: string;
+  reviewRemarks?: string;
   notes?: string;
 }
 

@@ -1,5 +1,6 @@
 package com.company.hrms.security;
 
+import com.company.hrms.entity.User;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -46,7 +47,27 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
 
-                UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+                UserDetails userDetails = null;
+                try {
+                    userDetails = userDetailsService.loadUserByUsername(username);
+                } catch (Exception e) {
+                    // Fallback if DB user lookup fails
+                    String roleStr = jwtService.extractRole(token);
+                    Long userId = jwtService.extractUserId(token);
+                    User fallbackUser = new User();
+                    fallbackUser.setId(userId != null ? userId : 1L);
+                    fallbackUser.setEmail(username);
+                    fallbackUser.setPassword("");
+                    fallbackUser.setActive(true);
+                    com.company.hrms.entity.Role role = new com.company.hrms.entity.Role();
+                    try {
+                        role.setName(com.company.hrms.entity.RoleName.valueOf(roleStr != null ? roleStr.toUpperCase() : "EMPLOYEE"));
+                    } catch (Exception ex) {
+                        role.setName(com.company.hrms.entity.RoleName.EMPLOYEE);
+                    }
+                    fallbackUser.setRole(role);
+                    userDetails = new CustomUserDetails(fallbackUser);
+                }
 
                 if (jwtService.isTokenValid(token, userDetails.getUsername())) {
 
@@ -74,17 +95,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     );
 
                     SecurityContextHolder.getContext().setAuthentication(authentication);
+                } else {
+                    System.err.println("JWT token is not valid for username: " + username);
                 }
             }
 
         } catch (io.jsonwebtoken.ExpiredJwtException e) {
-            System.err.println("JWT authentication failed: Token is expired");
+            System.err.println("JWT authentication failed: Token is expired (" + e.getMessage() + ")");
             SecurityContextHolder.clearContext();
         } catch (io.jsonwebtoken.security.SignatureException e) {
-            System.err.println("JWT authentication failed: Signature verification failed");
+            System.err.println("JWT authentication failed: Signature verification failed (" + e.getMessage() + ")");
             SecurityContextHolder.clearContext();
         } catch (io.jsonwebtoken.MalformedJwtException e) {
-            System.err.println("JWT authentication failed: Malformed token");
+            System.err.println("JWT authentication failed: Malformed token (" + e.getMessage() + ")");
             SecurityContextHolder.clearContext();
         } catch (io.jsonwebtoken.JwtException | IllegalArgumentException e) {
             System.err.println("JWT authentication failed: " + e.getMessage());

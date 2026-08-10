@@ -26,7 +26,27 @@ public class CreateEmployeeRequest {
     private String phone;
     private String department;
     private String designation;
-    private String role; // e.g. EMPLOYEE, HR
+    private String role;
     private String password;
     private LocalDate joiningDate;
+    private LocalDate dateOfBirth;
+    private LocalDate MarriageDate;
+    private String address;
+    private String CurrentAddress;
+    private String PermanentAddress;
+    private String MaritalStatus;
+    private Boolean isFresher;
+    private String totalExperience;
+    private String previousCompany;
+    private String previousDesignation;
+    private String previousSalary;
+    private String currentSalary;
+    private String techStack;
+    private String education;
+    private String emergencyContact1;
+    private String emergencyContact2;
+    private String photoUrl;
+    private Boolean hasGap;
+    private String gapReason;
+    private String referenceDetails;
 }

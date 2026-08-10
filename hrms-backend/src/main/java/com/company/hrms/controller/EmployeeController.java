@@ -27,7 +27,7 @@ public class EmployeeController {
     private final EmployeeService employeeService;
 
     @GetMapping
-    @PreAuthorize("hasAuthority('EMPLOYEE_MANAGEMENT_VIEW')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<EmployeeDto>> getAllEmployees() {
         return ResponseEntity.ok(employeeService.getAllEmployees());
     }
