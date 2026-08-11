@@ -292,3 +292,35 @@
 .menu-item.logout:hover {
   background: rgba(239, 68, 68, 0.08);
 }
+
+.tab-btn.active {
+  color: var(--primary, #0ea5e9) !important;
+  border-bottom-color: var(--primary, #0ea5e9) !important;
+  font-weight: 600 !important;
+}
+
+.tab-btn:hover {
+  color: var(--text-main, #0c1a2e) !important;
+}
+
+/* Toast and spin overrides for Topbar */
+.toast-success {
+  background-color: #10b981 !important;
+  color: #ffffff !important;
+  border: 1px solid #059669 !important;
+}
+.toast-success svg {
+  color: #ffffff !important;
+}
+.toast-error {
+  background-color: #ef4444 !important;
+  color: #ffffff !important;
+  border: 1px solid #dc2626 !important;
+}
+.toast-error svg {
+  color: #ffffff !important;
+}
+@keyframes spin-loader-anim {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}

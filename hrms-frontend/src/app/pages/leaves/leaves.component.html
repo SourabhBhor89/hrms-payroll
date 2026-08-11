@@ -7,7 +7,10 @@
     </div>
 
     <button class="btn btn-primary" (click)="openRequestModal()">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="12" y1="5" x2="12" y2="19" />
+        <line x1="5" y1="12" x2="19" y2="12" />
+      </svg>
       Request Leave
     </button>
   </div>
@@ -20,7 +23,9 @@
         <span class="b-icon">🏖️</span>
       </div>
       <span class="b-count">8 / 12</span>
-      <div class="progress-bar"><div class="progress" style="width: 66%"></div></div>
+      <div class="progress-bar">
+        <div class="progress" style="width: 66%"></div>
+      </div>
       <span class="b-sub">4 days taken</span>
     </div>
 
@@ -30,7 +35,9 @@
         <span class="b-icon">🤒</span>
       </div>
       <span class="b-count">5 / 7</span>
-      <div class="progress-bar"><div class="progress amber" style="width: 71%"></div></div>
+      <div class="progress-bar">
+        <div class="progress amber" style="width: 71%"></div>
+      </div>
       <span class="b-sub">2 days taken</span>
     </div>
 
@@ -40,7 +47,9 @@
         <span class="b-icon">💼</span>
       </div>
       <span class="b-count">14 / 15</span>
-      <div class="progress-bar"><div class="progress emerald" style="width: 93%"></div></div>
+      <div class="progress-bar">
+        <div class="progress emerald" style="width: 93%"></div>
+      </div>
       <span class="b-sub">1 day taken</span>
     </div>
 
@@ -50,22 +59,76 @@
         <span class="b-icon">🏠</span>
       </div>
       <span class="b-count">6 / 10</span>
-      <div class="progress-bar"><div class="progress purple" style="width: 60%"></div></div>
+      <div class="progress-bar">
+        <div class="progress purple" style="width: 60%"></div>
+      </div>
       <span class="b-sub">4 days used</span>
     </div>
   </div>
 
-  <!-- Requests List & Manager Approval Table -->
+  <!-- My Leave Requests Section -->
   <div class="table-container glass-card mt-4">
     <div class="table-header-box">
-      <h3>Leave Request Register</h3>
+      <h3>My Leave Requests</h3>
       <div class="filter-pills">
-        <button class="pill-btn" [class.active]="filterStatus === 'All'" (click)="filterStatus = 'All'">All</button>
-        <button class="pill-btn" [class.active]="filterStatus === 'Pending'" (click)="filterStatus = 'Pending'">
+        <button class="pill-btn" [class.active]="myFilterStatus === 'All'" (click)="myFilterStatus = 'All'">All</button>
+        <button class="pill-btn" [class.active]="myFilterStatus === 'Pending'"
+          (click)="myFilterStatus = 'Pending'">Pending</button>
+        <button class="pill-btn" [class.active]="myFilterStatus === 'Approved'"
+          (click)="myFilterStatus = 'Approved'">Approved</button>
+        <button class="pill-btn" [class.active]="myFilterStatus === 'Rejected'"
+          (click)="myFilterStatus = 'Rejected'">Rejected</button>
+      </div>
+    </div>
+
+    <table class="custom-table">
+      <thead>
+        <tr>
+          <th>Leave Type</th>
+          <th>Date Range</th>
+          <th>Days</th>
+          <th>Reason</th>
+          <th>Applied On</th>
+          <th>Status</th>
+          <th>Manager Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let req of myRequests()">
+          <td><span class="badge badge-purple">{{ req.leaveType }}</span></td>
+          <td><code>{{ req.startDate }}</code> to <code>{{ req.endDate }}</code></td>
+          <td><strong>{{ req.totalDays }} day(s)</strong></td>
+          <td class="reason-cell" [title]="req.reason">{{ req.reason }}</td>
+          <td>{{ req.appliedOn }}</td>
+          <td>
+            <span class="badge" [class.badge-warning]="req.status === 'Pending'"
+              [class.badge-success]="req.status === 'Approved'" [class.badge-danger]="req.status === 'Rejected'">
+              {{ req.status }}
+            </span>
+          </td>
+          <td><span class="action-done">{{ req.managerNotes || '--' }}</span></td>
+        </tr>
+        <tr *ngIf="myRequests().length === 0">
+          <td colspan="7" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">No leave requests
+            found.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Team Leave Approvals Section (Admin / HR / Manager only) -->
+  <div class="table-container glass-card mt-4" *ngIf="canApprove()">
+    <div class="table-header-box">
+      <h3>Team Leave Approvals</h3>
+      <div class="filter-pills">
+        <button class="pill-btn" [class.active]="teamFilterStatus === 'All'" (click)="teamFilterStatus = 'All'">All</button>
+        <button class="pill-btn" [class.active]="teamFilterStatus === 'Pending'" (click)="teamFilterStatus = 'Pending'">
           Pending ({{ hrms.pendingLeavesCount() }})
         </button>
-        <button class="pill-btn" [class.active]="filterStatus === 'Approved'" (click)="filterStatus = 'Approved'">Approved</button>
-        <button class="pill-btn" [class.active]="filterStatus === 'Rejected'" (click)="filterStatus = 'Rejected'">Rejected</button>
+        <button class="pill-btn" [class.active]="teamFilterStatus === 'Approved'"
+          (click)="teamFilterStatus = 'Approved'">Approved</button>
+        <button class="pill-btn" [class.active]="teamFilterStatus === 'Rejected'"
+          (click)="teamFilterStatus = 'Rejected'">Rejected</button>
       </div>
     </div>
 
@@ -79,11 +142,11 @@
           <th>Reason</th>
           <th>Applied On</th>
           <th>Status</th>
-          <th *ngIf="canApprove()">Manager Actions</th>
+          <th>Manager Actions</th>
         </tr>
       </thead>
       <tbody>
-        <tr *ngFor="let req of filteredRequests()">
+        <tr *ngFor="let req of teamRequests()">
           <td>
             <div class="user-cell">
               <img [src]="req.employeeAvatar" class="table-avatar" />
@@ -99,11 +162,12 @@
           <td class="reason-cell" [title]="req.reason">{{ req.reason }}</td>
           <td>{{ req.appliedOn }}</td>
           <td>
-            <span class="badge" [class.badge-warning]="req.status === 'Pending'" [class.badge-success]="req.status === 'Approved'" [class.badge-danger]="req.status === 'Rejected'">
+            <span class="badge" [class.badge-warning]="req.status === 'Pending'"
+              [class.badge-success]="req.status === 'Approved'" [class.badge-danger]="req.status === 'Rejected'">
               {{ req.status }}
             </span>
           </td>
-          <td *ngIf="canApprove()">
+          <td>
             <div class="action-buttons" *ngIf="req.status === 'Pending'">
               <button class="btn btn-success btn-sm" (click)="approve(req.id)">Approve</button>
               <button class="btn btn-danger btn-sm" (click)="reject(req.id)">Reject</button>
@@ -112,6 +176,10 @@
               {{ req.managerNotes || 'Decision Processed' }}
             </span>
           </td>
+        </tr>
+        <tr *ngIf="teamRequests().length === 0">
+          <td colspan="8" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">No team requests
+            matching filter.</td>
         </tr>
       </tbody>
     </table>
@@ -148,12 +216,14 @@
 
         <div class="form-group">
           <label class="form-label">Total Days</label>
-          <input type="number" class="form-input" [(ngModel)]="newRequest.totalDays" name="totalDays" min="1" max="30" required />
+          <input type="number" class="form-input" [(ngModel)]="newRequest.totalDays" name="totalDays" min="1" max="30"
+            required />
         </div>
 
         <div class="form-group">
           <label class="form-label">Reason / Justification</label>
-          <textarea class="form-textarea" rows="3" [(ngModel)]="newRequest.reason" name="reason" placeholder="State reason for absence..." required></textarea>
+          <textarea class="form-textarea" rows="3" [(ngModel)]="newRequest.reason" name="reason"
+            placeholder="State reason for absence..." required></textarea>
         </div>
 
         <div class="modal-actions">

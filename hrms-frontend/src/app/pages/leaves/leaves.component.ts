@@ -16,7 +16,8 @@ export class LeavesComponent {
   hrms = inject(HrmsService);
   auth = inject(AuthService);
 
-  filterStatus = 'All';
+  myFilterStatus = 'All';
+  teamFilterStatus = 'All';
   showModal = signal<boolean>(false);
 
   newRequest = {
@@ -27,9 +28,18 @@ export class LeavesComponent {
     reason: ''
   };
 
-  filteredRequests() {
-    if (this.filterStatus === 'All') return this.hrms.leaveRequests();
-    return this.hrms.leaveRequests().filter(r => r.status === this.filterStatus);
+  myRequests() {
+    const userId = this.auth.currentUser()?.employeeId || '';
+    const list = this.hrms.leaveRequests().filter(r => r.employeeId === userId);
+    if (this.myFilterStatus === 'All') return list;
+    return list.filter(r => r.status === this.myFilterStatus);
+  }
+
+  teamRequests() {
+    const userId = this.auth.currentUser()?.employeeId || '';
+    const list = this.hrms.leaveRequests().filter(r => r.employeeId !== userId);
+    if (this.teamFilterStatus === 'All') return list;
+    return list.filter(r => r.status === this.teamFilterStatus);
   }
 
   canApprove(): boolean {
