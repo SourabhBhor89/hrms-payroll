@@ -78,6 +78,10 @@ export class AuthService {
     this.userPermissions.set([]);
   }
 
+  changePassword(payload: any): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/change-password`, payload);
+  }
+
   hasRole(allowedRoles: UserRole[]): boolean {
     const role = this.currentRole();
     return allowedRoles.includes(role);
