@@ -21,7 +21,6 @@ public class    UpdateLeaveRequest {
 
     private LocalDate endDate;
 
-    @Positive(message = "Total days must be positive")
     private Double totalDays;
 
     private String reason;

@@ -25,8 +25,7 @@ public class CreateLeaveRequest {
     @NotNull(message = "End date is required")
     private LocalDate endDate;
 
-    @NotNull(message = "Total days is required")
-    @Positive(message = "Total days must be positive")
+    // totalDays is now optional - will be calculated automatically if not provided
     private Double totalDays;
 
     private String reason;

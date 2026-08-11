@@ -55,6 +55,12 @@ public class LeaveServiceImpl implements LeaveService {
             throw new IllegalArgumentException("End date cannot be before start date");
         }
 
+        // Calculate total days if not provided
+        Double totalDays = request.getTotalDays();
+        if (totalDays == null) {
+            totalDays = calculateTotalDays(request.getStartDate(), request.getEndDate());
+        }
+
         // Check for overlapping leaves
         List<Leave> overlappingLeaves = leaveRepository.findOverlappingLeaves(
                 employee, Leave.LeaveStatus.PENDING, request.getStartDate(), request.getEndDate());
@@ -74,9 +80,9 @@ public class LeaveServiceImpl implements LeaveService {
 
         // Only check balance for limited leave types (defaultDaysPerYear > 0)
         if (leaveType.getDefaultDaysPerYear() > 0 && 
-            leaveBalance.getBalanceDays().compareTo(BigDecimal.valueOf(request.getTotalDays())) < 0) {
+            leaveBalance.getBalanceDays().compareTo(BigDecimal.valueOf(totalDays)) < 0) {
             throw new IllegalArgumentException("Insufficient leave balance. Available: " + 
-                    leaveBalance.getBalanceDays() + ", Requested: " + request.getTotalDays());
+                    leaveBalance.getBalanceDays() + ", Requested: " + totalDays);
         }
 
         Leave leave = new Leave();
@@ -84,7 +90,7 @@ public class LeaveServiceImpl implements LeaveService {
         leave.setLeaveType(leaveType);
         leave.setStartDate(request.getStartDate());
         leave.setEndDate(request.getEndDate());
-        leave.setTotalDays(request.getTotalDays());
+        leave.setTotalDays(totalDays);
         leave.setReason(request.getReason());
 //        leave.setAttachmentUrl(request.getAttachmentUrl());
         leave.setStatus(Leave.LeaveStatus.PENDING);
@@ -92,7 +98,7 @@ public class LeaveServiceImpl implements LeaveService {
         leave = leaveRepository.save(leave);
 
         // Update pending days in balance
-        leaveBalance.setPendingDays(leaveBalance.getPendingDays().add(BigDecimal.valueOf(request.getTotalDays())));
+        leaveBalance.setPendingDays(leaveBalance.getPendingDays().add(BigDecimal.valueOf(totalDays)));
         leaveBalanceRepository.save(leaveBalance);
 
         return mapToLeaveResponse(leave);
@@ -168,15 +174,26 @@ public class LeaveServiceImpl implements LeaveService {
             leave.setLeaveType(leaveType);
         }
 
+        boolean datesChanged = false;
+        LocalDate newStartDate = leave.getStartDate();
+        LocalDate newEndDate = leave.getEndDate();
+
         if (request.getStartDate() != null) {
             leave.setStartDate(request.getStartDate());
+            newStartDate = request.getStartDate();
+            datesChanged = true;
         }
 
         if (request.getEndDate() != null) {
             leave.setEndDate(request.getEndDate());
+            newEndDate = request.getEndDate();
+            datesChanged = true;
         }
 
-        if (request.getTotalDays() != null) {
+        // Recalculate totalDays if dates changed but totalDays not provided
+        if (datesChanged && request.getTotalDays() == null) {
+            leave.setTotalDays(calculateTotalDays(newStartDate, newEndDate));
+        } else if (request.getTotalDays() != null) {
             leave.setTotalDays(request.getTotalDays());
         }
 
@@ -325,6 +342,21 @@ public class LeaveServiceImpl implements LeaveService {
         
         return LocalDate.now().isAfter(sixMonthsAfterJoining) || 
                LocalDate.now().isEqual(sixMonthsAfterJoining);
+    }
+
+    private Double calculateTotalDays(LocalDate startDate, LocalDate endDate) {
+        long totalDays = 0;
+        LocalDate current = startDate;
+        
+        while (!current.isAfter(endDate)) {
+            // Exclude weekends (Saturday = 6, Sunday = 7)
+            if (current.getDayOfWeek().getValue() <= 5) {
+                totalDays++;
+            }
+            current = current.plusDays(1);
+        }
+        
+        return (double) totalDays;
     }
 
     private LeaveResponse mapToLeaveResponse(Leave leave) {
