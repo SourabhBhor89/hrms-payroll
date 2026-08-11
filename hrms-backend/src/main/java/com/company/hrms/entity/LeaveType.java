@@ -40,6 +40,6 @@ public class LeaveType extends BaseEntity {
     @Column(precision = 10, scale = 2)
     private BigDecimal maxCarryForwardDays;
 
-    @Column(nullable = false)
-    private Boolean hasMonthlyLimit = true;
+//    @Column(nullable = false)
+//    private Boolean hasMonthlyLimit = true;
 }

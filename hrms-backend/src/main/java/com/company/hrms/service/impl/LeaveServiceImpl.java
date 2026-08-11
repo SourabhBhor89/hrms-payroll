@@ -79,10 +79,20 @@ public class LeaveServiceImpl implements LeaveService {
                 .orElseGet(() -> createInitialLeaveBalance(employee, leaveType, currentYear, currentMonth));
 
         // Only check balance for limited leave types (defaultDaysPerYear > 0)
-        if (leaveType.getDefaultDaysPerYear() > 0 && 
-            leaveBalance.getBalanceDays().compareTo(BigDecimal.valueOf(totalDays)) < 0) {
-            throw new IllegalArgumentException("Insufficient leave balance. Available: " + 
-                    leaveBalance.getBalanceDays() + ", Requested: " + totalDays);
+        if (leaveType.getDefaultDaysPerYear() > 0) {
+            // Calculate available balance (current balance minus pending days)
+            BigDecimal availableBalance = leaveBalance.getBalanceDays().subtract(leaveBalance.getPendingDays());
+            
+            // Ensure available balance is not negative
+            if (availableBalance.compareTo(BigDecimal.ZERO) < 0) {
+                availableBalance = BigDecimal.ZERO;
+            }
+            
+            if (availableBalance.compareTo(BigDecimal.valueOf(totalDays)) < 0) {
+                throw new IllegalArgumentException("Insufficient leave balance. Available: " + 
+                        availableBalance + " days (Current: " + leaveBalance.getBalanceDays() + 
+                        ", Pending: " + leaveBalance.getPendingDays() + "), Requested: " + totalDays + " days");
+            }
         }
 
         Leave leave = new Leave();
@@ -396,7 +406,7 @@ public class LeaveServiceImpl implements LeaveService {
                 .requiresApproval(leaveType.getRequiresApproval())
                 .active(leaveType.getActive())
                 .maxCarryForwardDays(leaveType.getMaxCarryForwardDays())
-                .hasMonthlyLimit(leaveType.getHasMonthlyLimit())
+//                .hasMonthlyLimit(leaveType.getHasMonthlyLimit())
                 .build();
     }
 

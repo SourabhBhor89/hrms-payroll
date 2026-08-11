@@ -22,5 +22,5 @@ public class LeaveTypeResponse {
     private Boolean requiresApproval;
     private Boolean active;
     private BigDecimal maxCarryForwardDays;
-    private Boolean hasMonthlyLimit;
+//    private Boolean hasMonthlyLimit;
 }
