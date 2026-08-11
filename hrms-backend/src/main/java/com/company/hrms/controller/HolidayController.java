@@ -1,17 +1,24 @@
 package com.company.hrms.controller;
 
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
-import java.util.Map;
+import com.company.hrms.service.Google_Calendar_Service.GoogleCalendarService;
 
 @RestController
 @RequestMapping("/api/v1/holidays")
-public class HolidayController {
+public class HolidayController 
+{
+
+    @Autowired
+    private GoogleCalendarService googleCalendarService;
 
     @GetMapping
     @PreAuthorize("hasAuthority('HOLIDAY_VIEW')")
@@ -25,5 +32,12 @@ public class HolidayController {
                 Map.of("id", 6, "name", "Christmas Day", "date", "2026-12-25", "type", "National", "day", "Friday")
         );
         return ResponseEntity.ok(holidays);
+    }
+
+    @GetMapping("/public-holidays")
+    @PreAuthorize("hasAuthority('HOLIDAY_VIEW')")
+    public ResponseEntity<?> testEndpoint() 
+    {
+        return ResponseEntity.ok(googleCalendarService.getPublicHolidays());
     }
 }
