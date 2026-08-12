@@ -6,6 +6,11 @@ import {
   AttendanceRecord,
   AttendanceStatus,
   LeaveRequest,
+  LeaveTypeItem,
+  EmployeeLeaveBalanceDetail,
+  CreateLeavePayload,
+  UpdateLeavePayload,
+  ApproveLeavePayload,
   Holiday,
   Timesheet,
   RegularizationRequest,
@@ -60,6 +65,9 @@ export class HrmsService {
   employees = signal<Employee[]>([]);
   attendanceRecords = signal<AttendanceRecord[]>([]);
   leaveRequests = signal<LeaveRequest[]>([]);
+  leaveTypes = signal<LeaveTypeItem[]>([]);
+  leaveBalances = signal<EmployeeLeaveBalanceDetail[]>([]);
+  pendingLeaveApprovals = signal<LeaveRequest[]>([]);
   holidays = signal<Holiday[]>(this.getFallbackHolidays());
   timesheets = signal<Timesheet[]>([]);
   regularizationRequests = signal<RegularizationRequest[]>([]);
@@ -150,8 +158,9 @@ export class HrmsService {
   // Computed metrics derived from API data
   pendingLeavesCount = computed(() => {
     const apiSummary = this.dashboardSummary().pendingLeaves;
-    const signalCount = this.leaveRequests().filter(l => l.status === 'Pending').length;
-    return Math.max(apiSummary, signalCount);
+    const myPending = this.leaveRequests().filter(l => l.status === 'Pending' || l.status === 'PENDING').length;
+    const approverPending = this.pendingLeaveApprovals().filter(l => l.status === 'Pending' || l.status === 'PENDING').length;
+    return Math.max(apiSummary, myPending, approverPending);
   });
 
   pendingTimesheetsCount = computed(() => this.timesheets().filter(t => t.status === 'Submitted').length);
@@ -168,7 +177,9 @@ export class HrmsService {
     this.loadEmployees();
     this.loadTodayAttendance();
     this.loadAttendance();
+    this.loadLeaveTypes();
     this.loadLeaves();
+    this.loadPendingLeaveApprovals();
     this.loadHolidays();
     this.loadTimesheets();
     this.loadRegularizations();
@@ -265,8 +276,8 @@ export class HrmsService {
     });
   }
 
-  addEmployee(newEmp: any) {
-    this.http.post<any>('/api/v1/employees', {
+  addEmployee(newEmp: any): Observable<any> {
+    return this.http.post<any>('/api/v1/employees', {
       employeeCode: newEmp.employeeCode || `EMP-00${this.employees().length + 1}`,
       firstName: newEmp.firstName,
       lastName: newEmp.lastName,
@@ -298,10 +309,10 @@ export class HrmsService {
       gapReason: newEmp.hasGap ? newEmp.gapReason : '',
       referenceDetails: newEmp.referenceDetails
     }).pipe(
-      catchError(() => of(null))
-    ).subscribe(() => {
-      this.loadEmployees();
-    });
+      tap(() => {
+        this.loadEmployees();
+      })
+    );
   }
 
   updateEmployee(updated: Employee) {
@@ -318,12 +329,12 @@ export class HrmsService {
     });
   }
 
-  deleteEmployee(id: string) {
-    this.http.delete(`/api/v1/employees/${id}`).pipe(
-      catchError(() => of(null))
-    ).subscribe(() => {
-      this.loadEmployees();
-    });
+  deleteEmployee(id: string): Observable<any> {
+    return this.http.delete(`/api/v1/employees/${id}`).pipe(
+      tap(() => {
+        this.loadEmployees();
+      })
+    );
   }
 
   private parseDateTime(val: any): Date | null {
@@ -506,58 +517,242 @@ export class HrmsService {
     });
   }
 
-  // Leave API
-  loadLeaves() {
-    this.http.get<any>('/api/v1/leaves').pipe(
+  // Leave API Integration
+  loadLeaveTypes() {
+    this.http.get<LeaveTypeItem[]>('/api/v1/leaves/types').pipe(
+      catchError(() => of([]))
+    ).subscribe(data => {
+      if (data && data.length > 0) {
+        this.leaveTypes.set(data);
+      }
+    });
+  }
+
+  loadLeaves(year?: number, month?: number) {
+    let params: any = {};
+    if (year) params.year = year;
+    if (month) params.month = month;
+
+    this.http.get<any>('/api/v1/leaves', { params }).pipe(
       catchError(() => of(null))
-    ).subscribe(() => {
-      this.leaveRequests.set([
-        {
-          id: 'lv-101',
-          employeeId: 'EMP-003',
-          employeeName: 'Elena Rostova',
-          employeeAvatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80',
-          department: 'Design',
-          leaveType: 'Casual Leave',
-          startDate: '2026-08-12',
-          endDate: '2026-08-14',
-          totalDays: 3,
-          reason: 'Family event in New York.',
-          status: 'Pending',
-          appliedOn: '2026-08-04'
-        },
-        {
-          id: 'lv-102',
-          employeeId: 'EMP-005',
-          employeeName: 'David Kim',
-          employeeAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
-          department: 'Marketing',
-          leaveType: 'Work From Home',
-          startDate: '2026-08-10',
-          endDate: '2026-08-11',
-          totalDays: 2,
-          reason: 'Home renovation internet setup.',
-          status: 'Pending',
-          appliedOn: '2026-08-05'
+    ).subscribe(res => {
+      if (res && res.leaves) {
+        if (res.leaveBalances) {
+          // Convert BigDecimal values to numbers for proper display
+          const mappedBalances: EmployeeLeaveBalanceDetail[] = res.leaveBalances.map((b: any) => ({
+            leaveTypeId: b.leaveTypeId,
+            leaveTypeCode: b.leaveTypeCode,
+            leaveTypeName: b.leaveTypeName,
+            totalDays: this.parseBigDecimal(b.totalDays),
+            usedDays: this.parseBigDecimal(b.usedDays),
+            pendingDays: this.parseBigDecimal(b.pendingDays),
+            balanceDays: this.parseBigDecimal(b.balanceDays),
+            carriedForwardDays: this.parseBigDecimal(b.carriedForwardDays),
+            paid: b.paid === true || b.paid === 'true'
+          }));
+          this.leaveBalances.set(mappedBalances);
+
+          // If all balances are 0, try to initialize them
+          const allZero = mappedBalances.every(b => b.balanceDays === 0 && b.totalDays === 0);
+          if (allZero) {
+            this.initializeLeaveBalances();
+          }
         }
-      ]);
+        const mapped: LeaveRequest[] = res.leaves.map((l: any, idx: number) => ({
+          id: l.id || idx + 1,
+          employeeId: l.employeeId,
+          employeeName: l.employeeName || res.employeeName || 'Employee',
+          employeeCode: l.employeeCode || res.employeeCode || '',
+          employeeAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+          department: res.department || 'Engineering',
+          leaveTypeId: l.leaveTypeId,
+          leaveType: l.leaveTypeName || 'Leave',
+          leaveTypeName: l.leaveTypeName,
+          leaveTypeCode: l.leaveTypeCode,
+          startDate: l.startDate,
+          endDate: l.endDate,
+          totalDays: l.totalDays || 1,
+          reason: l.reason || '',
+          status: l.status || 'PENDING',
+          approvedBy: l.approvedBy,
+          approvedByName: l.approvedByName,
+          approvedAt: l.approvedAt,
+          rejectionReason: l.rejectionReason,
+          appliedOn: l.createdAt ? String(l.createdAt).split('T')[0] : '',
+          createdAt: l.createdAt,
+          updatedAt: l.updatedAt
+        }));
+        this.leaveRequests.set(mapped);
+      } else {
+        this.setFallbackLeavesData();
+      }
     });
   }
 
+  initializeLeaveBalances() {
+    this.http.post<any>('/api/v1/leaves/initialize-balances', {}).pipe(
+      catchError(err => {
+        return of(null);
+      })
+    ).subscribe(res => {
+      if (res) {
+        // Reload leave data after initialization
+        this.loadLeaves();
+      }
+    });
+  }
+
+  private parseBigDecimal(value: any): number {
+    if (value === null || value === undefined) return 0;
+    if (typeof value === 'number') return value;
+    if (typeof value === 'string') {
+      const parsed = parseFloat(value);
+      return isNaN(parsed) ? 0 : parsed;
+    }
+    return 0;
+  }
+
+  loadPendingLeaveApprovals() {
+    this.http.get<any[]>('/api/v1/leaves/approvals/pending').pipe(
+      catchError(() => of([]))
+    ).subscribe(data => {
+      if (data && data.length > 0) {
+        const mapped: LeaveRequest[] = data.map((l: any, idx: number) => ({
+          id: l.id || idx + 1,
+          employeeId: l.employeeId,
+          employeeName: l.employeeName || 'Staff Member',
+          employeeCode: l.employeeCode || '',
+          employeeAvatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80',
+          department: 'Engineering',
+          leaveTypeId: l.leaveTypeId,
+          leaveType: l.leaveTypeName || 'Leave',
+          leaveTypeName: l.leaveTypeName,
+          leaveTypeCode: l.leaveTypeCode,
+          startDate: l.startDate,
+          endDate: l.endDate,
+          totalDays: l.totalDays || 1,
+          reason: l.reason || '',
+          status: l.status || 'PENDING',
+          approvedBy: l.approvedBy,
+          approvedByName: l.approvedByName,
+          approvedAt: l.approvedAt,
+          rejectionReason: l.rejectionReason,
+          appliedOn: l.createdAt ? String(l.createdAt).split('T')[0] : '',
+          createdAt: l.createdAt,
+          updatedAt: l.updatedAt
+        }));
+        this.pendingLeaveApprovals.set(mapped);
+      } else {
+        this.pendingLeaveApprovals.set([]);
+      }
+    });
+  }
+
+  applyLeave(payload: CreateLeavePayload): Observable<any> {
+    return this.http.post<any>('/api/v1/leaves', payload).pipe(
+      tap(() => {
+        this.loadLeaves();
+        this.loadPendingLeaveApprovals();
+      }),
+      catchError(err => {
+        const msg = err?.error?.message || err?.error?.error || 'Failed to submit leave request.';
+        alert(msg);
+        return of(null);
+      })
+    );
+  }
+
+  updateLeave(id: string | number, payload: UpdateLeavePayload): Observable<any> {
+    return this.http.put<any>(`/api/v1/leaves/${id}`, payload).pipe(
+      tap(() => {
+        this.loadLeaves();
+        this.loadPendingLeaveApprovals();
+      }),
+      catchError(err => {
+        const msg = err?.error?.message || err?.error?.error || 'Failed to update leave request.';
+        alert(msg);
+        return of(null);
+      })
+    );
+  }
+
+  cancelLeave(id: string | number): Observable<any> {
+    return this.http.post<any>(`/api/v1/leaves/${id}/cancel`, {}).pipe(
+      tap(() => {
+        this.loadLeaves();
+        this.loadPendingLeaveApprovals();
+      }),
+      catchError(err => {
+        const msg = err?.error?.message || err?.error?.error || 'Failed to cancel leave request.';
+        alert(msg);
+        return of(null);
+      })
+    );
+  }
+
+  approveLeave(id: string | number, approved: boolean, rejectionReason?: string): Observable<any> {
+    const payload: ApproveLeavePayload = { approved, rejectionReason };
+    return this.http.post<any>(`/api/v1/leaves/${id}/approve`, payload).pipe(
+      tap(() => {
+        this.loadLeaves();
+        this.loadPendingLeaveApprovals();
+      }),
+      catchError(err => {
+        const msg = err?.error?.message || err?.error?.error || `Failed to ${approved ? 'approve' : 'reject'} leave request.`;
+        alert(msg);
+        return of(null);
+      })
+    );
+  }
+
+  // Legacy helper methods
   submitLeaveRequest(request: any) {
-    this.http.post<any>('/api/v1/leaves/apply', request).pipe(
-      catchError(() => of(null))
-    ).subscribe(() => {
-      this.loadLeaves();
-    });
+    const leaveTypeId = request.leaveTypeId || 1;
+    this.applyLeave({
+      leaveTypeId,
+      startDate: request.startDate,
+      endDate: request.endDate || request.startDate,
+      totalDays: request.totalDays,
+      reason: request.reason
+    }).subscribe();
   }
 
-  updateLeaveStatus(id: string, status: 'Approved' | 'Rejected', managerNotes?: string) {
-    this.http.post<any>('/api/v1/leaves/approve', { id, status, managerNotes }).pipe(
-      catchError(() => of(null))
-    ).subscribe(() => {
-      this.leaveRequests.update(list => list.map(l => l.id === id ? { ...l, status, managerNotes } : l));
-    });
+  updateLeaveStatus(id: string | number, status: 'Approved' | 'Rejected', managerNotes?: string) {
+    const approved = status === 'Approved';
+    this.approveLeave(id, approved, managerNotes).subscribe();
+  }
+
+  private setFallbackLeavesData() {
+    this.leaveRequests.set([
+      {
+        id: 'lv-101',
+        employeeId: 'EMP-003',
+        employeeName: 'Elena Rostova',
+        employeeAvatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80',
+        department: 'Design',
+        leaveType: 'Casual Leave',
+        startDate: '2026-08-12',
+        endDate: '2026-08-14',
+        totalDays: 3,
+        reason: 'Family event in New York.',
+        status: 'PENDING',
+        appliedOn: '2026-08-04'
+      },
+      {
+        id: 'lv-102',
+        employeeId: 'EMP-005',
+        employeeName: 'David Kim',
+        employeeAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
+        department: 'Marketing',
+        leaveType: 'Work From Home',
+        startDate: '2026-08-10',
+        endDate: '2026-08-11',
+        totalDays: 2,
+        reason: 'Home renovation internet setup.',
+        status: 'PENDING',
+        appliedOn: '2026-08-05'
+      }
+    ]);
   }
 
   // Holidays API
