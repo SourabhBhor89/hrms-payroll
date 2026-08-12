@@ -10,7 +10,7 @@
 
 CREATE TABLE leave_types
 (
-    id BIGINT NOT NULL AUTO_INCREMENT,
+    id BIGSERIAL NOT NULL,
 
     code VARCHAR(50) NOT NULL,
     name VARCHAR(100) NOT NULL,
@@ -25,11 +25,11 @@ CREATE TABLE leave_types
     max_carry_forward_days DECIMAL(10, 2),
 --     has_monthly_limit BOOLEAN NOT NULL DEFAULT TRUE,
 
-    created_at DATETIME(6) NOT NULL,
-    created_by BIGINT NULL,
+    created_at TIMESTAMP NOT NULL,
+    created_by VARCHAR(255) NULL,
 
-    updated_at DATETIME(6) NULL,
-    updated_by BIGINT NULL,
+    updated_at TIMESTAMP NULL,
+    updated_by VARCHAR(255) NULL,
 
     PRIMARY KEY (id),
 
@@ -44,31 +44,31 @@ CREATE TABLE leave_types
 
 CREATE TABLE leaves
 (
-    id BIGINT NOT NULL AUTO_INCREMENT,
+    id BIGSERIAL NOT NULL,
 
     employee_id BIGINT NOT NULL,
     leave_type_id BIGINT NOT NULL,
 
     start_date DATE NOT NULL,
     end_date DATE NOT NULL,
-    total_days DOUBLE NOT NULL,
+    total_days DOUBLE PRECISION NOT NULL,
 
     reason VARCHAR(500),
 
     status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
 
     approved_by BIGINT NULL,
-    approved_at DATETIME(6) NULL,
+    approved_at TIMESTAMP NULL,
 
     rejection_reason VARCHAR(500),
 
     attachment_url VARCHAR(500),
 
-    created_at DATETIME(6) NOT NULL,
-    created_by BIGINT NULL,
+    created_at TIMESTAMP NOT NULL,
+    created_by VARCHAR(255) NULL,
 
-    updated_at DATETIME(6) NULL,
-    updated_by BIGINT NULL,
+    updated_at TIMESTAMP NULL,
+    updated_by VARCHAR(255) NULL,
 
     PRIMARY KEY (id),
 
@@ -101,7 +101,7 @@ CREATE TABLE leaves
 
 CREATE TABLE leave_balances
 (
-    id BIGINT NOT NULL AUTO_INCREMENT,
+    id BIGSERIAL NOT NULL,
 
     employee_id BIGINT NOT NULL,
     leave_type_id BIGINT NOT NULL,
@@ -115,11 +115,11 @@ CREATE TABLE leave_balances
     year INT NOT NULL,
     month INT NOT NULL,
 
-    created_at DATETIME(6) NOT NULL,
-    created_by BIGINT NULL,
+    created_at TIMESTAMP NOT NULL,
+    created_by VARCHAR(255) NULL,
 
-    updated_at DATETIME(6) NULL,
-    updated_by BIGINT NULL,
+    updated_at TIMESTAMP NULL,
+    updated_by VARCHAR(255) NULL,
 
     PRIMARY KEY (id),
 

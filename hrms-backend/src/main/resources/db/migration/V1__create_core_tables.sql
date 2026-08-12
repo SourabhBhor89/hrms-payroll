@@ -9,13 +9,13 @@
 
 CREATE TABLE roles
 (
-    id BIGINT NOT NULL AUTO_INCREMENT,
+    id BIGSERIAL NOT NULL,
     name VARCHAR(50) NOT NULL,
 
-    created_at DATETIME(6) NOT NULL,
+    created_at TIMESTAMP NOT NULL,
     created_by BIGINT NULL,
 
-    updated_at DATETIME(6) NULL,
+    updated_at TIMESTAMP NULL,
     updated_by BIGINT NULL,
 
     PRIMARY KEY (id),
@@ -31,7 +31,7 @@ CREATE TABLE roles
 
 CREATE TABLE users
 (
-    id BIGINT NOT NULL AUTO_INCREMENT,
+    id BIGSERIAL NOT NULL,
 
     email VARCHAR(255) NOT NULL,
     password VARCHAR(255) NOT NULL,
@@ -40,10 +40,10 @@ CREATE TABLE users
 
     active BOOLEAN NOT NULL DEFAULT TRUE,
 
-    created_at DATETIME(6) NOT NULL,
+    created_at TIMESTAMP NOT NULL,
     created_by BIGINT NULL,
 
-    updated_at DATETIME(6) NULL,
+    updated_at TIMESTAMP NULL,
     updated_by BIGINT NULL,
 
     PRIMARY KEY (id),
@@ -71,7 +71,7 @@ CREATE TABLE users
 
 CREATE TABLE employees
 (
-    id BIGINT NOT NULL AUTO_INCREMENT,
+    id BIGSERIAL NOT NULL,
 
     user_id BIGINT NOT NULL,
 
@@ -87,10 +87,10 @@ CREATE TABLE employees
 
     active BOOLEAN NOT NULL DEFAULT TRUE,
 
-    created_at DATETIME(6) NOT NULL,
+    created_at TIMESTAMP NOT NULL,
     created_by BIGINT NULL,
 
-    updated_at DATETIME(6) NULL,
+    updated_at TIMESTAMP NULL,
     updated_by BIGINT NULL,
 
     PRIMARY KEY (id),
@@ -120,7 +120,7 @@ CREATE TABLE employees
 
 CREATE TABLE employee_work_details
 (
-    id BIGINT NOT NULL AUTO_INCREMENT,
+    id BIGSERIAL NOT NULL,
 
     employee_id BIGINT NOT NULL,
 
@@ -135,10 +135,10 @@ CREATE TABLE employee_work_details
 
     work_location VARCHAR(150),
 
-    created_at DATETIME(6) NOT NULL,
+    created_at TIMESTAMP NOT NULL,
     created_by BIGINT NULL,
 
-    updated_at DATETIME(6) NULL,
+    updated_at TIMESTAMP NULL,
     updated_by BIGINT NULL,
 
     PRIMARY KEY (id),
@@ -201,5 +201,5 @@ CREATE INDEX idx_work_details_designation
 INSERT INTO roles
     (name, created_at, updated_at, created_by, updated_by)
 VALUES
-    ('ADMIN', NOW(6), NOW(6), NULL, NULL),
-    ('EMPLOYEE', NOW(6), NOW(6), NULL, NULL);
+    ('ADMIN', NOW(), NOW(), NULL, NULL),
+    ('EMPLOYEE', NOW(), NOW(), NULL, NULL);
