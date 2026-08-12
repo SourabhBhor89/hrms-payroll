@@ -2,13 +2,11 @@ spring:
   application:
     name: hrms-backend
 
- 
-  spring:
-    datasource:
-      url: jdbc:postgresql://aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres
-      username: postgres.xpjtliwteybzoczamafk
-      password: ${DB_PASSWORD}
-      driver-class-name: org.postgresql.Driver
+  datasource:
+    url: jdbc:postgresql://aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres
+    username: postgres.xpjtliwteybzoczamafk
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
     # driver-class-name: com.mysql.cj.jdbc.Driver
 
   flyway:
