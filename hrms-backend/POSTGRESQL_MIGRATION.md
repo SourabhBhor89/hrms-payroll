@@ -68,8 +68,10 @@ mvn spring-boot:run
 | V7__alter_created_by_updated_by_type.sql | ✅ Updated | DROP CONSTRAINT, ALTER COLUMN TYPE |
 | V8__add_marital_and_address_fields.sql | ⏭️ Unchanged | ADD COLUMN only |
 | V9__attendance_regularization_schema.sql | ✅ Updated | 2 BIGSERIAL, 12 TIMESTAMP, 2 DOUBLE PRECISION, ON CONFLICT |
+| V10__create_leave_management_tables.sql | ✅ Updated | 3 BIGSERIAL, 10 TIMESTAMP, 1 DOUBLE PRECISION, VARCHAR(255) for audit fields |
+| V11__add_leave_types_data_and_permissions.sql | ✅ Updated | NOW(6)→NOW(), ON DUPLICATE KEY→ON CONFLICT, added permission insert |
 
-**Summary:** 5 files updated, 2 unchanged | 150+ lines modified
+**Summary:** 7 files updated, 2 unchanged | 200+ lines modified
 
 ---
 
@@ -177,6 +179,16 @@ ON CONFLICT (name) DO UPDATE SET description = EXCLUDED.description;
 - **Tables:** attendances, attendance_regularizations
 - **Changes:** 2 BIGSERIAL | 12 DATETIME→TIMESTAMP | 2 DOUBLE→DOUBLE PRECISION | 3 ON CONFLICT statements
 - **Lines affected:** 50+
+
+### V10__create_leave_management_tables.sql
+- **Tables:** leave_types, leaves, leave_balances
+- **Changes:** 3 BIGSERIAL | 10 DATETIME→TIMESTAMP | 1 DOUBLE→DOUBLE PRECISION | VARCHAR(255) for audit fields
+- **Lines affected:** 40+
+
+### V11__add_leave_types_data_and_permissions.sql
+- **Tables:** leave_types (data), permissions, role_permissions
+- **Changes:** NOW(6)→NOW() | ON DUPLICATE KEY→ON CONFLICT
+- **Lines affected:** 4+
 
 ---
 
@@ -340,17 +352,17 @@ password: password
 
 | Metric | Count |
 |--------|-------|
-| Total files processed | 7 |
-| Files modified | 5 |
+| Total files processed | 9 |
+| Files modified | 7 |
 | Files unchanged | 2 |
-| BIGSERIAL conversions | 6 |
-| DATETIME→TIMESTAMP | 23 |
-| NOW(6)→NOW() | 18 |
-| DOUBLE→DOUBLE PRECISION | 2 |
-| ON DUPLICATE KEY→ON CONFLICT | 5 |
+| BIGSERIAL conversions | 9 |
+| DATETIME→TIMESTAMP | 33 |
+| NOW(6)→NOW() | 22 |
+| DOUBLE→DOUBLE PRECISION | 3 |
+| ON DUPLICATE KEY→ON CONFLICT | 8 |
 | ALTER COLUMN conversions | 12 |
-| Total lines affected | 150+ |
-| Estimated conversion time | 15-20 minutes |
+| Total lines affected | 200+ |
+| Estimated conversion time | 20-25 minutes |
 
 ---
 
