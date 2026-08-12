@@ -739,7 +739,7 @@
 						"method": "POST",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/v1/admin/cron/monthly-leave-balance",
+							"raw": "{{base_url}}/api/v1/leaves/cron/monthly-leave-balance",
 							"host": [
 								"{{base_url}}"
 							],
@@ -752,121 +752,6 @@
 							]
 						},
 						"description": "Manually trigger monthly leave balance update. Includes year-end reset if run in January. Requires LEAVE_SETUP_VIEW permission."
-					},
-					"response": []
-				},
-				{
-					"name": "Trigger Year-End Leave Reset (Admin)",
-					"request": {
-						"method": "POST",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/api/v1/admin/cron/year-end-leave-reset",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"api",
-								"v1",
-								"admin",
-								"cron",
-								"year-end-leave-reset"
-							]
-						},
-						"description": "Manually trigger year-end leave reset. Requires LEAVE_SETUP_VIEW permission."
-					},
-					"response": []
-				},
-				{
-					"name": "Initialize Leave Balances for New Employees (Admin)",
-					"request": {
-						"method": "POST",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/api/v1/admin/cron/initialize-leave-balances",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"api",
-								"v1",
-								"admin",
-								"cron",
-								"initialize-leave-balances"
-							]
-						},
-						"description": "Manually trigger initialization of leave balances for new employees. Requires LEAVE_SETUP_VIEW permission."
-					},
-					"response": []
-				}
-			]
-		},
-		{
-			"name": "Admin Cron Jobs (Leave Management)",
-			"item": [
-				{
-					"name": "Trigger Monthly Leave Balance Update",
-					"request": {
-						"method": "POST",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/api/v1/admin/cron/monthly-leave-balance",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"api",
-								"v1",
-								"admin",
-								"cron",
-								"monthly-leave-balance"
-							]
-						},
-						"description": "Manually trigger monthly leave balance update. Includes year-end reset if run in January. Requires LEAVE_SETUP_VIEW permission."
-					},
-					"response": []
-				},
-				{
-					"name": "Trigger Year-End Leave Reset",
-					"request": {
-						"method": "POST",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/api/v1/admin/cron/year-end-leave-reset",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"api",
-								"v1",
-								"admin",
-								"cron",
-								"year-end-leave-reset"
-							]
-						},
-						"description": "Manually trigger year-end leave reset. Requires LEAVE_SETUP_VIEW permission."
-					},
-					"response": []
-				},
-				{
-					"name": "Initialize Leave Balances for New Employees",
-					"request": {
-						"method": "POST",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/api/v1/admin/cron/initialize-leave-balances",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"api",
-								"v1",
-								"admin",
-								"cron",
-								"initialize-leave-balances"
-							]
-						},
-						"description": "Manually trigger initialization of leave balances for new employees. Requires LEAVE_SETUP_VIEW permission."
 					},
 					"response": []
 				}
