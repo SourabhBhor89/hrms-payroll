@@ -111,6 +111,15 @@ public class LeaveController {
         return ResponseEntity.ok(leaveTypes);
     }
 
+    // Get available leave types for current employee (based on tenure)
+    @GetMapping("/types/available")
+    @PreAuthorize("hasAuthority('LEAVE_APPLY')")
+    public ResponseEntity<List<LeaveTypeResponse>> getAvailableLeaveTypesForEmployee(Authentication authentication) {
+        Long employeeId = getEmployeeIdFromAuthentication(authentication);
+        List<LeaveTypeResponse> leaveTypes = leaveService.getAvailableLeaveTypesForEmployee(employeeId);
+        return ResponseEntity.ok(leaveTypes);
+    }
+
     @PostMapping("/cron/monthly-leave-balance")
     @PreAuthorize("hasAuthority('LEAVE_SETUP_VIEW')")
     public ResponseEntity<Map<String, String>> triggerMonthlyLeaveBalanceUpdate() {

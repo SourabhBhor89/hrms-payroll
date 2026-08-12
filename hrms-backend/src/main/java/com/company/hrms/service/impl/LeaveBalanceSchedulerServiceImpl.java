@@ -130,31 +130,36 @@ public class LeaveBalanceSchedulerServiceImpl implements LeaveBalanceSchedulerSe
             currentBalance = createMonthlyBalance(employee, leaveType, currentYear, currentMonth);
         }
 
-        // Process carry-forward from previous month
-        if (previousBalance != null) {
+        // Process carry-forward from previous month (only for limited leave types)
+        if (previousBalance != null && leaveType.getDefaultDaysPerYear() > 0) {
             BigDecimal previousUnusedDays = previousBalance.getBalanceDays();
-            
+
             // Calculate carry-forward amount (respect max carry-forward limit)
-            BigDecimal maxCarryForward = leaveType.getMaxCarryForwardDays() != null ? 
+            BigDecimal maxCarryForward = leaveType.getMaxCarryForwardDays() != null ?
                     leaveType.getMaxCarryForwardDays() : BigDecimal.ZERO;
-            
+
             BigDecimal carryForwardAmount = previousUnusedDays.min(maxCarryForward);
-            
+
             // Add carry-forward to current month
             currentBalance.setCarriedForwardDays(carryForwardAmount);
             currentBalance.setTotalDays(currentBalance.getTotalDays().add(carryForwardAmount));
             currentBalance.setBalanceDays(currentBalance.getBalanceDays().add(carryForwardAmount));
-            
+
             leaveBalanceRepository.save(currentBalance);
-            
-            log.debug("Carried forward {} days for employee {} and leave type {}", 
+
+            log.debug("Carried forward {} days for employee {} and leave type {}",
                     carryForwardAmount, employee.getId(), leaveType.getCode());
         }
     }
 
-    private void processYearEndResetForEmployee(Employee employee, LeaveType leaveType, 
+    private void processYearEndResetForEmployee(Employee employee, LeaveType leaveType,
                                                int previousYear, int currentYear) {
-        
+
+        // Skip year-end reset for unlimited leave types
+        if (leaveType.getDefaultDaysPerYear() == 0) {
+            return;
+        }
+
         // Get December balance of previous year
         LeaveBalance decemberBalance = leaveBalanceRepository
                 .findByEmployeeAndLeaveTypeAndYearAndMonth(employee, leaveType, previousYear, 12)
@@ -163,15 +168,15 @@ public class LeaveBalanceSchedulerServiceImpl implements LeaveBalanceSchedulerSe
         if (decemberBalance != null) {
             // Reset carry-forward days to zero (they vanish at year end)
             BigDecimal originalCarriedForward = decemberBalance.getCarriedForwardDays();
-            
+
             if (originalCarriedForward.compareTo(BigDecimal.ZERO) > 0) {
                 decemberBalance.setCarriedForwardDays(BigDecimal.ZERO);
                 decemberBalance.setTotalDays(decemberBalance.getTotalDays().subtract(originalCarriedForward));
                 decemberBalance.setBalanceDays(decemberBalance.getBalanceDays().subtract(originalCarriedForward));
-                
+
                 leaveBalanceRepository.save(decemberBalance);
-                
-                log.debug("Reset carry-forward days for employee {} and leave type {} at year end", 
+
+                log.debug("Reset carry-forward days for employee {} and leave type {} at year end",
                         employee.getId(), leaveType.getCode());
             }
         }
@@ -186,20 +191,20 @@ public class LeaveBalanceSchedulerServiceImpl implements LeaveBalanceSchedulerSe
         }
     }
 
-    private LeaveBalance createMonthlyBalance(Employee employee, LeaveType leaveType, 
+    private LeaveBalance createMonthlyBalance(Employee employee, LeaveType leaveType,
                                              int year, int month) {
-        
+
         // Check 6-month employment rule for paid leaves
         boolean eligibleForPaidLeaves = isEmployeeEligibleForPaidLeaves(employee);
-        
+
         BigDecimal monthlyAllocation;
-        
-        if (leaveType.getPaid() && !eligibleForPaidLeaves) {
+
+        // Unlimited leave types (defaultDaysPerYear == 0) bypass 6-month check
+        if (leaveType.getDefaultDaysPerYear() == 0) {
+            monthlyAllocation = BigDecimal.ZERO; // No allocation, but we track usage
+        } else if (leaveType.getPaid() && !eligibleForPaidLeaves) {
             // Employee not eligible for paid leaves yet
             monthlyAllocation = BigDecimal.ZERO;
-        } else if (leaveType.getDefaultDaysPerYear() == 0) {
-            // Unlimited leave types (WFH, unpaid, etc.) - track usage but no limit
-            monthlyAllocation = BigDecimal.ZERO; // No allocation, but we track usage
         } else {
             // Calculate monthly allocation (yearly / 12)
             monthlyAllocation = BigDecimal.valueOf(leaveType.getDefaultDaysPerYear())

@@ -18,19 +18,30 @@
       <div class="b-header">
         <span>{{ b.leaveTypeName }}</span>
         <span class="b-icon" [ngSwitch]="b.leaveTypeCode">
-          <span *ngSwitchCase="'CASUAL'">🏖️</span>
-          <span *ngSwitchCase="'SICK'">🤒</span>
           <span *ngSwitchCase="'EARNED'">💼</span>
           <span *ngSwitchCase="'WFH'">🏠</span>
           <span *ngSwitchCase="'UNPAID'">📅</span>
           <span *ngSwitchDefault>📅</span>
         </span>
       </div>
-      <span class="b-count">{{ (b.balanceDays || 0) | number }} / {{ (b.totalDays || 0) | number }}</span>
-      <div class="progress-bar">
-        <div class="progress" [style.width.%]="((+b.balanceDays || 0) / (+b.totalDays || 1)) * 100"></div>
-      </div>
-      <span class="b-sub">{{ (b.usedDays || 0) | number }} days used &bull; {{ (b.pendingDays || 0) | number }} pending</span>
+
+      <!-- Unlimited leave types (WFH) - show used/balance only -->
+      <ng-container *ngIf="isUnlimitedLeaveType(b.leaveTypeCode)">
+        <span class="b-count">&nbsp;</span>
+        <div class="progress-bar">
+          <div class="progress" [style.width.%]="100"></div>
+        </div>
+        <span class="b-sub">{{ (b.usedDays || 0) | number }} days used &bull; {{ (b.balanceDays || 0) | number }} pending</span>
+      </ng-container>
+
+      <!-- Limited leave types - show balance -->
+      <ng-container *ngIf="!isUnlimitedLeaveType(b.leaveTypeCode)">
+        <span class="b-count">{{ (b.balanceDays || 0) | number }} / {{ (b.totalDays || 0) | number }}</span>
+        <div class="progress-bar">
+          <div class="progress" [style.width.%]="((+b.balanceDays || 0) / (+b.totalDays || 1)) * 100"></div>
+        </div>
+        <span class="b-sub">{{ (b.usedDays || 0) | number }} days used &bull; {{ (b.balanceDays || 0) | number }} pending</span>
+      </ng-container>
     </div>
   </div>
 

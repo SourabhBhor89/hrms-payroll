@@ -27,4 +27,6 @@ public interface LeaveService {
 
     // Leave Type operations (Read-only)
     List<LeaveTypeResponse> getAllLeaveTypes();
+
+    List<LeaveTypeResponse> getAvailableLeaveTypesForEmployee(Long employeeId);
 }

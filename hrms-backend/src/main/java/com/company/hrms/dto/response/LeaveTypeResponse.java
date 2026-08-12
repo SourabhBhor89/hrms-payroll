@@ -22,5 +22,6 @@ public class LeaveTypeResponse {
     private Boolean requiresApproval;
     private Boolean active;
     private BigDecimal maxCarryForwardDays;
+    private Boolean eligible; // Added for eligibility check based on tenure
 //    private Boolean hasMonthlyLimit;
 }
