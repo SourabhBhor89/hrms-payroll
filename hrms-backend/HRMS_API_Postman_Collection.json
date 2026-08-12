@@ -523,13 +523,75 @@
 			]
 		},
 		{
-			"name": "5. Leave Module (Permission Controlled)",
+			"name": "5. Leave Management",
 			"item": [
 				{
-					"name": "Get Leave Records",
+					"name": "Get Employee Leave Data",
 					"request": {
 						"method": "GET",
 						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/leaves?year=2026&month=8",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"leaves"
+							],
+							"query": [
+								{
+									"key": "year",
+									"value": "2026",
+									"description": "Year for balance calculation (optional, defaults to current year)"
+								},
+								{
+									"key": "month",
+									"value": "8",
+									"description": "Month for balance calculation (optional, defaults to current month)"
+								}
+							]
+						},
+						"description": "Get employee's leave balances and leave requests. Requires LEAVE_VIEW permission."
+					},
+					"response": []
+				},
+				{
+					"name": "Get All Leave Types",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/leaves/types",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"leaves",
+								"types"
+							]
+						},
+						"description": "Get all available leave types. Requires LEAVE_SETUP_VIEW permission."
+					},
+					"response": []
+				},
+				{
+					"name": "Apply for Leave",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"leaveTypeId\": 1,\n  \"startDate\": \"2026-08-15\",\n  \"endDate\": \"2026-08-16\",\n  \"reason\": \"Personal work\"\n}"
+						},
 						"url": {
 							"raw": "{{base_url}}/api/v1/leaves",
 							"host": [
@@ -541,17 +603,26 @@
 								"leaves"
 							]
 						},
-						"description": "Requires permission: LEAVE_VIEW"
+						"description": "Apply for leave. totalDays is calculated automatically from start/end dates. Requires LEAVE_APPLY permission."
 					},
 					"response": []
 				},
 				{
-					"name": "Apply for Leave",
+					"name": "Update Pending Leave",
 					"request": {
-						"method": "POST",
-						"header": [],
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"leaveTypeId\": 1,\n  \"startDate\": \"2026-08-20\",\n  \"endDate\": \"2026-08-21\",\n  \"reason\": \"Updated reason\"\n}"
+						},
 						"url": {
-							"raw": "{{base_url}}/api/v1/leaves/apply",
+							"raw": "{{base_url}}/api/v1/leaves/:id",
 							"host": [
 								"{{base_url}}"
 							],
@@ -559,20 +630,27 @@
 								"api",
 								"v1",
 								"leaves",
-								"apply"
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "Leave ID to update"
+								}
 							]
 						},
-						"description": "Requires permission: LEAVE_APPLY"
+						"description": "Update a pending leave request. Requires LEAVE_APPLY permission."
 					},
 					"response": []
 				},
 				{
-					"name": "Approve Leave Request",
+					"name": "Cancel Leave",
 					"request": {
 						"method": "POST",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/v1/leaves/approve",
+							"raw": "{{base_url}}/api/v1/leaves/:id/cancel",
 							"host": [
 								"{{base_url}}"
 							],
@@ -580,20 +658,66 @@
 								"api",
 								"v1",
 								"leaves",
+								":id",
+								"cancel"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "Leave ID to cancel"
+								}
+							]
+						},
+						"description": "Cancel a leave request. Requires LEAVE_APPLY permission."
+					},
+					"response": []
+				},
+				{
+					"name": "Approve Leave",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"approved\": true,\n  \"rejectionReason\": \"\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/leaves/:id/approve",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"leaves",
+								":id",
 								"approve"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "Leave ID to approve/reject"
+								}
 							]
 						},
-						"description": "Requires permission: LEAVE_APPROVE"
+						"description": "Approve or reject a leave request. Requires LEAVE_APPROVE permission."
 					},
 					"response": []
 				},
 				{
-					"name": "Get Leave Setup Configuration",
+					"name": "Get Pending Approvals",
 					"request": {
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/v1/leaves/setup",
+							"raw": "{{base_url}}/api/v1/leaves/approvals/pending",
 							"host": [
 								"{{base_url}}"
 							],
@@ -601,17 +725,155 @@
 								"api",
 								"v1",
 								"leaves",
-								"setup"
+								"approvals",
+								"pending"
 							]
 						},
-						"description": "Requires permission: LEAVE_SETUP_VIEW"
+						"description": "Get all pending leave requests for approval. Requires LEAVE_APPROVE permission."
+					},
+					"response": []
+				},
+				{
+					"name": "Trigger Monthly Leave Balance Update (Admin)",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/admin/cron/monthly-leave-balance",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"admin",
+								"cron",
+								"monthly-leave-balance"
+							]
+						},
+						"description": "Manually trigger monthly leave balance update. Includes year-end reset if run in January. Requires LEAVE_SETUP_VIEW permission."
+					},
+					"response": []
+				},
+				{
+					"name": "Trigger Year-End Leave Reset (Admin)",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/admin/cron/year-end-leave-reset",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"admin",
+								"cron",
+								"year-end-leave-reset"
+							]
+						},
+						"description": "Manually trigger year-end leave reset. Requires LEAVE_SETUP_VIEW permission."
+					},
+					"response": []
+				},
+				{
+					"name": "Initialize Leave Balances for New Employees (Admin)",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/admin/cron/initialize-leave-balances",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"admin",
+								"cron",
+								"initialize-leave-balances"
+							]
+						},
+						"description": "Manually trigger initialization of leave balances for new employees. Requires LEAVE_SETUP_VIEW permission."
 					},
 					"response": []
 				}
 			]
 		},
 		{
-			"name": "6. Role & Utility Testing",
+			"name": "Admin Cron Jobs (Leave Management)",
+			"item": [
+				{
+					"name": "Trigger Monthly Leave Balance Update",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/admin/cron/monthly-leave-balance",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"admin",
+								"cron",
+								"monthly-leave-balance"
+							]
+						},
+						"description": "Manually trigger monthly leave balance update. Includes year-end reset if run in January. Requires LEAVE_SETUP_VIEW permission."
+					},
+					"response": []
+				},
+				{
+					"name": "Trigger Year-End Leave Reset",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/admin/cron/year-end-leave-reset",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"admin",
+								"cron",
+								"year-end-leave-reset"
+							]
+						},
+						"description": "Manually trigger year-end leave reset. Requires LEAVE_SETUP_VIEW permission."
+					},
+					"response": []
+				},
+				{
+					"name": "Initialize Leave Balances for New Employees",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/admin/cron/initialize-leave-balances",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"admin",
+								"cron",
+								"initialize-leave-balances"
+							]
+						},
+						"description": "Manually trigger initialization of leave balances for new employees. Requires LEAVE_SETUP_VIEW permission."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "8. Role & Utility Testing",
 			"item": [
 				{
 					"name": "Admin Endpoint Test",

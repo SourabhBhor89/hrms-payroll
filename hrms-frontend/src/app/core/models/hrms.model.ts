@@ -70,24 +70,80 @@ export interface AttendanceRecord {
   regularizationStatus?: 'Pending' | 'Approved' | 'Rejected' | 'Cancelled';
 }
 
-export type LeaveType = 'Casual Leave' | 'Sick Leave' | 'Paid Leave' | 'Work From Home';
-export type LeaveStatus = 'Pending' | 'Approved' | 'Rejected';
+export type LeaveType = string;
+export type LeaveStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED' | 'Pending' | 'Approved' | 'Rejected' | 'Cancelled';
+
+export interface LeaveTypeItem {
+  id: number;
+  code: string;
+  name: string;
+  description?: string;
+  defaultDaysPerYear?: number;
+  isPaid?: boolean;
+  carryForwardAllowed?: boolean;
+  maxCarryForwardDays?: number;
+}
+
+export interface EmployeeLeaveBalanceDetail {
+  leaveTypeId: number;
+  leaveTypeCode: string;
+  leaveTypeName: string;
+  totalDays: number | string;  // Handle BigDecimal serialization
+  usedDays: number | string;
+  pendingDays: number | string;
+  balanceDays: number | string;
+  carriedForwardDays: number | string;
+  paid: boolean | Boolean;  // Handle Java Boolean vs boolean
+}
 
 export interface LeaveRequest {
-  id: string;
-  employeeId: string;
-  employeeName: string;
-  employeeAvatar: string;
-  department: string;
-  leaveType: LeaveType;
+  id: string | number;
+  employeeId?: string | number;
+  employeeName?: string;
+  employeeCode?: string;
+  employeeAvatar?: string;
+  department?: string;
+  leaveTypeId?: number;
+  leaveType?: string;
+  leaveTypeName?: string;
+  leaveTypeCode?: string;
   startDate: string;
   endDate: string;
   totalDays: number;
   reason: string;
   status: LeaveStatus;
-  appliedOn: string;
+  appliedOn?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  approvedBy?: string | number;
+  approvedByName?: string;
+  approvedAt?: string;
+  rejectionReason?: string;
   managerNotes?: string;
 }
+
+export interface CreateLeavePayload {
+  leaveTypeId: number;
+  startDate: string;
+  endDate: string;
+  totalDays?: number;
+  reason?: string;
+}
+
+export interface UpdateLeavePayload {
+  leaveTypeId?: number;
+  startDate?: string;
+  endDate?: string;
+  totalDays?: number;
+  reason?: string;
+  attachmentUrl?: string;
+}
+
+export interface ApproveLeavePayload {
+  approved: boolean;
+  rejectionReason?: string;
+}
+
 
 export type HolidayType = 'Mandatory' | 'Optional' | 'Regional';
 
