@@ -41,10 +41,16 @@ springdoc:
   swagger-ui:
     path: /swagger-ui.html
 
-app:
+security:
   jwt:
     secret: ${JWT_SECRET:bXktZGV2LWhybXMtc2VjcmV0LWtleS1tdXN0LWJlLWxvbmctZW5vdWdoLTEyMzQ1Njc4OTA=}
-    expiration: ${JWT_EXPIRATION:3600000}
+    access-token-expiration: ${ACCESS_TOKEN_EXPIRATION:15m}
+    refresh-token-idle-timeout: ${REFRESH_TOKEN_IDLE_TIMEOUT:30m}
+    activity-update-interval: ${ACTIVITY_UPDATE_INTERVAL:5m}
+    cookie-secure: ${COOKIE_SECURE:false}
+    cookie-same-site: ${COOKIE_SAME_SITE:Lax}
+
+app:
 
   admin:
     email: ${ADMIN_EMAIL:admin@hrms.local}

@@ -54,10 +54,12 @@ export class TopbarComponent {
   }
 
   onLogout() {
-    this.auth.logout();
-    this.router.navigate(['/auth/login']);
+    this.auth.logout().subscribe({
+      next: () => this.router.navigate(['/auth/login']),
+      error: () => this.router.navigate(['/auth/login'])
     localStorage.removeItem('user');
     sessionStorage.removeItem('user');
+    });
   }
 
   openProfileModal() {

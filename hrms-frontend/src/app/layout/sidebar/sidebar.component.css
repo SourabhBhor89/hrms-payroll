@@ -206,6 +206,11 @@
 }
 .desktop-arrow-icon {
   display: block;
+  transition: transform var(--transition-normal);
+}
+
+.desktop-arrow-icon.pointing-right {
+  transform: rotate(180deg);
 }
 
 @media (max-width: 768px) {

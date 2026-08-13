@@ -11,7 +11,11 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.util.ArrayList;
+import java.util.HexFormat;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
@@ -23,6 +27,7 @@ import java.util.Map;
 public class JwtService {
 
     private final JwtProperties jwtProperties;
+    private final SecureRandom secureRandom = new SecureRandom();
 
     public String generateToken(User user, Collection<String> permissions) {
 
@@ -33,9 +38,11 @@ public class JwtService {
         claims.put("permissions", permissions != null ? new ArrayList<>(permissions) : List.of());
 
         Date issuedAt = new Date();
-        Date expiration = new Date(
-                issuedAt.getTime() + jwtProperties.getExpiration()
-        );
+        long expirationMs = jwtProperties.getAccessTokenExpiration() != null
+                ? jwtProperties.getAccessTokenExpiration().toMillis()
+                : 900000L; // default 15 mins
+
+        Date expiration = new Date(issuedAt.getTime() + expirationMs);
 
         return Jwts.builder()
                 .claims(claims)
@@ -50,22 +57,29 @@ public class JwtService {
         return generateToken(user, List.of());
     }
 
-    public String generateRefreshToken(User user) {
-        Map<String, Object> claims = new HashMap<>();
-        claims.put("userId", user.getId());
-        claims.put("type", "REFRESH");
+    /**
+     * Generates a cryptographically random opaque refresh token string.
+     */
+    public String generateOpaqueRefreshToken() {
+        byte[] randomBytes = new byte[32];
+        secureRandom.nextBytes(randomBytes);
+        return HexFormat.of().formatHex(randomBytes);
+    }
 
-        Date issuedAt = new Date();
-        // 7 days expiration for refresh token
-        Date expiration = new Date(issuedAt.getTime() + (7L * 24 * 60 * 60 * 1000));
-
-        return Jwts.builder()
-                .claims(claims)
-                .subject(user.getEmail())
-                .issuedAt(issuedAt)
-                .expiration(expiration)
-                .signWith(getSigningKey())
-                .compact();
+    /**
+     * Hashes an opaque refresh token using SHA-256.
+     */
+    public String hashToken(String token) {
+        if (token == null || token.isBlank()) {
+            return "";
+        }
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(token.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(hash);
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("SHA-256 algorithm not available", e);
+        }
     }
 
     public String extractUsername(String token) {

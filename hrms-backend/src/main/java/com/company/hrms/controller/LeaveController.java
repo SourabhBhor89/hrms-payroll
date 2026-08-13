@@ -105,7 +105,7 @@ public class LeaveController {
 
     // Get available leave types
     @GetMapping("/types")
-    @PreAuthorize("hasAuthority('LEAVE_TYPE_VIEW')")
+    @PreAuthorize("hasAnyAuthority('LEAVE_VIEW', 'LEAVE_APPLY', 'LEAVE_SETUP_VIEW', 'LEAVE_TYPE_VIEW')")
     public ResponseEntity<List<LeaveTypeResponse>> getAllLeaveTypes() {
         List<LeaveTypeResponse> leaveTypes = leaveService.getAllLeaveTypes();
         return ResponseEntity.ok(leaveTypes);

@@ -304,7 +304,7 @@ public class LeaveServiceImpl implements LeaveService {
     @Transactional(readOnly = true)
     public List<LeaveTypeResponse> getAllLeaveTypes() {
         return leaveTypeRepository.findAll().stream()
-                .filter(LeaveType::getActive)
+                .filter(lt -> Boolean.TRUE.equals(lt.getActive()))
                 .map(this::mapToLeaveTypeResponse)
                 .collect(Collectors.toList());
     }

@@ -1,6 +1,6 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, tap, catchError, throwError } from 'rxjs';
+import { Observable, tap, catchError, throwError, finalize, of } from 'rxjs';
 import { User, UserRole } from '../models/hrms.model';
 import { HrmsService } from './hrms.service';
 
@@ -35,16 +35,62 @@ export class AuthService {
     return 'Employee';
   });
 
+  private lastUserActivityTimestamp: number = Date.now();
+  private heartbeatIntervalTimer: any = null;
+
   constructor() {
     // Refresh permissions state if token exists
     const token = localStorage.getItem('access_token');
     if (token) {
       this.userPermissions.set(this.extractPermissionsFromToken(token));
     }
+
+    this.initActivityTracking();
+  }
+
+  private initActivityTracking() {
+    if (typeof window === 'undefined') return;
+
+    const events = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
+    let lastUpdate = 0;
+
+    const activityHandler = () => {
+      const now = Date.now();
+      // Throttle updating activity timestamp to once every 10 seconds
+      if (now - lastUpdate > 10000) {
+        lastUpdate = now;
+        this.lastUserActivityTimestamp = now;
+      }
+    };
+
+    events.forEach(evt => {
+      window.addEventListener(evt, activityHandler, { passive: true });
+    });
+
+    // Run periodic heartbeat check every 5 minutes (300,000 ms)
+    this.heartbeatIntervalTimer = setInterval(() => {
+      this.checkAndSendHeartbeat();
+    }, 300000);
+  }
+
+  private checkAndSendHeartbeat() {
+    if (!this.isAuthenticated()) return;
+
+    const now = Date.now();
+    const fiveMinutesMs = 5 * 60 * 1000;
+
+    // Send heartbeat ONLY IF user interacted within the last 5 minutes
+    if (now - this.lastUserActivityTimestamp <= fiveMinutesMs) {
+      this.http.post(`${this.apiUrl}/heartbeat`, {}, { withCredentials: true }).subscribe({
+        error: (err) => {
+          console.warn('Heartbeat update failed:', err);
+        }
+      });
+    }
   }
 
   login(email: string, password: string): Observable<LoginResponse> {
-    return this.http.post<LoginResponse>(`${this.apiUrl}/login`, { email, password }).pipe(
+    return this.http.post<LoginResponse>(`${this.apiUrl}/login`, { email, password }, { withCredentials: true }).pipe(
       tap((res) => {
         if (res && res.accessToken) {
           localStorage.setItem('access_token', res.accessToken);
@@ -67,13 +113,42 @@ export class AuthService {
 
           this.currentUser.set(mappedUser);
           localStorage.setItem('user_info', JSON.stringify(mappedUser));
+          this.lastUserActivityTimestamp = Date.now();
         }
       }),
       catchError((err) => throwError(() => err))
     );
   }
 
-  logout() {
+  refreshToken(): Observable<LoginResponse> {
+    return this.http.post<LoginResponse>(`${this.apiUrl}/refresh`, {}, { withCredentials: true }).pipe(
+      tap((res) => {
+        if (res && res.accessToken) {
+          localStorage.setItem('access_token', res.accessToken);
+
+          const perms = this.extractPermissionsFromToken(res.accessToken);
+          this.userPermissions.set(perms);
+          localStorage.setItem('user_permissions', JSON.stringify(perms));
+          this.lastUserActivityTimestamp = Date.now();
+        }
+      }),
+      catchError((err) => {
+        this.clearLocalSession();
+        return throwError(() => err);
+      })
+    );
+  }
+
+  logout(): Observable<any> {
+    return this.http.post(`${this.apiUrl}/logout`, {}, { withCredentials: true }).pipe(
+      catchError(() => of(null)),
+      finalize(() => {
+        this.clearLocalSession();
+      })
+    );
+  }
+
+  clearLocalSession() {
     localStorage.removeItem('access_token');
     localStorage.removeItem('user_info');
     localStorage.removeItem('user_permissions');
