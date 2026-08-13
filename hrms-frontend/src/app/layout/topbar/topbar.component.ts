@@ -56,6 +56,8 @@ export class TopbarComponent {
   onLogout() {
     this.auth.logout();
     this.router.navigate(['/auth/login']);
+    localStorage.removeItem('user');
+    sessionStorage.removeItem('user');
   }
 
   openProfileModal() {

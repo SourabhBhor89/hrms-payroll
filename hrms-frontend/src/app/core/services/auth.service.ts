@@ -2,6 +2,7 @@ import { Injectable, signal, computed, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, tap, catchError, throwError } from 'rxjs';
 import { User, UserRole } from '../models/hrms.model';
+import { HrmsService } from './hrms.service';
 
 export interface LoginResponse {
   accessToken: string;
@@ -19,6 +20,7 @@ export interface LoginResponse {
 })
 export class AuthService {
   private http = inject(HttpClient);
+  private hrms = inject(HrmsService);
   private apiUrl = '/api/v1/auth';
 
   currentUser = signal<User | null>(this.loadStoredUser());
@@ -75,6 +77,7 @@ export class AuthService {
     localStorage.removeItem('access_token');
     localStorage.removeItem('user_info');
     localStorage.removeItem('user_permissions');
+    this.hrms.clearState();
     this.currentUser.set(null);
     this.userPermissions.set([]);
   }

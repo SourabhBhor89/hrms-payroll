@@ -185,6 +185,44 @@ export class HrmsService {
     this.loadRegularizations();
   }
 
+  clearState() {
+    this.employees.set([]);
+    this.attendanceRecords.set([]);
+    this.leaveRequests.set([]);
+    this.timesheets.set([]);
+    this.regularizationRequests.set([]);
+    this.dashboardSummary.set({
+      totalEmployees: 0,
+      presentToday: 0,
+      absentToday: 0,
+      pendingLeaves: 0,
+      activeProjects: 0,
+      upcomingHolidays: 0
+    });
+
+    // Reset clock state
+    this.isClockedIn.set(false);
+    this.clockInTime.set(null);
+    this.clockOutTimeSignal.set(null);
+    this.clockDurationSeconds.set(0);
+    if (this.timerInterval) {
+      clearInterval(this.timerInterval);
+      this.timerInterval = null;
+    }
+
+    this.todayAttendanceState.set({
+      clockIn: '',
+      clockOut: '',
+      isClockedIn: false,
+      isClockedOut: false
+    });
+
+    // Clear local storage
+    localStorage.removeItem('hrms_today_date');
+    localStorage.removeItem('hrms_today_clock_in');
+    localStorage.removeItem('hrms_today_clock_out');
+  }
+
   loadTodayAttendance() {
     this.http.get<any>('/api/v1/attendance/today').pipe(
       catchError(() => of(null))
