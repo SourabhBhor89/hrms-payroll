@@ -557,7 +557,8 @@ export class HrmsService {
 
   // Leave API Integration
   loadLeaveTypes() {
-    this.http.get<LeaveTypeItem[]>('/api/v1/leaves/types').pipe(
+    // Use the new endpoint that filters based on employee tenure
+    this.http.get<LeaveTypeItem[]>('/api/v1/leaves/types/available').pipe(
       catchError(() => of([]))
     ).subscribe(data => {
       if (data && data.length > 0) {

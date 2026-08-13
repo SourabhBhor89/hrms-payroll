@@ -19,6 +19,7 @@ import com.company.hrms.service.LeaveService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -45,9 +46,9 @@ public class LeaveServiceImpl implements LeaveService {
         LeaveType leaveType = leaveTypeRepository.findById(request.getLeaveTypeId())
                 .orElseThrow(() -> new IllegalArgumentException("Leave type not found with ID: " + request.getLeaveTypeId()));
 
-        // Check 6-month employment rule for paid leaves
-        if (leaveType.getPaid() && !isEmployeeEligibleForPaidLeaves(employee)) {
-            throw new IllegalArgumentException("You are not eligible for paid leaves yet. Paid leaves are available after 6 months of employment. Please use unpaid leaves instead.");
+        // Check 6-month employment rule for paid leaves (skip for unlimited leave types)
+        if (leaveType.getDefaultDaysPerYear() > 0 && leaveType.getPaid() && !isEmployeeEligibleForPaidLeaves(employee)) {
+            throw new IllegalArgumentException("You are not eligible for paid leaves yet. Paid leaves are available after 6 months of employment. Please use LOP instead.");
         }
 
         // Validate date range
@@ -71,7 +72,7 @@ public class LeaveServiceImpl implements LeaveService {
             throw new IllegalArgumentException("Overlapping leave requests exist for the given date range");
         }
 
-        // Check leave balance (skip for unlimited leave types like WFH, unpaid)
+        // Check leave balance (skip for unlimited leave types like WFH, LOP)
         Integer currentYear = Year.now().getValue();
         Integer currentMonth = java.time.LocalDate.now().getMonthValue();
         LeaveBalance leaveBalance = leaveBalanceRepository
@@ -80,17 +81,77 @@ public class LeaveServiceImpl implements LeaveService {
 
         // Only check balance for limited leave types (defaultDaysPerYear > 0)
         if (leaveType.getDefaultDaysPerYear() > 0) {
+            // Special handling for Earned Leave: check if 2+ days are already pending
+            if (leaveType.getCode().equals("EARNED")) {
+                BigDecimal pendingDays = leaveBalance.getPendingDays();
+                if (pendingDays.compareTo(BigDecimal.valueOf(2)) >= 0) {
+                    throw new IllegalArgumentException("You already have " + pendingDays + " days of Earned Leave pending approval. Maximum 2 days can be pending at a time. Please wait for approval before applying for more.");
+                }
+            }
+
             // Calculate available balance (current balance minus pending days)
             BigDecimal availableBalance = leaveBalance.getBalanceDays().subtract(leaveBalance.getPendingDays());
-            
+
             // Ensure available balance is not negative
             if (availableBalance.compareTo(BigDecimal.ZERO) < 0) {
                 availableBalance = BigDecimal.ZERO;
             }
-            
+
+            // Special handling for Earned Leave: max 2 days per request (simplified monthly limit)
+            if (leaveType.getCode().equals("EARNED") && totalDays > 2) {
+                // For Earned Leave requests > 2 days, use earned balance for 2 days, rest is LOP
+                int earnedDays = 2;
+                int lopDays = (int) (totalDays - earnedDays);
+
+                // Check if 2 days are available in earned balance
+                if (availableBalance.compareTo(BigDecimal.valueOf(earnedDays)) < 0) {
+                    throw new IllegalArgumentException("Insufficient earned leave balance. Available: " +
+                            availableBalance + " days, Required: " + earnedDays + " days for earned leave. Maximum 2 days allowed per request.");
+                }
+
+                // Get LOP (Loss of Pay) Leave type
+                LeaveType lopLeaveType = leaveTypeRepository.findByCode("LOP")
+                        .orElseThrow(() -> new IllegalArgumentException("LOP leave type not found"));
+
+                // Create Earned Leave record for 2 days
+                Leave earnedLeave = new Leave();
+                earnedLeave.setEmployee(employee);
+                earnedLeave.setLeaveType(leaveType);
+                earnedLeave.setStartDate(request.getStartDate());
+                earnedLeave.setEndDate(request.getEndDate());
+                earnedLeave.setTotalDays((double) earnedDays);
+                earnedLeave.setReason(request.getReason());
+                earnedLeave.setStatus(Leave.LeaveStatus.PENDING);
+                earnedLeave = leaveRepository.save(earnedLeave);
+
+                // Update earned leave balance
+                leaveBalance.setPendingDays(leaveBalance.getPendingDays().add(BigDecimal.valueOf(earnedDays)));
+                leaveBalanceRepository.save(leaveBalance);
+
+                // Create LOP Leave record for remaining days
+                Leave lopLeave = new Leave();
+                lopLeave.setEmployee(employee);
+                lopLeave.setLeaveType(lopLeaveType);
+                lopLeave.setStartDate(request.getStartDate());
+                lopLeave.setEndDate(request.getEndDate());
+                lopLeave.setTotalDays((double) lopDays);
+                lopLeave.setReason(request.getReason() + " (Exceeds 2-day earned leave limit)");
+                lopLeave.setStatus(Leave.LeaveStatus.PENDING);
+                lopLeave = leaveRepository.save(lopLeave);
+
+                // Update LOP leave balance
+                LeaveBalance lopBalance = leaveBalanceRepository
+                        .findByEmployeeAndLeaveTypeAndYearAndMonth(employee, lopLeaveType, currentYear, currentMonth)
+                        .orElseGet(() -> createInitialLeaveBalance(employee, lopLeaveType, currentYear, currentMonth));
+                lopBalance.setPendingDays(lopBalance.getPendingDays().add(BigDecimal.valueOf(lopDays)));
+                leaveBalanceRepository.save(lopBalance);
+
+                return mapToLeaveResponse(earnedLeave);
+            }
+
             if (availableBalance.compareTo(BigDecimal.valueOf(totalDays)) < 0) {
-                throw new IllegalArgumentException("Insufficient leave balance. Available: " + 
-                        availableBalance + " days (Current: " + leaveBalance.getBalanceDays() + 
+                throw new IllegalArgumentException("Insufficient leave balance. Available: " +
+                        availableBalance + " days (Current: " + leaveBalance.getBalanceDays() +
                         ", Pending: " + leaveBalance.getPendingDays() + "), Requested: " + totalDays + " days");
             }
         }
@@ -107,9 +168,11 @@ public class LeaveServiceImpl implements LeaveService {
 
         leave = leaveRepository.save(leave);
 
-        // Update pending days in balance
-        leaveBalance.setPendingDays(leaveBalance.getPendingDays().add(BigDecimal.valueOf(totalDays)));
-        leaveBalanceRepository.save(leaveBalance);
+        // Update pending days in balance (only for limited leave types)
+        if (leaveType.getDefaultDaysPerYear() > 0) {
+            leaveBalance.setPendingDays(leaveBalance.getPendingDays().add(BigDecimal.valueOf(totalDays)));
+            leaveBalanceRepository.save(leaveBalance);
+        }
 
         return mapToLeaveResponse(leave);
     }
@@ -233,8 +296,8 @@ public class LeaveServiceImpl implements LeaveService {
             throw new IllegalArgumentException("Cannot cancel rejected leave");
         }
 
-        // If it was approved, restore used days before changing status
-        if (leave.getStatus() == Leave.LeaveStatus.APPROVED) {
+        // If it was approved, restore used days before changing status (only for limited leave types)
+        if (leave.getStatus() == Leave.LeaveStatus.APPROVED && leave.getLeaveType().getDefaultDaysPerYear() > 0) {
             Integer currentYear = Year.now().getValue();
             Integer currentMonth = java.time.LocalDate.now().getMonthValue();
             LeaveBalance leaveBalance = leaveBalanceRepository
@@ -243,6 +306,18 @@ public class LeaveServiceImpl implements LeaveService {
 
             leaveBalance.setUsedDays(leaveBalance.getUsedDays().subtract(BigDecimal.valueOf(leave.getTotalDays())));
             leaveBalance.setBalanceDays(leaveBalance.getBalanceDays().add(BigDecimal.valueOf(leave.getTotalDays())));
+            leaveBalanceRepository.save(leaveBalance);
+        }
+
+        // If it was pending, restore pending days (only for limited leave types)
+        if (leave.getStatus() == Leave.LeaveStatus.PENDING && leave.getLeaveType().getDefaultDaysPerYear() > 0) {
+            Integer currentYear = Year.now().getValue();
+            Integer currentMonth = java.time.LocalDate.now().getMonthValue();
+            LeaveBalance leaveBalance = leaveBalanceRepository
+                    .findByEmployeeAndLeaveTypeAndYearAndMonth(leave.getEmployee(), leave.getLeaveType(), currentYear, currentMonth)
+                    .orElseThrow(() -> new IllegalArgumentException("Leave balance not found"));
+
+            leaveBalance.setPendingDays(leaveBalance.getPendingDays().subtract(BigDecimal.valueOf(leave.getTotalDays())));
             leaveBalanceRepository.save(leaveBalance);
         }
 
@@ -274,16 +349,20 @@ public class LeaveServiceImpl implements LeaveService {
             leave.setApprovedBy(approver);
             leave.setApprovedAt(LocalDateTime.now());
 
-            // Update balance
-            leaveBalance.setPendingDays(leaveBalance.getPendingDays().subtract(BigDecimal.valueOf(leave.getTotalDays())));
-            leaveBalance.setUsedDays(leaveBalance.getUsedDays().add(BigDecimal.valueOf(leave.getTotalDays())));
-            leaveBalance.setBalanceDays(leaveBalance.getBalanceDays().subtract(BigDecimal.valueOf(leave.getTotalDays())));
+            // Update balance (only for limited leave types)
+            if (leave.getLeaveType().getDefaultDaysPerYear() > 0) {
+                leaveBalance.setPendingDays(leaveBalance.getPendingDays().subtract(BigDecimal.valueOf(leave.getTotalDays())));
+                leaveBalance.setUsedDays(leaveBalance.getUsedDays().add(BigDecimal.valueOf(leave.getTotalDays())));
+                leaveBalance.setBalanceDays(leaveBalance.getBalanceDays().subtract(BigDecimal.valueOf(leave.getTotalDays())));
+            }
         } else {
             leave.setStatus(Leave.LeaveStatus.REJECTED);
             leave.setRejectionReason(request.getRejectionReason());
 
-            // Restore pending days
-            leaveBalance.setPendingDays(leaveBalance.getPendingDays().subtract(BigDecimal.valueOf(leave.getTotalDays())));
+            // Restore pending days (only for limited leave types)
+            if (leave.getLeaveType().getDefaultDaysPerYear() > 0) {
+                leaveBalance.setPendingDays(leaveBalance.getPendingDays().subtract(BigDecimal.valueOf(leave.getTotalDays())));
+            }
         }
 
         leaveBalanceRepository.save(leaveBalance);
@@ -309,20 +388,42 @@ public class LeaveServiceImpl implements LeaveService {
                 .collect(Collectors.toList());
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<LeaveTypeResponse> getAvailableLeaveTypesForEmployee(Long employeeId) {
+        Employee employee = employeeRepository.findById(employeeId)
+                .orElseThrow(() -> new IllegalArgumentException("Employee not found with ID: " + employeeId));
+
+        boolean eligibleForPaidLeaves = isEmployeeEligibleForPaidLeaves(employee);
+
+        return leaveTypeRepository.findAll().stream()
+                .filter(LeaveType::getActive)
+                .map(leaveType -> {
+                    LeaveTypeResponse response = mapToLeaveTypeResponse(leaveType);
+                    // Mark EARNED as not eligible for employees with < 6 months tenure
+                    if (leaveType.getCode().equals("EARNED") && !eligibleForPaidLeaves) {
+                        response.setEligible(false);
+                    }
+                    return response;
+                })
+                .collect(Collectors.toList());
+    }
+
 
 
     private LeaveBalance createInitialLeaveBalance(Employee employee, LeaveType leaveType, Integer year, Integer month) {
         // Check 6-month employment rule for paid leaves
         boolean eligibleForPaidLeaves = isEmployeeEligibleForPaidLeaves(employee);
-        
+
         BigDecimal monthlyAllocation;
-        
-        if (leaveType.getPaid() && !eligibleForPaidLeaves) {
+
+        // Unlimited leave types (defaultDaysPerYear == 0) bypass 6-month check
+        if (leaveType.getDefaultDaysPerYear() == 0) {
+            // Unlimited leave types (WFH, LOP, etc.) - track usage but no limit
+            monthlyAllocation = BigDecimal.ZERO; // No allocation, but we track usage
+        } else if (leaveType.getPaid() && !eligibleForPaidLeaves) {
             // Employee not eligible for paid leaves yet
             monthlyAllocation = BigDecimal.ZERO;
-        } else if (leaveType.getDefaultDaysPerYear() == 0) {
-            // Unlimited leave types (WFH, unpaid, etc.) - track usage but no limit
-            monthlyAllocation = BigDecimal.ZERO; // No allocation, but we track usage
         } else {
             // Calculate monthly allocation (yearly / 12)
             monthlyAllocation = BigDecimal.valueOf(leaveType.getDefaultDaysPerYear())

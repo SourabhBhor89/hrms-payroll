@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HrmsService } from '../../core/services/hrms.service';
 import { AuthService } from '../../core/services/auth.service';
-import { LeaveRequest, EmployeeLeaveBalanceDetail } from '../../core/models/hrms.model';
+import { LeaveRequest, EmployeeLeaveBalanceDetail, LeaveTypeItem } from '../../core/models/hrms.model';
 
 @Component({
   selector: 'app-leaves',
@@ -51,7 +51,10 @@ export class LeavesComponent implements OnInit {
 
   get activeLeaveTypes() {
     const types = this.hrms.leaveTypes();
-    if (types && types.length > 0) return types;
+    if (types && types.length > 0) {
+      // Filter out ineligible leave types
+      return types.filter(type => this.isLeaveTypeEligible(type));
+    }
 
     const balances = this.hrms.leaveBalances();
     if (balances && balances.length > 0) {
@@ -65,7 +68,15 @@ export class LeavesComponent implements OnInit {
   }
 
   get displayedBalances(): EmployeeLeaveBalanceDetail[] {
-    return this.hrms.leaveBalances();
+    // Filter out deactivated leave types (CASUAL, SICK) and ineligible leave types
+    const eligibleLeaveTypeCodes = this.activeLeaveTypes.map(t => t.code);
+    return this.hrms.leaveBalances().filter(b =>
+      eligibleLeaveTypeCodes.includes(b.leaveTypeCode)
+    );
+  }
+
+  isWFHLeaveType(leaveTypeCode: string): boolean {
+    return leaveTypeCode === 'WFH';
   }
 
   filteredRequests(): LeaveRequest[] {
@@ -95,6 +106,11 @@ export class LeavesComponent implements OnInit {
     this.editingId = null;
     this.isEditMode.set(false);
     this.showModal.set(true);
+  }
+
+  isLeaveTypeEligible(leaveType: LeaveTypeItem): boolean {
+    // If eligible is explicitly false, mark as not eligible
+    return leaveType.eligible !== false;
   }
 
   openEditModal(req: LeaveRequest) {

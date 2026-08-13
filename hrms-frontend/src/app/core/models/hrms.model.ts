@@ -83,6 +83,7 @@ export interface LeaveTypeItem {
   isPaid?: boolean;
   carryForwardAllowed?: boolean;
   maxCarryForwardDays?: number;
+  eligible?: boolean; // Added for eligibility check based on tenure
 }
 
 export interface EmployeeLeaveBalanceDetail {

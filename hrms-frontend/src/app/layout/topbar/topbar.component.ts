@@ -55,10 +55,16 @@ export class TopbarComponent {
 
   onLogout() {
     this.auth.logout().subscribe({
-      next: () => this.router.navigate(['/auth/login']),
-      error: () => this.router.navigate(['/auth/login'])
-    localStorage.removeItem('user');
-    sessionStorage.removeItem('user');
+      next: () => {
+        localStorage.removeItem('user');
+        sessionStorage.removeItem('user');
+        this.router.navigate(['/auth/login']);
+      },
+      error: () => {
+        localStorage.removeItem('user');
+        sessionStorage.removeItem('user');
+        this.router.navigate(['/auth/login']);
+      }
     });
   }
 
