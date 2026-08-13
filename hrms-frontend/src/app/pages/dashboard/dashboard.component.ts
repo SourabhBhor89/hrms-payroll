@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
@@ -11,9 +11,13 @@ import { HrmsService } from '../../core/services/hrms.service';
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.css'
 })
-export class DashboardComponent {
+export class DashboardComponent implements OnInit {
   auth = inject(AuthService);
   hrms = inject(HrmsService);
+
+  ngOnInit() {
+    this.hrms.refreshAllData();
+  }
 
   // Today's check-in / check-out state
   isCheckedIn = signal<boolean>(false);

@@ -11,6 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -67,6 +68,7 @@ public class AttendanceRegularizationController {
 
     @GetMapping
     @PreAuthorize("isAuthenticated()")
+    @Transactional(readOnly = true)
     public ResponseEntity<List<AttendanceRegularizationDto>> getAllRegularizations(
             Authentication authentication,
             @RequestParam(required = false) String status,
@@ -75,7 +77,13 @@ public class AttendanceRegularizationController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
         boolean canViewAll = authentication != null && authentication.getAuthorities().stream()
-                .anyMatch(a -> a.getAuthority().equals("ATTENDANCE_REGULARIZATION_VIEW_ALL"));
+                .anyMatch(a -> a.getAuthority().equals("ATTENDANCE_REGULARIZATION_VIEW_ALL") ||
+                               a.getAuthority().equals("ATTENDANCE_REGULARIZATION_APPROVE") ||
+                               a.getAuthority().equals("ATTENDANCE_UPDATE") ||
+                               a.getAuthority().equals("ROLE_ADMIN") ||
+                               a.getAuthority().equals("ADMIN") ||
+                               a.getAuthority().equals("ROLE_HR") ||
+                               a.getAuthority().equals("HR"));
         if (!canViewAll && authentication != null) {
             return ResponseEntity.ok(regularizationService.getMyRegularizations(authentication.getName()));
         }

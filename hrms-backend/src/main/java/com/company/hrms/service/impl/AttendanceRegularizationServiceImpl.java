@@ -38,8 +38,9 @@ public class AttendanceRegularizationServiceImpl implements AttendanceRegulariza
     @Override
     @Transactional
     public AttendanceRegularizationDto createRegularization(String userEmail, CreateRegularizationRequest request) {
-        User user = userRepository.findByEmailAndActiveTrue(userEmail)
-                .orElseThrow(() -> new IllegalArgumentException("User not found: " + userEmail));
+        User user = userRepository.findByEmail(userEmail)
+                .orElseGet(() -> userRepository.findByEmailAndActiveTrue(userEmail)
+                        .orElseThrow(() -> new IllegalArgumentException("User not found: " + userEmail)));
 
         Employee employee = getOrCreateEmployee(user);
 
@@ -117,8 +118,9 @@ public class AttendanceRegularizationServiceImpl implements AttendanceRegulariza
     @Override
     @Transactional(readOnly = true)
     public List<AttendanceRegularizationDto> getMyRegularizations(String userEmail) {
-        User user = userRepository.findByEmailAndActiveTrue(userEmail)
-                .orElseThrow(() -> new IllegalArgumentException("User not found: " + userEmail));
+        User user = userRepository.findByEmail(userEmail)
+                .orElseGet(() -> userRepository.findByEmailAndActiveTrue(userEmail)
+                        .orElseThrow(() -> new IllegalArgumentException("User not found: " + userEmail)));
 
         Employee employee = getOrCreateEmployee(user);
 

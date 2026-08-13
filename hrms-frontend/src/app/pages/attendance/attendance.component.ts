@@ -1,4 +1,4 @@
-import { Component, inject, signal, computed } from '@angular/core';
+import { Component, inject, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HrmsService } from '../../core/services/hrms.service';
@@ -28,9 +28,14 @@ export interface CalendarDayCell {
   templateUrl: './attendance.component.html',
   styleUrl: './attendance.component.css'
 })
-export class AttendanceComponent {
+export class AttendanceComponent implements OnInit {
   hrms = inject(HrmsService);
   auth = inject(AuthService);
+
+  ngOnInit() {
+    this.hrms.loadTodayAttendance();
+    this.hrms.loadAttendance();
+  }
 
   weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -115,7 +120,7 @@ export class AttendanceComponent {
       let checkOut = '--';
       let totalHours = '--';
       let isLocked = false;
-      let regStatus: RegularizationStatus | undefined = regReq?.status;
+      let regStatus: RegularizationStatus | undefined = regReq?.status || (attRecord?.regularizationStatus as any);
 
       if (attRecord) {
         status = attRecord.status;
@@ -123,6 +128,20 @@ export class AttendanceComponent {
         checkOut = attRecord.clockOut || '--';
         totalHours = attRecord.totalHours || '--';
         isLocked = attRecord.isLocked || false;
+      }
+
+      // If regularization is approved, the attendance status for this date is Present
+      if (regStatus === 'Approved') {
+        status = 'Present';
+        if (checkIn === '--' && regReq) {
+          checkIn = regReq.requestedClockIn || regReq.checkIn || '10:00 AM';
+        }
+        if (checkOut === '--' && regReq) {
+          checkOut = regReq.requestedClockOut || regReq.checkOut || '07:00 PM';
+        }
+        if (totalHours === '--') {
+          totalHours = regReq ? `${regReq.requestedWorkingHours || 9.0} hrs` : '9.0 hrs';
+        }
       }
 
       // Check regularization eligibility rules (Admin cannot self-regularize)
@@ -311,17 +330,12 @@ export class AttendanceComponent {
   }
 
   // Filters for Admin / HR Panel
-  filterStatus = signal<string>('ALL');
+  filterStatus = signal<string>('Pending');
   filterDepartment = signal<string>('All');
   searchQuery = signal<string>('');
 
   filteredRegularizations = computed(() => {
-    let list = this.hrms.regularizationRequests();
-
-    const status = this.filterStatus();
-    if (status !== 'ALL') {
-      list = list.filter(r => r.status === status);
-    }
+    let list = this.hrms.regularizationRequests().filter(r => r.status === 'Pending');
 
     const dept = this.filterDepartment();
     if (dept !== 'All') {
@@ -364,44 +378,23 @@ export class AttendanceComponent {
   });
 
   daysPresentCount = computed(() => {
-    const user = this.auth.currentUser();
-    if (!user) return 0;
-    const monthStr = String(this.currentMonth() + 1).padStart(2, '0');
-    const yearStr = String(this.currentYear());
-    const prefix = `${yearStr}-${monthStr}`;
-
-    return this.hrms.attendanceRecords().filter(r =>
-      (r.employeeId === user.id || r.employeeId === user.employeeId || r.employeeName === user.name) &&
-      r.date.startsWith(prefix) && (r.status === 'Present' || r.status === 'Half Day')
+    return this.calendarGrid().filter(cell =>
+      !cell.otherMonth && (cell.status === 'Present' || cell.status === 'Half Day' || cell.regularizationStatus === 'Approved')
     ).length;
   });
 
   wfhCount = computed(() => {
-    const user = this.auth.currentUser();
-    if (!user) return 0;
-    const monthStr = String(this.currentMonth() + 1).padStart(2, '0');
-    const yearStr = String(this.currentYear());
-    const prefix = `${yearStr}-${monthStr}`;
-
-    return this.hrms.attendanceRecords().filter(r =>
-      (r.employeeId === user.id || r.employeeId === user.employeeId || r.employeeName === user.name) &&
-      r.date.startsWith(prefix) && r.status === 'WFH'
+    return this.calendarGrid().filter(cell =>
+      !cell.otherMonth && cell.status === 'WFH'
     ).length;
   });
 
   totalHoursWorked = computed(() => {
-    const user = this.auth.currentUser();
-    if (!user) return '0.0';
-    const monthStr = String(this.currentMonth() + 1).padStart(2, '0');
-    const yearStr = String(this.currentYear());
-    const prefix = `${yearStr}-${monthStr}`;
-
     let total = 0;
-    this.hrms.attendanceRecords().forEach(r => {
-      if ((r.employeeId === user.id || r.employeeId === user.employeeId || r.employeeName === user.name) &&
-          r.date.startsWith(prefix) && r.totalHours && r.totalHours !== '--') {
-        const val = parseFloat(r.totalHours.replace(/[^\d.]/g, ''));
-        if (!isNaN(val)) {
+    this.calendarGrid().forEach(cell => {
+      if (!cell.otherMonth && cell.totalHours && cell.totalHours !== '--') {
+        const val = parseFloat(cell.totalHours.replace(/[^\d.]/g, ''));
+        if (!isNaN(val) && (cell.status === 'Present' || cell.status === 'Half Day' || cell.status === 'WFH' || cell.regularizationStatus === 'Approved')) {
           total += val;
         }
       }

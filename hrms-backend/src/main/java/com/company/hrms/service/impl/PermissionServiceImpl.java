@@ -186,8 +186,9 @@ public class PermissionServiceImpl implements PermissionService {
     }
 
     private User getUserByEmail(String email) {
-        return userRepository.findByEmailAndActiveTrue(email)
-                .orElseThrow(() -> new IllegalArgumentException("User not found: " + email));
+        return userRepository.findByEmail(email)
+                .orElseGet(() -> userRepository.findByEmailAndActiveTrue(email)
+                        .orElseThrow(() -> new IllegalArgumentException("User not found: " + email)));
     }
 
     private User getUserById(Long userId) {

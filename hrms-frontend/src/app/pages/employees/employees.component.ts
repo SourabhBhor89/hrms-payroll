@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HrmsService } from '../../core/services/hrms.service';
@@ -12,9 +12,13 @@ import { Employee, UserRole } from '../../core/models/hrms.model';
   templateUrl: './employees.component.html',
   styleUrl: './employees.component.css'
 })
-export class EmployeesComponent {
+export class EmployeesComponent implements OnInit {
   hrms = inject(HrmsService);
   auth = inject(AuthService);
+
+  ngOnInit() {
+    this.hrms.loadEmployees();
+  }
 
   viewMode = signal<'grid' | 'table'>('grid');
   searchQuery = '';

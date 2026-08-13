@@ -33,6 +33,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import org.springframework.transaction.annotation.Transactional;
+
 @Slf4j
 @RestController
 @RequestMapping("/api/v1/attendance")
@@ -47,10 +49,12 @@ public class AttendanceController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('ATTENDANCE_VIEW')")
+    @Transactional(readOnly = true)
     public ResponseEntity<?> getAttendance(
             Authentication authentication,
             @RequestParam(required = false) Integer year,
-            @RequestParam(required = false) Integer month
+            @RequestParam(required = false) Integer month,
+            @RequestParam(required = false) Long employeeId
     ) {
         try {
             String email = authentication.getName();
@@ -63,15 +67,23 @@ public class AttendanceController {
             LocalDate start = LocalDate.of(y, m, 1);
             LocalDate end = start.plusMonths(1).minusDays(1);
 
+            boolean isAdminOrHr = authentication != null && authentication.getAuthorities().stream()
+                    .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ADMIN") ||
+                            a.getAuthority().equals("ROLE_HR") || a.getAuthority().equals("HR") ||
+                            a.getAuthority().equals("ATTENDANCE_REGULARIZATION_VIEW_ALL") ||
+                            a.getAuthority().equals("ATTENDANCE_UPDATE"));
+
             List<Attendance> records;
-            if (user != null) {
+            if (employeeId != null) {
+                records = attendanceRepository.findByEmployeeIdAndDateBetween(employeeId, start, end);
+            } else if (isAdminOrHr) {
+                records = attendanceRepository.findByDateBetween(start, end);
+                if (records.isEmpty()) {
+                    records = attendanceRepository.findAll();
+                }
+            } else if (user != null) {
                 Employee emp = getOrCreateEmployee(user);
                 records = attendanceRepository.findByEmployeeIdAndDateBetween(emp.getId(), start, end);
-                if (records.isEmpty()) {
-                    records = attendanceRepository.findByDateBetween(start, end).stream()
-                            .filter(a -> a.getEmployee() != null && a.getEmployee().getUser() != null && a.getEmployee().getUser().getId().equals(user.getId()))
-                            .collect(Collectors.toList());
-                }
             } else {
                 records = attendanceRepository.findByDateBetween(start, end);
                 if (records.isEmpty()) {
@@ -114,6 +126,7 @@ public class AttendanceController {
 
     @GetMapping("/today")
     @PreAuthorize("isAuthenticated()")
+    @Transactional(readOnly = true)
     public ResponseEntity<Map<String, Object>> getTodayAttendance(Authentication authentication) {
         try {
             String email = authentication.getName();

@@ -114,6 +114,9 @@ export class AuthService {
           this.currentUser.set(mappedUser);
           localStorage.setItem('user_info', JSON.stringify(mappedUser));
           this.lastUserActivityTimestamp = Date.now();
+
+          // Refresh application data with newly authenticated session
+          this.hrms.refreshAllData();
         }
       }),
       catchError((err) => throwError(() => err))

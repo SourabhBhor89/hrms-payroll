@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HrmsService } from '../../core/services/hrms.service';
@@ -12,9 +12,13 @@ import { Timesheet, TimesheetEntry } from '../../core/models/hrms.model';
   templateUrl: './timesheets.component.html',
   styleUrl: './timesheets.component.css'
 })
-export class TimesheetsComponent {
+export class TimesheetsComponent implements OnInit {
   hrms = inject(HrmsService);
   auth = inject(AuthService);
+
+  ngOnInit() {
+    this.hrms.loadTimesheets();
+  }
 
   activeTimesheet = signal<Timesheet>(this.hrms.timesheets()[0]);
 
