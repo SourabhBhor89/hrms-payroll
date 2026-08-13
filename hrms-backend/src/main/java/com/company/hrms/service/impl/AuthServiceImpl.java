@@ -56,10 +56,9 @@ public class AuthServiceImpl implements AuthService {
         );
 
         User user = userRepository
-                .findByEmailAndActiveTrue(request.getEmail())
-                .orElseThrow(() ->
-                        new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authenticated user could not be found or is inactive")
-                );
+                .findByEmail(request.getEmail())
+                .orElseGet(() -> userRepository.findByEmailAndActiveTrue(request.getEmail())
+                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authenticated user could not be found")));
 
         Set<String> permissions = permissionService.getPermissionsForUser(user);
 

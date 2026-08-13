@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HrmsService } from '../../core/services/hrms.service';
 import { Holiday } from '../../core/models/hrms.model';
@@ -10,8 +10,12 @@ import { Holiday } from '../../core/models/hrms.model';
   templateUrl: './holidays.component.html',
   styleUrl: './holidays.component.css'
 })
-export class HolidaysComponent {
+export class HolidaysComponent implements OnInit {
   hrms = inject(HrmsService);
+
+  ngOnInit() {
+    this.hrms.loadHolidays();
+  }
 
   get nextHoliday(): Holiday | null {
     return this.hrms.holidays()[0] || null;

@@ -215,7 +215,7 @@
         <h3>Attendance Regularization Panel</h3>
         <p class="subtitle mb-0">Review, approve, or reject employee punch correction requests.</p>
       </div>
-      <span class="badge badge-warning">{{ filteredRegularizations().length }} Total Requests</span>
+      <span class="badge badge-warning">{{ filteredRegularizations().length }} Pending Requests</span>
     </div>
 
     <!-- Filters & Search Bar -->
@@ -223,17 +223,6 @@
       <div class="search-input-wrapper">
         <input type="text" class="form-input search-input" placeholder="Search employee name or code..."
           [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)" />
-      </div>
-
-      <div class="filter-group">
-        <label class="filter-label">Status:</label>
-        <select class="form-select" [ngModel]="filterStatus()" (ngModelChange)="filterStatus.set($event)">
-          <option value="ALL">All</option>
-          <option value="Pending">Pending</option>
-          <option value="Approved">Approved</option>
-          <option value="Rejected">Rejected</option>
-          <option value="Cancelled">Cancelled</option>
-        </select>
       </div>
 
       <div class="filter-group">
@@ -366,7 +355,7 @@
                 {{ req.status }}
               </span>
             </td>
-            <td><span class="remarks-text">{{ req.reviewRemarks || req.notes || '--' }}</span></td>
+            <td><span class="remarks-text">{{ (req.status === 'Approved' || req.status === 'Rejected') ? (req.reviewRemarks || '--') : '' }}</span></td>
             <td>
               <button class="btn btn-secondary btn-sm" *ngIf="req.status === 'Pending'" (click)="cancelRequest(req.id)">
                 Cancel

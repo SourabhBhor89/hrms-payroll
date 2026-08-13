@@ -248,6 +248,16 @@ export class HrmsService {
         localStorage.setItem('hrms_today_date', today);
         if (inStr) localStorage.setItem('hrms_today_clock_in', inStr);
         if (outStr) localStorage.setItem('hrms_today_clock_out', outStr);
+      } else {
+        this.todayAttendanceState.set({
+          clockIn: '',
+          clockOut: '',
+          isClockedIn: false,
+          isClockedOut: false
+        });
+        this.clockInTime.set(null);
+        this.clockOutTimeSignal.set(null);
+        this.isClockedIn.set(false);
       }
     });
   }
@@ -416,8 +426,12 @@ export class HrmsService {
   }
 
   // Attendance API
-  loadAttendance() {
-    this.http.get<any[]>('/api/v1/attendance').pipe(
+  loadAttendance(year?: number, month?: number) {
+    let params: any = {};
+    if (year) params.year = year;
+    if (month) params.month = month;
+
+    this.http.get<any[]>('/api/v1/attendance', { params }).pipe(
       catchError(() => of([]))
     ).subscribe(data => {
       if (data && data.length > 0) {
@@ -452,6 +466,8 @@ export class HrmsService {
           };
         });
         this.attendanceRecords.set(mapped);
+      } else {
+        this.attendanceRecords.set([]);
       }
     });
   }
@@ -501,11 +517,13 @@ export class HrmsService {
             rejectedAt: r.rejectedAt,
             cancelledAt: r.cancelledAt,
             reviewedBy: r.reviewedBy,
-            reviewRemarks: r.reviewRemarks,
-            notes: r.reviewRemarks || r.reason
+            reviewRemarks: r.reviewRemarks || '--',
+            notes: r.reviewRemarks || ''
           };
         });
         this.regularizationRequests.set(mapped);
+      } else {
+        this.regularizationRequests.set([]);
       }
     });
   }
