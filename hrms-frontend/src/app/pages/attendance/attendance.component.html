@@ -88,7 +88,7 @@
         </svg>
       </div>
       <span class="stat-label">Days Present</span>
-      <span class="stat-value text-emerald">20 Days</span>
+      <span class="stat-value text-emerald">{{ daysPresentCount() }} Days</span>
       <span class="stat-sub">Monthly Attendance</span>
     </div>
 
@@ -100,7 +100,7 @@
         </svg>
       </div>
       <span class="stat-label">Work From Home</span>
-      <span class="stat-value text-sky">3 Days</span>
+      <span class="stat-value text-sky">{{ wfhCount() }} Days</span>
       <span class="stat-sub">Approved WFH</span>
     </div>
 
@@ -126,7 +126,7 @@
         </svg>
       </div>
       <span class="stat-label">Total Hours Worked</span>
-      <span class="stat-value text-primary">168.5 Hrs</span>
+      <span class="stat-value text-primary">{{ totalHoursWorked() }} Hrs</span>
       <span class="stat-sub">Avg 8.4 hrs/day</span>
     </div>
   </div>

@@ -362,4 +362,50 @@ export class AttendanceComponent {
   pendingApprovals = computed(() => {
     return this.hrms.regularizationRequests().filter(r => r.status === 'Pending');
   });
+
+  daysPresentCount = computed(() => {
+    const user = this.auth.currentUser();
+    if (!user) return 0;
+    const monthStr = String(this.currentMonth() + 1).padStart(2, '0');
+    const yearStr = String(this.currentYear());
+    const prefix = `${yearStr}-${monthStr}`;
+
+    return this.hrms.attendanceRecords().filter(r =>
+      (r.employeeId === user.id || r.employeeId === user.employeeId || r.employeeName === user.name) &&
+      r.date.startsWith(prefix) && (r.status === 'Present' || r.status === 'Half Day')
+    ).length;
+  });
+
+  wfhCount = computed(() => {
+    const user = this.auth.currentUser();
+    if (!user) return 0;
+    const monthStr = String(this.currentMonth() + 1).padStart(2, '0');
+    const yearStr = String(this.currentYear());
+    const prefix = `${yearStr}-${monthStr}`;
+
+    return this.hrms.attendanceRecords().filter(r =>
+      (r.employeeId === user.id || r.employeeId === user.employeeId || r.employeeName === user.name) &&
+      r.date.startsWith(prefix) && r.status === 'WFH'
+    ).length;
+  });
+
+  totalHoursWorked = computed(() => {
+    const user = this.auth.currentUser();
+    if (!user) return '0.0';
+    const monthStr = String(this.currentMonth() + 1).padStart(2, '0');
+    const yearStr = String(this.currentYear());
+    const prefix = `${yearStr}-${monthStr}`;
+
+    let total = 0;
+    this.hrms.attendanceRecords().forEach(r => {
+      if ((r.employeeId === user.id || r.employeeId === user.employeeId || r.employeeName === user.name) &&
+          r.date.startsWith(prefix) && r.totalHours && r.totalHours !== '--') {
+        const val = parseFloat(r.totalHours.replace(/[^\d.]/g, ''));
+        if (!isNaN(val)) {
+          total += val;
+        }
+      }
+    });
+    return total.toFixed(1);
+  });
 }
