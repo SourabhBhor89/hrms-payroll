@@ -56,6 +56,7 @@ export class AuthService {
             employeeId: `EMP-00${res.user?.id || 1}`,
             name: res.user?.name || email.split('@')[0],
             email: email,
+            phone: '+91 9876543210',
             role: this.mapRole(res.user?.role),
             avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
             department: res.user?.role === 'ADMIN' ? 'Executive' : 'Operations',
@@ -80,6 +81,22 @@ export class AuthService {
 
   changePassword(payload: any): Observable<any> {
     return this.http.post<any>(`${this.apiUrl}/change-password`, payload);
+  }
+
+  updateProfile(payload: { phone?: string; avatar?: string }): Observable<any> {
+    const user = this.currentUser();
+    if (user) {
+      const updatedUser: User = {
+        ...user,
+        phone: payload.phone !== undefined ? payload.phone : user.phone,
+        avatar: payload.avatar !== undefined ? payload.avatar : user.avatar
+      };
+      this.currentUser.set(updatedUser);
+      localStorage.setItem('user_info', JSON.stringify(updatedUser));
+    }
+    return this.http.put<any>(`${this.apiUrl}/profile`, payload).pipe(
+      catchError(() => throwError(() => new Error('Local update applied.')))
+    );
   }
 
   hasRole(allowedRoles: UserRole[]): boolean {

@@ -4,6 +4,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
+  phone?: string;
   role: UserRole;
   avatar: string;
   department: string;
@@ -53,7 +54,7 @@ export interface Employee {
   };
 }
 
-export type AttendanceStatus = 'Present' | 'Absent' | 'Half Day' | 'WFH' | 'Holiday' | 'Leave';
+export type AttendanceStatus = 'Present' | 'Absent' | 'Half Day' | 'WFH' | 'Holiday' | 'Leave' | 'Week Off';
 
 export interface AttendanceRecord {
   id: string;

@@ -74,9 +74,9 @@ public class AttendanceRegularizationServiceImpl implements AttendanceRegulariza
             throw new IllegalStateException("Regularization is not allowed for " + attendance.getStatus() + " days.");
         }
 
-        // Check for existing PENDING or APPROVED requests
+        // Check for existing PENDING, APPROVED, or REJECTED requests
         List<AttendanceRegularization> existingRequests = regularizationRepository
-                .findByAttendanceIdAndStatusIn(attendance.getId(), List.of(RegularizationStatus.PENDING, RegularizationStatus.APPROVED));
+                .findByAttendanceIdAndStatusIn(attendance.getId(), List.of(RegularizationStatus.PENDING, RegularizationStatus.APPROVED, RegularizationStatus.REJECTED));
 
         for (AttendanceRegularization req : existingRequests) {
             if (req.getStatus() == RegularizationStatus.PENDING) {
@@ -84,6 +84,9 @@ public class AttendanceRegularizationServiceImpl implements AttendanceRegulariza
             }
             if (req.getStatus() == RegularizationStatus.APPROVED) {
                 throw new IllegalStateException("Attendance for " + date + " has already been regularized.");
+            }
+            if (req.getStatus() == RegularizationStatus.REJECTED) {
+                throw new IllegalStateException("A regularization request for " + date + " was rejected and cannot be resubmitted.");
             }
         }
 

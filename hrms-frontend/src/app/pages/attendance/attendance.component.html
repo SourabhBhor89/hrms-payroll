@@ -10,7 +10,7 @@
       <span class="month-label">{{ monthLabel }}</span>
       <button class="btn btn-secondary btn-sm" (click)="nextMonth()">Next ›</button>
     </div>
-    <div class="header-actions">
+    <div class="header-actions" *ngIf="auth.currentRole() !== 'Admin'">
       <button class="btn btn-primary btn-sm" (click)="openRegModal()">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="10" />
@@ -140,7 +140,7 @@
         <span class="legend-item"><span class="dot wfh"></span> WFH</span>
         <span class="legend-item"><span class="dot leave"></span> Leave</span>
         <span class="legend-item"><span class="dot holiday"></span> Holiday</span>
-        <span class="legend-item"><span class="dot weekend"></span> Weekend</span>
+        <span class="legend-item"><span class="dot weekend"></span> Week Off</span>
         <span class="legend-item"><span class="dot reg-pending"></span> Pending Reg.</span>
         <span class="legend-item"><span class="dot reg-approved"></span> Approved Reg.</span>
       </div>
@@ -179,7 +179,7 @@
         </div>
 
         <div *ngIf="cell.status && !cell.otherMonth" class="day-status-pill"
-          [class]="'pill-' + cell.status.toLowerCase()">
+          [class]="'pill-' + cell.status.toLowerCase().replace(' ', '-')">
           {{ cell.status }}
         </div>
 
@@ -322,8 +322,8 @@
     </div>
   </div>
 
-  <!-- Regularization Request History List (All Users / Employee View) -->
-  <div class="regularization-section glass-card mt-4">
+  <!-- Regularization Request History List (Non-Admin Users) -->
+  <div class="regularization-section glass-card mt-4" *ngIf="auth.currentRole() !== 'Admin'">
     <div class="section-header">
       <h3>My Regularization Requests History</h3>
     </div>

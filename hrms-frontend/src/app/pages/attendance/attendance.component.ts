@@ -110,7 +110,7 @@ export class AttendanceComponent {
       const attRecord = records.find(r => r.date === dateStr);
       const regReq = regRequests.find(r => r.date === dateStr && r.status !== 'Cancelled');
 
-      let status: AttendanceStatus = isWeekend ? 'Leave' : 'Absent';
+      let status: AttendanceStatus = isWeekend ? 'Week Off' : 'Absent';
       let checkIn = '--';
       let checkOut = '--';
       let totalHours = '--';
@@ -125,9 +125,10 @@ export class AttendanceComponent {
         isLocked = attRecord.isLocked || false;
       }
 
-      // Check regularization eligibility rules
+      // Check regularization eligibility rules (Admin cannot self-regularize)
+      const isAdminUser = this.auth.currentRole() === 'Admin';
       const isPastOrToday = dateStr <= todayStr;
-      const canReg = isPastOrToday && !isWeekend && status !== 'Leave' && status !== 'Holiday' && !isLocked && regStatus !== 'Pending' && regStatus !== 'Approved';
+      const canReg = !isAdminUser && isPastOrToday && !isWeekend && status !== 'Leave' && status !== 'Week Off' && status !== 'Holiday' && !isLocked && regStatus !== 'Pending' && regStatus !== 'Approved' && regStatus !== 'Rejected';
 
       cells.push({
         dateStr,
@@ -186,8 +187,9 @@ export class AttendanceComponent {
       case 'Present': return 'badge-success';
       case 'WFH': return 'badge-info';
       case 'Half Day': return 'badge-warning';
-      case 'Leave': return 'badge-secondary';
+      case 'Leave': return 'badge-warning';
       case 'Holiday': return 'badge-purple';
+      case 'Week Off': return 'badge-secondary';
       default: return 'badge-danger';
     }
   }
@@ -214,6 +216,14 @@ export class AttendanceComponent {
   };
 
   openRegModal(cell?: CalendarDayCell) {
+    if (this.auth.currentRole() === 'Admin') {
+      alert('Administrators do not submit self-regularization requests. Use the Regularization Panel to review and approve employee/HR requests.');
+      return;
+    }
+    if (cell?.regularizationStatus === 'Rejected') {
+      alert('A regularization request for this date was rejected and cannot be resubmitted.');
+      return;
+    }
     const dateToUse = cell?.dateStr || new Date().toISOString().split('T')[0];
     this.regForm = {
       attendanceDate: dateToUse,
@@ -227,8 +237,18 @@ export class AttendanceComponent {
   }
 
   submitRegRequest() {
+    if (this.auth.currentRole() === 'Admin') {
+      alert('Administrators do not submit self-regularization requests.');
+      return;
+    }
     if (!this.regForm.attendanceDate || !this.regForm.requestedClockInTime || !this.regForm.requestedClockOutTime || !this.regForm.reason) {
       alert('Please fill all mandatory regularization fields (Date, Clock In, Clock Out, and Reason).');
+      return;
+    }
+
+    const existingReq = this.hrms.regularizationRequests().find(r => r.date === this.regForm.attendanceDate);
+    if (existingReq?.status === 'Rejected') {
+      alert('A regularization request for this date was rejected and cannot be resubmitted.');
       return;
     }
 
@@ -322,8 +342,21 @@ export class AttendanceComponent {
 
   myRegularizations = computed(() => {
     const user = this.auth.currentUser();
+    const isEmployeeView = !this.canApproveRequests();
+    const all = this.hrms.regularizationRequests();
+
     if (!user) return [];
-    return this.hrms.regularizationRequests().filter(r => r.employeeId === user.employeeId || r.employeeName === user.name);
+
+    if (isEmployeeView) {
+      return all;
+    }
+
+    return all.filter(r =>
+      r.employeeId === user.id ||
+      r.employeeCode === user.employeeId ||
+      r.employeeId === user.employeeId ||
+      (r.employeeName && user.name && r.employeeName.toLowerCase().includes(user.name.toLowerCase()))
+    );
   });
 
   pendingApprovals = computed(() => {

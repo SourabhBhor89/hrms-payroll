@@ -68,7 +68,7 @@ export class HrmsService {
   leaveTypes = signal<LeaveTypeItem[]>([]);
   leaveBalances = signal<EmployeeLeaveBalanceDetail[]>([]);
   pendingLeaveApprovals = signal<LeaveRequest[]>([]);
-  holidays = signal<Holiday[]>(this.getFallbackHolidays());
+  holidays = signal<Holiday[]>([]);
   timesheets = signal<Timesheet[]>([]);
   regularizationRequests = signal<RegularizationRequest[]>([]);
   dashboardSummary = signal<DashboardSummary>({
@@ -395,7 +395,7 @@ export class HrmsService {
           else if (a.status === 'ABSENT') statusStr = 'Absent';
           else if (a.status === 'LEAVE') statusStr = 'Leave';
           else if (a.status === 'HOLIDAY') statusStr = 'Holiday';
-          else if (a.status === 'WEEKEND') statusStr = 'Leave';
+          else if (a.status === 'WEEKEND') statusStr = 'Week Off';
           else if (a.status === 'WFH') statusStr = 'WFH';
 
           return {
@@ -761,18 +761,40 @@ export class HrmsService {
       catchError(() => of([]))
     ).subscribe(data => {
       if (data && data.length > 0) {
-        const mapped: Holiday[] = data.map((h, i) => ({
-          id: String(h.id || i + 1),
-          title: h.name || 'Holiday',
-          date: h.date || '2026-09-01',
-          day: h.day || 'Monday',
-          type: (h.type as any) || 'Mandatory',
-          description: `Company holiday: ${h.name}`,
-          isUpcoming: true
-        }));
+        const todayStr = new Date().toISOString().split('T')[0];
+        const mapped: Holiday[] = data
+          .map((h, i) => {
+            const rawName = h.title || h.name || h.summary || 'Holiday';
+            const rawDate = h.date || h.start?.date || (h.start?.dateTime ? h.start.dateTime.split('T')[0] : '2026-09-01');
+
+            let dayName = h.day;
+            if (!dayName && rawDate) {
+              try {
+                const d = new Date(rawDate + 'T00:00:00');
+                dayName = d.toLocaleDateString('en-US', { weekday: 'long' });
+              } catch (e) {
+                dayName = 'Monday';
+              }
+            }
+
+            const isUpcoming = h.upcoming !== undefined ? h.upcoming : (rawDate >= todayStr);
+
+            return {
+              id: String(h.id || i + 1),
+              title: rawName,
+              date: rawDate,
+              day: dayName || 'Monday',
+              type: (h.type as any) || (h.description?.toLowerCase().includes('observance') ? 'Optional' : 'Mandatory'),
+              description: h.description || `Company holiday: ${rawName}`,
+              isUpcoming: isUpcoming
+            };
+          })
+          .filter(h => h.date >= todayStr)
+          .sort((a, b) => a.date.localeCompare(b.date));
+
         this.holidays.set(mapped);
       } else {
-        this.holidays.set(this.getFallbackHolidays());
+        this.holidays.set([]);
       }
     });
   }
@@ -912,53 +934,5 @@ export class HrmsService {
     ];
   }
 
-  getFallbackHolidays(): Holiday[] {
-    return [
-      {
-        id: '1',
-        title: 'Independence Day / National Holiday',
-        date: '2026-08-15',
-        day: 'Saturday',
-        type: 'Mandatory',
-        description: 'National holiday celebration and offices closed.',
-        isUpcoming: true
-      },
-      {
-        id: '2',
-        title: 'Ganesh Chaturthi',
-        date: '2026-09-14',
-        day: 'Monday',
-        type: 'Regional',
-        description: 'Regional festival holiday.',
-        isUpcoming: true
-      },
-      {
-        id: '3',
-        title: 'Mahatma Gandhi Jayanti',
-        date: '2026-10-02',
-        day: 'Friday',
-        type: 'Mandatory',
-        description: 'National holiday commemorating Mahatma Gandhi.',
-        isUpcoming: true
-      },
-      {
-        id: '4',
-        title: 'Diwali Festival of Lights',
-        date: '2026-11-08',
-        day: 'Sunday',
-        type: 'Mandatory',
-        description: 'Festival of Lights company wide holiday.',
-        isUpcoming: true
-      },
-      {
-        id: '5',
-        title: 'Christmas Day',
-        date: '2026-12-25',
-        day: 'Friday',
-        type: 'Mandatory',
-        description: 'Christmas Day celebration.',
-        isUpcoming: true
-      }
-    ];
-  }
+
 }
