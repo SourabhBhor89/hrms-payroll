@@ -20,7 +20,7 @@ spring:
     url: jdbc:postgresql://db.xpjtliwteybzoczamafk.supabase.co:5432/postgres
     databse: postgres
     username: postgres
-    password: '@Trhhrms@1234'
+    password: ${DB_PASSWORD:@Trhhrms@1234}
     # driver-class-name: com.mysql.cj.jdbc.Driver
     driver-class-name: org.postgresql.Driver
 
