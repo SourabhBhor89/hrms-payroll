@@ -29,10 +29,10 @@ export class LoaderService {
 
   private startSafetyTimeout(): void {
     this.clearSafetyTimeout();
-    // Safety fallback: auto-hide the loader after 8 seconds to prevent locking the screen on hung requests
+    // Auto-hide the loader after 1.5 seconds to limit its duration
     this.timeoutId = setTimeout(() => {
       this.reset();
-    }, 8000);
+    }, 1000);
   }
 
   private clearSafetyTimeout(): void {
