@@ -49,7 +49,7 @@
   <!-- Main Content Card with Tabs & Filter Register -->
   <div class="table-container glass-card mt-4">
     <div class="table-header-box flex-header">
-      <div class="view-tabs" *ngIf="canApprove()">
+      <div class="view-tabs" *ngIf="canApprove() && !isAdmin()">
         <button class="tab-btn" [class.active]="activeTab === 'my_leaves'" (click)="activeTab = 'my_leaves'">
           My Leave Applications
         </button>
@@ -60,6 +60,7 @@
           </span>
         </button>
       </div>
+      <h3 *ngIf="isAdmin()">Approvals Pending</h3>
       <h3 *ngIf="!canApprove()">My Leave Applications</h3>
 
       <div class="filter-pills">
