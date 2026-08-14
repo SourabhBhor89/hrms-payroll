@@ -130,7 +130,7 @@ export class AttendanceComponent implements OnInit {
       let isLocked = false;
       let regStatus: RegularizationStatus | undefined = regReq?.status || (attRecord?.regularizationStatus as any);
 
-      if (attRecord) {
+      if (attRecord && !isWeekend) {
         status = attRecord.status;
         checkIn = attRecord.clockIn || '--';
         checkOut = attRecord.clockOut || '--';
@@ -148,12 +148,16 @@ export class AttendanceComponent implements OnInit {
       });
 
       let hasApprovedLeaveOrWfh = false;
-      if (matchingLeave) {
+      if (matchingLeave && !isWeekend) {
         hasApprovedLeaveOrWfh = true;
         const isWfh = (matchingLeave.leaveTypeCode && matchingLeave.leaveTypeCode.toUpperCase() === 'WFH') ||
           (matchingLeave.leaveType && matchingLeave.leaveType.toLowerCase().includes('work from home')) ||
           (matchingLeave.leaveTypeName && matchingLeave.leaveTypeName.toLowerCase().includes('work from home'));
         status = isWfh ? 'WFH' : 'Leave';
+      }
+
+      if (isWeekend) {
+        status = 'Week Off';
       }
 
       // If regularization is approved, the attendance status for this date is Present

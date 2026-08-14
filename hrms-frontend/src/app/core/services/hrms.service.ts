@@ -24,6 +24,7 @@ export interface DashboardSummary {
   pendingLeaves: number;
   activeProjects: number;
   upcomingHolidays: number;
+  attendanceRate?: number;
 }
 
 import { NotificationService } from './notification.service';
@@ -169,6 +170,48 @@ export class HrmsService {
   pendingTimesheetsCount = computed(() => this.timesheets().filter(t => t.status === 'Submitted').length);
   totalEmployeesCount = computed(() => Math.max(this.dashboardSummary().totalEmployees, this.employees().length));
   onLeaveTodayCount = computed(() => this.attendanceRecords().filter(a => a.status === 'Leave').length);
+
+  presentTodayCount = computed(() => {
+    const today = this.getTodayStr();
+    const records = this.attendanceRecords();
+
+    const todayPresentRecords = records.filter(r => {
+      const isTodayRecord = r.date === today;
+      const isClockedIn = !!(r.clockIn && r.clockIn !== '--' && r.clockIn !== '');
+      const isPresentStatus = r.status === 'Present' || r.status === 'Half Day' || r.status === 'WFH' || r.regularizationStatus === 'Approved';
+      const isNotAbsentOrLeave = r.status !== 'Absent' && r.status !== 'Leave';
+      return isTodayRecord && (isPresentStatus || isClockedIn) && isNotAbsentOrLeave;
+    });
+
+    const uniqueEmpIds = new Set(todayPresentRecords.map(r => String(r.employeeId)));
+
+    const liveClockState = this.todayAttendanceState();
+    if (liveClockState.isClockedIn || liveClockState.clockIn) {
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        try {
+          const user = JSON.parse(userStr);
+          if (user?.id) uniqueEmpIds.add(String(user.id));
+        } catch (_) {}
+      }
+    }
+
+    const apiPresent = this.dashboardSummary().presentToday || 0;
+    return Math.max(apiPresent, uniqueEmpIds.size);
+  });
+
+  attendanceRate = computed(() => {
+    const total = this.totalEmployeesCount();
+    if (!total || total <= 0) return 0;
+    const present = this.presentTodayCount();
+    const rate = (present / total) * 100;
+    return Math.min(100, Math.max(0, rate));
+  });
+
+  attendanceRateFormatted = computed(() => {
+    const rate = this.attendanceRate();
+    return (rate % 1 === 0 ? rate.toFixed(0) : rate.toFixed(1)) + '%';
+  });
 
   constructor() {
     this.restoreClockState();

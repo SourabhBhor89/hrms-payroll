@@ -38,10 +38,15 @@ public class DashboardController {
                 .distinct()
                 .count();
 
+        long effectiveTotal = totalEmp > 0 ? totalEmp : 1;
+        double rate = (double) presentCount / effectiveTotal * 100.0;
+        double roundedRate = Math.round(rate * 10.0) / 10.0;
+
         DashboardSummaryDto summary = DashboardSummaryDto.builder()
-                .totalEmployees(totalEmp > 0 ? totalEmp : 24)
+                .totalEmployees(totalEmp)
                 .presentToday(presentCount)
-                .absentToday(Math.max(0, (totalEmp > 0 ? totalEmp : 24) - presentCount))
+                .absentToday(Math.max(0, totalEmp - presentCount))
+                .attendanceRate(roundedRate)
                 .pendingLeaves(3)
                 .activeProjects(8)
                 .upcomingHolidays(4)

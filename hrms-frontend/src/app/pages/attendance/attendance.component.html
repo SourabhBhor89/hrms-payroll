@@ -139,7 +139,7 @@
       </ng-template>
     </div>
 
-    <div class="stat-card glass-card">
+    <div class="stat-card glass-card" *ngIf="auth.currentRole() !== 'Admin'">
       <div class="stat-icon hours-icon">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="10" />
@@ -155,15 +155,17 @@
   <!-- Calendar Month Grid View -->
   <div class="calendar-card glass-card">
     <div class="calendar-header">
-      <h3>{{ monthLabel }} — Attendance & Regularization Grid</h3>
-      <div class="legend">
+      <h3>{{ monthLabel }} — Attendance Grid</h3>
+      <div class="legend" *ngIf="auth.currentRole() !== 'Admin'">
         <span class="legend-item"><span class="dot present"></span> Present</span>
         <span class="legend-item"><span class="dot wfh"></span> WFH</span>
         <span class="legend-item"><span class="dot leave"></span> Leave</span>
         <span class="legend-item"><span class="dot holiday"></span> Holiday</span>
         <span class="legend-item"><span class="dot weekend"></span> Week Off</span>
-        <span class="legend-item"><span class="dot reg-pending"></span> Pending Reg.</span>
-        <span class="legend-item"><span class="dot reg-approved"></span> Approved Reg.</span>
+      </div>
+      <div class="legend" *ngIf="auth.currentRole() === 'Admin'">
+        <span class="legend-item"><span class="dot weekend"></span> Week Off</span>
+        <span class="legend-item"><span class="dot holiday"></span> Holiday</span>
       </div>
     </div>
 
@@ -175,43 +177,26 @@
     <!-- Calendar Days Matrix -->
     <div class="days-grid">
       <div *ngFor="let cell of calendarGrid()" class="day-cell" [class.other-month]="cell.otherMonth"
-        [class.today]="cell.isToday" [class.weekend-cell]="cell.isWeekend"
-        [class.has-reg-pending]="cell.regularizationStatus === 'Pending'"
-        [class.has-reg-approved]="cell.regularizationStatus === 'Approved'"
-        [class.has-reg-rejected]="cell.regularizationStatus === 'Rejected'" (mouseenter)="setHoveredCell(cell)"
+        [class.today]="cell.isToday" [class.weekend-cell]="cell.isWeekend" (mouseenter)="setHoveredCell(cell)"
         (mouseleave)="setHoveredCell(null)">
 
         <div class="day-header-row">
           <span class="day-number">{{ cell.dayNumber }}</span>
-
-          <!-- Regularization Status Overlay Badge -->
-          <span class="reg-overlay-badge badge-warning" *ngIf="cell.regularizationStatus === 'Pending'"
-            title="Regularization Pending Approval">
-            Pending ⏳
-          </span>
-          <span class="reg-overlay-badge badge-success" *ngIf="cell.regularizationStatus === 'Approved'"
-            title="Regularization Approved">
-            Approved ✓
-          </span>
-          <span class="reg-overlay-badge badge-danger" *ngIf="cell.regularizationStatus === 'Rejected'"
-            title="Regularization Rejected">
-            Rejected ✕
-          </span>
         </div>
 
-        <div *ngIf="cell.status && !cell.otherMonth" class="day-status-pill"
+        <div *ngIf="cell.status && !cell.otherMonth && (cell.isWeekend || cell.status === 'Holiday' || auth.currentRole() !== 'Admin')" class="day-status-pill"
           [class]="'pill-' + cell.status.toLowerCase().replace(' ', '-')">
           {{ cell.status }}
         </div>
 
         <!-- Inline Regularize Action Button -->
-        <button type="button" class="btn-inline-reg" *ngIf="cell.canRegularize && !cell.otherMonth"
+        <button type="button" class="btn-inline-reg" *ngIf="cell.canRegularize && !cell.otherMonth && auth.currentRole() !== 'Admin'"
           (click)="openRegModal(cell)" title="Regularize Attendance for this date">
           + Regularize
         </button>
 
         <!-- Hover Tooltip -->
-        <div class="day-tooltip" *ngIf="!cell.otherMonth && (cell.checkIn || cell.checkOut)">
+        <div class="day-tooltip" *ngIf="!cell.otherMonth && (cell.checkIn || cell.checkOut) && auth.currentRole() !== 'Admin'">
           <div class="tooltip-row" *ngIf="cell.checkIn && cell.checkIn !== '--'">
             <span>In: {{ cell.checkIn }}</span>
           </div>

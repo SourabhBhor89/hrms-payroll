@@ -25,8 +25,8 @@
       <div class="kpi-icon emerald">🕒</div>
       <div class="kpi-data">
         <span class="kpi-title">Attendance Rate</span>
-        <span class="kpi-value">94.8%</span>
-        <span class="kpi-trend positive">↑ 1.2% vs last week</span>
+        <span class="kpi-value">{{ hrms.attendanceRateFormatted() }}</span>
+        <span class="kpi-sub">{{ hrms.presentTodayCount() }} of {{ hrms.totalEmployeesCount() }} present today</span>
       </div>
     </div>
 
