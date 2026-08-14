@@ -36,12 +36,15 @@
           <span class="badge badge-info">{{ unreadNotificationsCount }} new</span>
         </div>
         <div class="notif-list">
-          <div class="notif-item" *ngFor="let n of notifications">
+          <div class="notif-item" *ngFor="let n of notifications()">
             <span class="notif-type-dot" [class]="n.type"></span>
             <div class="notif-content">
               <p class="notif-text">{{ n.message }}</p>
               <span class="notif-time">{{ n.time }}</span>
             </div>
+          </div>
+          <div class="notif-item text-center text-muted" *ngIf="notifications().length === 0" style="padding: 1rem; font-size: 0.8125rem; justify-content: center;">
+            No new notifications
           </div>
         </div>
       </div>
@@ -101,39 +104,57 @@
         <button type="button" class="tab-btn" [class.active]="activeProfileTab() === 'password'" (click)="activeProfileTab.set('password')" style="padding: 0.5rem 0.875rem; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--text-muted, #64748b); font-size: 0.875rem; font-weight: 500; cursor: pointer; white-space: nowrap; transition: all 0.2s ease;">Change Password</button>
       </div>
 
-      <!-- Tab 1: Profile Details -->
+      <!-- Tab 1: Profile Details & Self Updates -->
       <div *ngIf="activeProfileTab() === 'details'">
-        <div class="profile-header" style="display: flex; align-items: center; gap: 1.25rem; margin-bottom: 1.5rem;">
-          <img [src]="auth.currentUser()?.avatar" class="large-avatar" style="width: 70px; height: 70px; border-radius: 50%; object-fit: cover;" />
-          <div>
-            <h4 style="margin: 0; font-size: 1.15rem; font-weight: 600;">{{ auth.currentUser()?.name }}</h4>
-            <p style="margin: 2px 0 0 0; font-size: 0.875rem; color: var(--text-muted);">{{ auth.currentUser()?.designation || 'Staff Member' }} • {{ auth.currentUser()?.department || 'Operations' }}</p>
-            <span class="badge badge-info" style="margin-top: 6px; display: inline-block;">{{ auth.currentRole() }}</span>
+        <form (ngSubmit)="submitProfileUpdate()">
+          <div class="profile-header" style="display: flex; align-items: center; gap: 1.25rem; margin-bottom: 1.25rem;">
+            <div style="position: relative; display: inline-block;">
+              <img [src]="profileForm.avatar || auth.currentUser()?.avatar" class="large-avatar" style="width: 75px; height: 75px; border-radius: 50%; object-fit: cover; border: 3px solid var(--border-color, #bae6fd);" />
+              <label for="profile-avatar-upload" style="position: absolute; bottom: 0; right: 0; background: #0ea5e9; color: #ffffff; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.75rem; box-shadow: 0 2px 6px rgba(0,0,0,0.2);" title="Change Profile Picture">
+                📷
+              </label>
+              <input id="profile-avatar-upload" type="file" accept="image/*" (change)="onFileSelected($event)" style="display: none;" />
+            </div>
+            <div>
+              <h4 style="margin: 0; font-size: 1.15rem; font-weight: 600;">{{ auth.currentUser()?.name }}</h4>
+              <p style="margin: 2px 0 0 0; font-size: 0.875rem; color: var(--text-muted);">{{ auth.currentUser()?.designation || 'Staff Member' }} • {{ auth.currentUser()?.department || 'Operations' }}</p>
+              <span class="badge badge-info" style="margin-top: 6px; display: inline-block;">{{ auth.currentRole() }}</span>
+            </div>
           </div>
-        </div>
 
-        <div class="profile-details-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
-          <div class="detail-box" style="background: var(--bg-hover, #f0f9ff); padding: 0.75rem; border-radius: 8px; display: flex; flex-direction: column;">
-            <span class="label" style="font-size: 0.75rem; color: var(--text-muted);">Employee ID</span>
-            <span class="val" style="font-size: 0.875rem; font-weight: 700;">{{ auth.currentUser()?.employeeId }}</span>
+          <div class="profile-details-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.875rem; margin-bottom: 1rem;">
+            <div class="detail-box" style="background: var(--bg-hover, #f0f9ff); padding: 0.75rem; border-radius: 8px; display: flex; flex-direction: column;">
+              <span class="label" style="font-size: 0.75rem; color: var(--text-muted);">Employee ID</span>
+              <span class="val" style="font-size: 0.875rem; font-weight: 700;">{{ auth.currentUser()?.employeeId }}</span>
+            </div>
+            <div class="detail-box" style="background: var(--bg-hover, #f0f9ff); padding: 0.75rem; border-radius: 8px; display: flex; flex-direction: column;">
+              <span class="label" style="font-size: 0.75rem; color: var(--text-muted);">Email Address</span>
+              <span class="val" style="font-size: 0.875rem; font-weight: 700;">{{ auth.currentUser()?.email }}</span>
+            </div>
+            <div class="detail-box" style="background: var(--bg-hover, #f0f9ff); padding: 0.75rem; border-radius: 8px; display: flex; flex-direction: column;">
+              <span class="label" style="font-size: 0.75rem; color: var(--text-muted);">Role</span>
+              <span class="val" style="font-size: 0.875rem; font-weight: 700;">{{ auth.currentRole() }}</span>
+            </div>
+            <div class="detail-box" style="background: var(--bg-hover, #f0f9ff); padding: 0.75rem; border-radius: 8px; display: flex; flex-direction: column;">
+              <span class="label" style="font-size: 0.75rem; color: var(--text-muted);">Department</span>
+              <span class="val" style="font-size: 0.875rem; font-weight: 700;">{{ auth.currentUser()?.department || 'Operations' }}</span>
+            </div>
           </div>
-          <div class="detail-box" style="background: var(--bg-hover, #f0f9ff); padding: 0.75rem; border-radius: 8px; display: flex; flex-direction: column;">
-            <span class="label" style="font-size: 0.75rem; color: var(--text-muted);">Email Address</span>
-            <span class="val" style="font-size: 0.875rem; font-weight: 700;">{{ auth.currentUser()?.email }}</span>
-          </div>
-          <div class="detail-box" style="background: var(--bg-hover, #f0f9ff); padding: 0.75rem; border-radius: 8px; display: flex; flex-direction: column;">
-            <span class="label" style="font-size: 0.75rem; color: var(--text-muted);">Role</span>
-            <span class="val" style="font-size: 0.875rem; font-weight: 700;">{{ auth.currentRole() }}</span>
-          </div>
-          <div class="detail-box" style="background: var(--bg-hover, #f0f9ff); padding: 0.75rem; border-radius: 8px; display: flex; flex-direction: column;">
-            <span class="label" style="font-size: 0.75rem; color: var(--text-muted);">Department</span>
-            <span class="val" style="font-size: 0.875rem; font-weight: 700;">{{ auth.currentUser()?.department || 'Operations' }}</span>
-          </div>
-        </div>
 
-        <div class="modal-actions" style="display: flex; justify-content: flex-end; margin-top: 1.5rem;">
-          <button class="btn btn-secondary" (click)="showProfileModal.set(false)">Close</button>
-        </div>
+          <!-- Editable Phone Number -->
+          <div class="form-group" style="margin-bottom: 1rem; display: flex; flex-direction: column; gap: 4px;">
+            <label class="form-label" style="font-size: 0.8125rem; font-weight: 600; color: var(--text-muted);">Phone Number 📱</label>
+            <input type="tel" class="form-input" style="padding: 0.625rem 1rem; border-radius: 8px; border: 1px solid var(--border-color, #bae6fd); background-color: var(--bg-input);" [(ngModel)]="profileForm.phone" name="phone" placeholder="+91 9876543210" required />
+          </div>
+
+          <div class="modal-actions" style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem;">
+            <button type="button" class="btn btn-secondary" (click)="showProfileModal.set(false)">Close</button>
+            <button type="submit" class="btn btn-primary" [disabled]="isUpdatingProfile()" style="display: inline-flex; align-items: center; gap: 0.5rem;">
+              <span *ngIf="isUpdatingProfile()" class="spinner-loader" style="border: 2px solid transparent; border-top: 2px solid currentColor; border-radius: 50%; width: 0.875rem; height: 0.875rem; animation: spin-loader-anim 0.6s linear infinite; display: inline-block;"></span>
+              <span>{{ isUpdatingProfile() ? 'Saving...' : 'Save Profile Changes' }}</span>
+            </button>
+          </div>
+        </form>
       </div>
 
       <!-- Tab 2: Change Password -->

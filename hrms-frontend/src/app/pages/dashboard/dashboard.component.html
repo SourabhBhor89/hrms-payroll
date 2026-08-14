@@ -43,9 +43,9 @@
       <div class="kpi-icon purple">⏳</div>
       <div class="kpi-data">
         <span class="kpi-title">Pending Approvals</span>
-        <span class="kpi-value">{{ hrms.pendingLeavesCount() + hrms.pendingTimesheetsCount() }}</span>
-        <span class="kpi-trend warning">{{ hrms.pendingLeavesCount() }} Leaves • {{ hrms.pendingTimesheetsCount() }}
-          Timesheets</span>
+        <span class="kpi-value">{{ hrms.pendingLeavesCount()}}</span>
+        <!-- <span class="kpi-trend warning">{{ hrms.pendingLeavesCount() }} Leaves • {{ hrms.pendingTimesheetsCount() }}
+          Timesheets</span> -->
       </div>
     </div>
   </div>
@@ -86,16 +86,16 @@
     </div>
 
     <div class="punch-actions">
-      <button class="btn-punch check-in" (click)="checkIn()" [disabled]="hrms.isClockedInComputed() || hrms.isClockedOutToday()"
-        [class.done]="hrms.todayClockInTime() || hrms.isClockedOutToday()">
+      <button class="btn-punch check-in" (click)="checkIn()" [disabled]="hrms.isClockedInComputed() || hrms.isClockedOutToday() || hrms.isOnLeaveOrWfhToday()"
+        [class.done]="hrms.todayClockInTime() || hrms.isClockedOutToday() || hrms.isOnLeaveOrWfhToday()">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
           <circle cx="12" cy="12" r="10" />
           <polyline points="12 8 12 12 14 14" />
         </svg>
-        {{ hrms.isClockedOutToday() ? 'Completed ✓' : (hrms.isClockedInComputed() ? 'Checked In ✓' : 'Check In') }}
+        {{ hrms.isOnLeaveOrWfhToday() ? 'On WFH / Leave' : (hrms.isClockedOutToday() ? 'Completed ✓' : (hrms.isClockedInComputed() ? 'Checked In ✓' : 'Check In')) }}
       </button>
 
-      <button class="btn-punch check-out" (click)="checkOut()" [disabled]="!hrms.isClockedInComputed()"
+      <button class="btn-punch check-out" (click)="checkOut()" [disabled]="!hrms.isClockedInComputed() || hrms.isOnLeaveOrWfhToday()"
         [class.done]="hrms.todayClockOutTime()">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
           <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
@@ -115,7 +115,7 @@
         <h3>Quick Actions</h3>
       </div>
       <div class="quick-actions-list">
-        <a routerLink="/leaves" class="action-item">
+        <a routerLink="/leaves" class="action-item" *ngIf="auth.currentRole() !== 'Admin'">
           <span class="action-icon">📝</span>
           <div class="action-text">
             <strong>Apply for Leave</strong>
@@ -174,31 +174,16 @@
         <h3>Recent Organization Activity</h3>
       </div>
       <div class="activity-feed">
-        <div class="activity-item">
-          <img src="https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80"
-            class="activity-avatar" />
+        <div class="activity-item" *ngFor="let item of recentActivities()">
+          <img [src]="item.avatar" [alt]="item.name" class="activity-avatar" />
           <div class="activity-content">
-            <p><strong>Elena Rostova</strong> applied for Casual Leave (3 days).</p>
-            <span class="time-ago">2 hours ago</span>
+            <p><strong>{{ item.name }}</strong> {{ item.text }}</p>
+            <span class="time-ago">{{ item.time }}</span>
           </div>
         </div>
 
-        <div class="activity-item">
-          <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80"
-            class="activity-avatar" />
-          <div class="activity-content">
-            <p><strong>Marcus Chen</strong> submitted Weekly Timesheet for review.</p>
-            <span class="time-ago">4 hours ago</span>
-          </div>
-        </div>
-
-        <div class="activity-item">
-          <img src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80"
-            class="activity-avatar" />
-          <div class="activity-content">
-            <p><strong>Sarah Jenkins</strong> updated company Holiday list for Q3.</p>
-            <span class="time-ago">1 day ago</span>
-          </div>
+        <div class="no-records-box" *ngIf="recentActivities().length === 0" style="padding: 1.5rem; text-align: center; color: var(--text-muted, #64748b); font-size: 0.875rem;">
+          No recent organization activity recorded yet.
         </div>
       </div>
     </div>

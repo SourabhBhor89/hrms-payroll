@@ -7,9 +7,11 @@ import com.company.hrms.entity.AttendanceStatus;
 import com.company.hrms.entity.Employee;
 import com.company.hrms.entity.RegularizationStatus;
 import com.company.hrms.entity.User;
+import com.company.hrms.entity.Leave;
 import com.company.hrms.repository.AttendanceRegularizationRepository;
 import com.company.hrms.repository.AttendanceRepository;
 import com.company.hrms.repository.EmployeeRepository;
+import com.company.hrms.repository.LeaveRepository;
 import com.company.hrms.repository.UserRepository;
 import com.company.hrms.service.AttendanceCalculationService;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +35,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import org.springframework.transaction.annotation.Transactional;
+
 @Slf4j
 @RestController
 @RequestMapping("/api/v1/attendance")
@@ -44,13 +48,16 @@ public class AttendanceController {
     private final UserRepository userRepository;
     private final AttendanceRegularizationRepository regularizationRepository;
     private final AttendanceCalculationService calculationService;
+    private final LeaveRepository leaveRepository;
 
     @GetMapping
     @PreAuthorize("hasAuthority('ATTENDANCE_VIEW')")
+    @Transactional(readOnly = true)
     public ResponseEntity<?> getAttendance(
             Authentication authentication,
             @RequestParam(required = false) Integer year,
-            @RequestParam(required = false) Integer month
+            @RequestParam(required = false) Integer month,
+            @RequestParam(required = false) Long employeeId
     ) {
         try {
             String email = authentication.getName();
@@ -63,15 +70,23 @@ public class AttendanceController {
             LocalDate start = LocalDate.of(y, m, 1);
             LocalDate end = start.plusMonths(1).minusDays(1);
 
+            boolean isAdminOrHr = authentication != null && authentication.getAuthorities().stream()
+                    .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ADMIN") ||
+                            a.getAuthority().equals("ROLE_HR") || a.getAuthority().equals("HR") ||
+                            a.getAuthority().equals("ATTENDANCE_REGULARIZATION_VIEW_ALL") ||
+                            a.getAuthority().equals("ATTENDANCE_UPDATE"));
+
             List<Attendance> records;
-            if (user != null) {
+            if (employeeId != null) {
+                records = attendanceRepository.findByEmployeeIdAndDateBetween(employeeId, start, end);
+            } else if (isAdminOrHr) {
+                records = attendanceRepository.findByDateBetween(start, end);
+                if (records.isEmpty()) {
+                    records = attendanceRepository.findAll();
+                }
+            } else if (user != null) {
                 Employee emp = getOrCreateEmployee(user);
                 records = attendanceRepository.findByEmployeeIdAndDateBetween(emp.getId(), start, end);
-                if (records.isEmpty()) {
-                    records = attendanceRepository.findByDateBetween(start, end).stream()
-                            .filter(a -> a.getEmployee() != null && a.getEmployee().getUser() != null && a.getEmployee().getUser().getId().equals(user.getId()))
-                            .collect(Collectors.toList());
-                }
             } else {
                 records = attendanceRepository.findByDateBetween(start, end);
                 if (records.isEmpty()) {
@@ -114,6 +129,7 @@ public class AttendanceController {
 
     @GetMapping("/today")
     @PreAuthorize("isAuthenticated()")
+    @Transactional(readOnly = true)
     public ResponseEntity<Map<String, Object>> getTodayAttendance(Authentication authentication) {
         try {
             String email = authentication.getName();
@@ -180,6 +196,18 @@ public class AttendanceController {
             Employee emp = getOrCreateEmployee(user);
 
             LocalDate today = LocalDate.now();
+            List<Leave> activeLeaves = leaveRepository.findByEmployeeId(emp.getId());
+            boolean isOnLeaveOrWfh = activeLeaves.stream().anyMatch(l -> {
+                boolean isApproved = l.getStatus() == Leave.LeaveStatus.APPROVED;
+                if (!isApproved || l.getStartDate() == null || l.getEndDate() == null) return false;
+                return !today.isBefore(l.getStartDate()) && !today.isAfter(l.getEndDate());
+            });
+
+            if (isOnLeaveOrWfh) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Map.of("error", "Clock in and clock out are disabled for today because you are on approved Work From Home (WFH) or Leave."));
+            }
+
             Attendance att = attendanceRepository.findByEmployeeIdAndDate(emp.getId(), today)
                     .orElseGet(() -> {
                         Attendance a = new Attendance();
@@ -228,6 +256,17 @@ public class AttendanceController {
             Employee emp = getOrCreateEmployee(user);
 
             LocalDate today = LocalDate.now();
+            List<Leave> activeLeaves = leaveRepository.findByEmployeeId(emp.getId());
+            boolean isOnLeaveOrWfh = activeLeaves.stream().anyMatch(l -> {
+                boolean isApproved = l.getStatus() == Leave.LeaveStatus.APPROVED;
+                if (!isApproved || l.getStartDate() == null || l.getEndDate() == null) return false;
+                return !today.isBefore(l.getStartDate()) && !today.isAfter(l.getEndDate());
+            });
+
+            if (isOnLeaveOrWfh) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Map.of("error", "Clock in and clock out are disabled for today because you are on approved Work From Home (WFH) or Leave."));
+            }
             Attendance att = attendanceRepository.findByEmployeeIdAndDate(emp.getId(), today)
                     .orElseGet(() -> {
                         Attendance a = new Attendance();

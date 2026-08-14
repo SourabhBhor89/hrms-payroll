@@ -3,7 +3,9 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HrmsService } from '../../core/services/hrms.service';
 import { AuthService } from '../../core/services/auth.service';
-import { LeaveRequest, EmployeeLeaveBalanceDetail } from '../../core/models/hrms.model';
+import { LeaveRequest, EmployeeLeaveBalanceDetail, LeaveTypeItem } from '../../core/models/hrms.model';
+
+import { NotificationService } from '../../core/services/notification.service';
 
 @Component({
   selector: 'app-leaves',
@@ -15,6 +17,7 @@ import { LeaveRequest, EmployeeLeaveBalanceDetail } from '../../core/models/hrms
 export class LeavesComponent implements OnInit {
   hrms = inject(HrmsService);
   auth = inject(AuthService);
+  notify = inject(NotificationService);
 
   activeTab: 'my_leaves' | 'pending_approvals' = 'my_leaves';
   filterStatus: string = 'All';
@@ -43,6 +46,9 @@ export class LeavesComponent implements OnInit {
     if (this.canApprove()) {
       this.hrms.loadPendingLeaveApprovals();
     }
+    if (this.auth.currentRole() === 'Admin') {
+      this.activeTab = 'pending_approvals';
+    }
   }
 
   canApprove(): boolean {
@@ -51,7 +57,10 @@ export class LeavesComponent implements OnInit {
 
   get activeLeaveTypes() {
     const types = this.hrms.leaveTypes();
-    if (types && types.length > 0) return types;
+    if (types && types.length > 0) {
+      // Filter out ineligible leave types
+      return types.filter(type => this.isLeaveTypeEligible(type));
+    }
 
     const balances = this.hrms.leaveBalances();
     if (balances && balances.length > 0) {
@@ -65,13 +74,37 @@ export class LeavesComponent implements OnInit {
   }
 
   get displayedBalances(): EmployeeLeaveBalanceDetail[] {
-    return this.hrms.leaveBalances();
+    // Filter out deactivated leave types (CASUAL, SICK) and ineligible leave types
+    const eligibleLeaveTypeCodes = this.activeLeaveTypes.map(t => t.code);
+    return this.hrms.leaveBalances().filter(b =>
+      eligibleLeaveTypeCodes.includes(b.leaveTypeCode)
+    );
+  }
+
+  isWFHLeaveType(leaveTypeCode: string): boolean {
+    return leaveTypeCode === 'WFH';
   }
 
   filteredRequests(): LeaveRequest[] {
-    const sourceList = this.activeTab === 'pending_approvals'
-      ? this.hrms.pendingLeaveApprovals()
-      : this.hrms.leaveRequests();
+    const isAdminOrHr = this.auth.currentRole() === 'Admin' || this.auth.currentRole() === 'HR Manager';
+
+    let sourceList: LeaveRequest[] = [];
+
+    if (this.activeTab === 'pending_approvals') {
+      sourceList = this.hrms.leaveRequests();
+      if (sourceList.length === 0) {
+        sourceList = this.hrms.pendingLeaveApprovals();
+      }
+    } else {
+      if (isAdminOrHr) {
+        const currentUserEmail = this.auth.currentUser()?.email;
+        sourceList = this.hrms.leaveRequests().filter(r =>
+          currentUserEmail && (r.employeeCode === currentUserEmail || r.employeeName === this.auth.currentUser()?.name)
+        );
+      } else {
+        sourceList = this.hrms.leaveRequests();
+      }
+    }
 
     if (this.filterStatus === 'All') return sourceList;
 
@@ -83,6 +116,10 @@ export class LeavesComponent implements OnInit {
   }
 
   openApplyModal() {
+    if (this.auth.currentRole() === 'Admin') {
+      this.notify.showAlert('Administrators do not submit self-leave applications.');
+      return;
+    }
     const types = this.activeLeaveTypes;
     const firstType = types && types.length > 0 ? types[0] : null;
     this.formData = {
@@ -95,6 +132,11 @@ export class LeavesComponent implements OnInit {
     this.editingId = null;
     this.isEditMode.set(false);
     this.showModal.set(true);
+  }
+
+  isLeaveTypeEligible(leaveType: LeaveTypeItem): boolean {
+    // If eligible is explicitly false, mark as not eligible
+    return leaveType.eligible !== false;
   }
 
   openEditModal(req: LeaveRequest) {
@@ -135,7 +177,7 @@ export class LeavesComponent implements OnInit {
     }
 
     if (!targetLeaveTypeId || targetLeaveTypeId === 0) {
-      alert('Leave type not found. Please ensure leave categories are loaded from the backend.');
+      this.notify.showAlert('Leave type not found. Please ensure leave categories are loaded from the backend.');
       return;
     }
 
@@ -162,9 +204,21 @@ export class LeavesComponent implements OnInit {
     }
   }
 
+  // Cancel Confirm Modal Signals
+  showCancelConfirmModal = signal<boolean>(false);
+  leaveIdToCancel = signal<string | number | null>(null);
+
   cancelRequest(id: string | number) {
-    if (confirm('Are you sure you want to cancel this leave application?')) {
+    this.leaveIdToCancel.set(id);
+    this.showCancelConfirmModal.set(true);
+  }
+
+  proceedCancelLeave() {
+    const id = this.leaveIdToCancel();
+    if (id !== null) {
       this.hrms.cancelLeave(id).subscribe();
+      this.showCancelConfirmModal.set(false);
+      this.leaveIdToCancel.set(null);
     }
   }
 

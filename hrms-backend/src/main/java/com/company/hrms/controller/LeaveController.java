@@ -49,13 +49,18 @@ public class LeaveController {
             Authentication authentication
     ) {
         Long employeeId = getEmployeeIdFromAuthentication(authentication);
+        boolean isAdminOrHr = authentication != null && authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ADMIN") ||
+                        a.getAuthority().equals("ROLE_HR") || a.getAuthority().equals("HR") ||
+                        a.getAuthority().equals("LEAVE_APPROVE"));
+
         if (year == null) {
             year = java.time.Year.now().getValue();
         }
         if (month == null) {
             month = java.time.LocalDate.now().getMonthValue();
         }
-        EmployeeLeaveDataResponse data = leaveService.getEmployeeLeaveData(employeeId, year, month);
+        EmployeeLeaveDataResponse data = leaveService.getEmployeeLeaveData(employeeId, year, month, isAdminOrHr);
         return ResponseEntity.ok(data);
     }
 
@@ -105,9 +110,18 @@ public class LeaveController {
 
     // Get available leave types
     @GetMapping("/types")
-    @PreAuthorize("hasAuthority('LEAVE_TYPE_VIEW')")
+    @PreAuthorize("hasAnyAuthority('LEAVE_VIEW', 'LEAVE_APPLY', 'LEAVE_SETUP_VIEW', 'LEAVE_TYPE_VIEW')")
     public ResponseEntity<List<LeaveTypeResponse>> getAllLeaveTypes() {
         List<LeaveTypeResponse> leaveTypes = leaveService.getAllLeaveTypes();
+        return ResponseEntity.ok(leaveTypes);
+    }
+
+    // Get available leave types for current employee (based on tenure)
+    @GetMapping("/types/available")
+    @PreAuthorize("hasAuthority('LEAVE_APPLY')")
+    public ResponseEntity<List<LeaveTypeResponse>> getAvailableLeaveTypesForEmployee(Authentication authentication) {
+        Long employeeId = getEmployeeIdFromAuthentication(authentication);
+        List<LeaveTypeResponse> leaveTypes = leaveService.getAvailableLeaveTypesForEmployee(employeeId);
         return ResponseEntity.ok(leaveTypes);
     }
 

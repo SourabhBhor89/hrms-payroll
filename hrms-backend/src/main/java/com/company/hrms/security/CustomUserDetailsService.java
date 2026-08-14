@@ -25,12 +25,9 @@ public class CustomUserDetailsService implements UserDetailsService {
             throws UsernameNotFoundException {
 
         User user = userRepository
-                .findByEmailAndActiveTrue(username)
-                .orElseThrow(() ->
-                        new UsernameNotFoundException(
-                                "User not found or inactive"
-                        )
-                );
+                .findByEmail(username)
+                .orElseGet(() -> userRepository.findByEmailAndActiveTrue(username)
+                        .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username)));
 
         Set<String> permissions = permissionService.getPermissionsForUser(user);
 

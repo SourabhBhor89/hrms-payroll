@@ -26,11 +26,14 @@ export interface DashboardSummary {
   upcomingHolidays: number;
 }
 
+import { NotificationService } from './notification.service';
+
 @Injectable({
   providedIn: 'root'
 })
 export class HrmsService {
   private http = inject(HttpClient);
+  private notify = inject(NotificationService);
 
 
 
@@ -68,7 +71,7 @@ export class HrmsService {
   leaveTypes = signal<LeaveTypeItem[]>([]);
   leaveBalances = signal<EmployeeLeaveBalanceDetail[]>([]);
   pendingLeaveApprovals = signal<LeaveRequest[]>([]);
-  holidays = signal<Holiday[]>(this.getFallbackHolidays());
+  holidays = signal<Holiday[]>([]);
   timesheets = signal<Timesheet[]>([]);
   regularizationRequests = signal<RegularizationRequest[]>([]);
   dashboardSummary = signal<DashboardSummary>({
@@ -174,15 +177,54 @@ export class HrmsService {
 
   refreshAllData() {
     this.loadDashboardSummary();
-    this.loadEmployees();
+    if (this.isAdminOrHrUser()) {
+      this.loadEmployees();
+    }
     this.loadTodayAttendance();
     this.loadAttendance();
     this.loadLeaveTypes();
     this.loadLeaves();
     this.loadPendingLeaveApprovals();
     this.loadHolidays();
-    this.loadTimesheets();
     this.loadRegularizations();
+  }
+
+  clearState() {
+    this.employees.set([]);
+    this.attendanceRecords.set([]);
+    this.leaveRequests.set([]);
+    this.timesheets.set([]);
+    this.regularizationRequests.set([]);
+    this.dashboardSummary.set({
+      totalEmployees: 0,
+      presentToday: 0,
+      absentToday: 0,
+      pendingLeaves: 0,
+      activeProjects: 0,
+      upcomingHolidays: 0
+    });
+
+    // Reset clock state
+    this.isClockedIn.set(false);
+    this.clockInTime.set(null);
+    this.clockOutTimeSignal.set(null);
+    this.clockDurationSeconds.set(0);
+    if (this.timerInterval) {
+      clearInterval(this.timerInterval);
+      this.timerInterval = null;
+    }
+
+    this.todayAttendanceState.set({
+      clockIn: '',
+      clockOut: '',
+      isClockedIn: false,
+      isClockedOut: false
+    });
+
+    // Clear local storage
+    localStorage.removeItem('hrms_today_date');
+    localStorage.removeItem('hrms_today_clock_in');
+    localStorage.removeItem('hrms_today_clock_out');
   }
 
   loadTodayAttendance() {
@@ -210,20 +252,55 @@ export class HrmsService {
         localStorage.setItem('hrms_today_date', today);
         if (inStr) localStorage.setItem('hrms_today_clock_in', inStr);
         if (outStr) localStorage.setItem('hrms_today_clock_out', outStr);
+      } else {
+        this.todayAttendanceState.set({
+          clockIn: '',
+          clockOut: '',
+          isClockedIn: false,
+          isClockedOut: false
+        });
+        this.clockInTime.set(null);
+        this.clockOutTimeSignal.set(null);
+        this.isClockedIn.set(false);
       }
     });
   }
 
+  isAdminOrHrUser(): boolean {
+    if (typeof localStorage === 'undefined') return false;
+    const raw = localStorage.getItem('user_info');
+    if (!raw) return false;
+    try {
+      const user = JSON.parse(raw);
+      const role = user?.role;
+      return role === 'Admin' || role === 'ADMIN' || role === 'HR Manager' || role === 'HR';
+    } catch {
+      return false;
+    }
+  }
+
   // Dashboard API
   loadDashboardSummary() {
+    if (!this.isAdminOrHrUser()) {
+      this.dashboardSummary.set({
+        totalEmployees: 0,
+        presentToday: 0,
+        absentToday: 0,
+        pendingLeaves: 0,
+        activeProjects: 0,
+        upcomingHolidays: 0
+      });
+      return;
+    }
+
     this.http.get<DashboardSummary>('/api/v1/dashboard/summary').pipe(
       catchError(() => of({
-        totalEmployees: 24,
-        presentToday: 20,
-        absentToday: 4,
-        pendingLeaves: 3,
-        activeProjects: 8,
-        upcomingHolidays: 4
+        totalEmployees: 0,
+        presentToday: 0,
+        absentToday: 0,
+        pendingLeaves: 0,
+        activeProjects: 0,
+        upcomingHolidays: 0
       }))
     ).subscribe(data => this.dashboardSummary.set(data));
   }
@@ -272,7 +349,7 @@ export class HrmsService {
         leaveBalance: { casual: 10, sick: 7, paid: 15, wfh: 8 }
       }));
 
-      this.employees.set(mapped.length > 0 ? mapped : this.getFallbackEmployees());
+      this.employees.set(mapped);
     });
   }
 
@@ -378,8 +455,12 @@ export class HrmsService {
   }
 
   // Attendance API
-  loadAttendance() {
-    this.http.get<any[]>('/api/v1/attendance').pipe(
+  loadAttendance(year?: number, month?: number) {
+    let params: any = {};
+    if (year) params.year = year;
+    if (month) params.month = month;
+
+    this.http.get<any[]>('/api/v1/attendance', { params }).pipe(
       catchError(() => of([]))
     ).subscribe(data => {
       if (data && data.length > 0) {
@@ -395,7 +476,7 @@ export class HrmsService {
           else if (a.status === 'ABSENT') statusStr = 'Absent';
           else if (a.status === 'LEAVE') statusStr = 'Leave';
           else if (a.status === 'HOLIDAY') statusStr = 'Holiday';
-          else if (a.status === 'WEEKEND') statusStr = 'Leave';
+          else if (a.status === 'WEEKEND') statusStr = 'Week Off';
           else if (a.status === 'WFH') statusStr = 'WFH';
 
           return {
@@ -414,6 +495,8 @@ export class HrmsService {
           };
         });
         this.attendanceRecords.set(mapped);
+      } else {
+        this.attendanceRecords.set([]);
       }
     });
   }
@@ -463,11 +546,13 @@ export class HrmsService {
             rejectedAt: r.rejectedAt,
             cancelledAt: r.cancelledAt,
             reviewedBy: r.reviewedBy,
-            reviewRemarks: r.reviewRemarks,
-            notes: r.reviewRemarks || r.reason
+            reviewRemarks: r.reviewRemarks || '--',
+            notes: r.reviewRemarks || ''
           };
         });
         this.regularizationRequests.set(mapped);
+      } else {
+        this.regularizationRequests.set([]);
       }
     });
   }
@@ -475,8 +560,8 @@ export class HrmsService {
   createRegularizationPayload(payload: any) {
     return this.http.post<any>('/api/v1/attendance/regularizations', payload).pipe(
       catchError(err => {
-        const msg = err?.error?.message || 'Failed to submit regularization request.';
-        alert(msg);
+        const msg = err?.error?.message || err?.error?.error || 'Failed to submit regularization request.';
+        this.notify.showAlert(msg);
         return of(null);
       })
     );
@@ -494,8 +579,8 @@ export class HrmsService {
   approveRegularizationRequest(id: string, reviewRemarks?: string) {
     this.http.put<any>(`/api/v1/attendance/regularizations/${id}/approve`, { reviewRemarks }).pipe(
       catchError(err => {
-        const msg = err?.error?.message || 'Failed to approve request.';
-        alert(msg);
+        const msg = err?.error?.message || err?.error?.error || 'Failed to approve request.';
+        this.notify.showAlert(msg);
         return of(null);
       })
     ).subscribe(() => {
@@ -507,8 +592,8 @@ export class HrmsService {
   rejectRegularizationRequest(id: string, reviewRemarks?: string) {
     this.http.put<any>(`/api/v1/attendance/regularizations/${id}/reject`, { reviewRemarks }).pipe(
       catchError(err => {
-        const msg = err?.error?.message || 'Failed to reject request.';
-        alert(msg);
+        const msg = err?.error?.message || err?.error?.error || 'Failed to reject request.';
+        this.notify.showAlert(msg);
         return of(null);
       })
     ).subscribe(() => {
@@ -519,7 +604,8 @@ export class HrmsService {
 
   // Leave API Integration
   loadLeaveTypes() {
-    this.http.get<LeaveTypeItem[]>('/api/v1/leaves/types').pipe(
+    // Use the new endpoint that filters based on employee tenure
+    this.http.get<LeaveTypeItem[]>('/api/v1/leaves/types/available').pipe(
       catchError(() => of([]))
     ).subscribe(data => {
       if (data && data.length > 0) {
@@ -583,8 +669,6 @@ export class HrmsService {
           updatedAt: l.updatedAt
         }));
         this.leaveRequests.set(mapped);
-      } else {
-        this.setFallbackLeavesData();
       }
     });
   }
@@ -656,7 +740,7 @@ export class HrmsService {
       }),
       catchError(err => {
         const msg = err?.error?.message || err?.error?.error || 'Failed to submit leave request.';
-        alert(msg);
+        this.notify.showAlert(msg);
         return of(null);
       })
     );
@@ -670,7 +754,7 @@ export class HrmsService {
       }),
       catchError(err => {
         const msg = err?.error?.message || err?.error?.error || 'Failed to update leave request.';
-        alert(msg);
+        this.notify.showAlert(msg);
         return of(null);
       })
     );
@@ -684,7 +768,7 @@ export class HrmsService {
       }),
       catchError(err => {
         const msg = err?.error?.message || err?.error?.error || 'Failed to cancel leave request.';
-        alert(msg);
+        this.notify.showAlert(msg);
         return of(null);
       })
     );
@@ -699,7 +783,7 @@ export class HrmsService {
       }),
       catchError(err => {
         const msg = err?.error?.message || err?.error?.error || `Failed to ${approved ? 'approve' : 'reject'} leave request.`;
-        alert(msg);
+        this.notify.showAlert(msg);
         return of(null);
       })
     );
@@ -722,57 +806,46 @@ export class HrmsService {
     this.approveLeave(id, approved, managerNotes).subscribe();
   }
 
-  private setFallbackLeavesData() {
-    this.leaveRequests.set([
-      {
-        id: 'lv-101',
-        employeeId: 'EMP-003',
-        employeeName: 'Elena Rostova',
-        employeeAvatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80',
-        department: 'Design',
-        leaveType: 'Casual Leave',
-        startDate: '2026-08-12',
-        endDate: '2026-08-14',
-        totalDays: 3,
-        reason: 'Family event in New York.',
-        status: 'PENDING',
-        appliedOn: '2026-08-04'
-      },
-      {
-        id: 'lv-102',
-        employeeId: 'EMP-005',
-        employeeName: 'David Kim',
-        employeeAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
-        department: 'Marketing',
-        leaveType: 'Work From Home',
-        startDate: '2026-08-10',
-        endDate: '2026-08-11',
-        totalDays: 2,
-        reason: 'Home renovation internet setup.',
-        status: 'PENDING',
-        appliedOn: '2026-08-05'
-      }
-    ]);
-  }
-
   // Holidays API
   loadHolidays() {
     this.http.get<any[]>('/api/v1/holidays').pipe(
       catchError(() => of([]))
     ).subscribe(data => {
       if (data && data.length > 0) {
-        const mapped: Holiday[] = data.map((h, i) => ({
-          id: String(h.id || i + 1),
-          title: h.name || 'Holiday',
-          date: h.date || '2026-09-01',
-          day: h.day || 'Monday',
-          type: (h.type as any) || 'Mandatory',
-          description: `Company holiday: ${h.name}`,
-          isUpcoming: true
-        }));
+        const todayStr = new Date().toISOString().split('T')[0];
+        const mapped: Holiday[] = data
+          .map((h, i) => {
+            const rawName = h.title || h.name || h.summary || 'Holiday';
+            const rawDate = h.date || h.start?.date || (h.start?.dateTime ? h.start.dateTime.split('T')[0] : '2026-09-01');
+
+            let dayName = h.day;
+            if (!dayName && rawDate) {
+              try {
+                const d = new Date(rawDate + 'T00:00:00');
+                dayName = d.toLocaleDateString('en-US', { weekday: 'long' });
+              } catch (e) {
+                dayName = 'Monday';
+              }
+            }
+
+            const isUpcoming = h.upcoming !== undefined ? h.upcoming : (rawDate >= todayStr);
+
+            return {
+              id: String(h.id || i + 1),
+              title: rawName,
+              date: rawDate,
+              day: dayName || 'Monday',
+              type: (h.type as any) || (h.description?.toLowerCase().includes('observance') ? 'Optional' : 'Mandatory'),
+              description: h.description || `Company holiday: ${rawName}`,
+              isUpcoming: isUpcoming
+            };
+          })
+          .filter(h => h.date >= todayStr)
+          .sort((a, b) => a.date.localeCompare(b.date));
+
         this.holidays.set(mapped);
       } else {
-        this.holidays.set(this.getFallbackHolidays());
+        this.holidays.set([]);
       }
     });
   }
@@ -814,8 +887,38 @@ export class HrmsService {
     this.timesheets.update(list => list.map(t => t.id === id ? { ...t, status, approvedBy: approverName } : t));
   }
 
+  todayStr = computed(() => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  });
+
+  isOnLeaveOrWfhToday = computed(() => {
+    const today = this.todayStr();
+    const leaves = this.leaveRequests();
+
+    const onLeaveOrWfh = leaves.some(l => {
+      const isApproved = l.status === 'APPROVED' || l.status === 'Approved';
+      if (!isApproved || !l.startDate || !l.endDate) return false;
+      const start = l.startDate.split('T')[0];
+      const end = l.endDate.split('T')[0];
+      return start <= today && today <= end;
+    });
+
+    if (onLeaveOrWfh) return true;
+
+    const recStatus = (this.todayRecord()?.status || '').toUpperCase();
+    return recStatus === 'WFH' || recStatus === 'LEAVE' || recStatus === 'HOLIDAY';
+  });
+
   // Clock Widget Actions
   toggleClockIn() {
+    if (this.isOnLeaveOrWfhToday()) {
+      alert('Clock In and Clock Out are disabled for today because you are on approved Work From Home (WFH) or Leave.');
+      return;
+    }
     if (this.isClockedOutToday()) {
       return;
     }
@@ -859,106 +962,4 @@ export class HrmsService {
     }
   }
 
-  private getFallbackEmployees(): Employee[] {
-    return [
-      {
-        id: '1',
-        employeeId: 'EMP-001',
-        name: 'Alexandra Vance',
-        email: 'admin@hrms.local',
-        phone: '+1 (555) 234-5678',
-        role: 'Admin',
-        department: 'Engineering',
-        designation: 'Chief Technology Officer',
-        joinDate: '2021-03-15',
-        status: 'Active',
-        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-        salary: 165000,
-        location: 'San Francisco, CA',
-        leaveBalance: { casual: 10, sick: 7, paid: 15, wfh: 8 }
-      },
-      {
-        id: '2',
-        employeeId: 'EMP-002',
-        name: 'Marcus Chen',
-        email: 'employee@hrms.local',
-        phone: '+1 (555) 876-5432',
-        role: 'Employee',
-        department: 'Engineering',
-        designation: 'Lead Frontend Engineer',
-        joinDate: '2022-01-10',
-        status: 'Active',
-        avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-        salary: 135000,
-        location: 'Austin, TX',
-        leaveBalance: { casual: 8, sick: 5, paid: 12, wfh: 6 }
-      },
-      {
-        id: '3',
-        employeeId: 'EMP-003',
-        name: 'Sarah Jenkins',
-        email: 'hr@hrms.local',
-        phone: '+1 (555) 987-6543',
-        role: 'HR Manager',
-        department: 'Human Resources',
-        designation: 'Head of People Operations',
-        joinDate: '2020-11-20',
-        status: 'Active',
-        avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80',
-        salary: 125000,
-        location: 'Seattle, WA',
-        leaveBalance: { casual: 12, sick: 7, paid: 18, wfh: 5 }
-      }
-    ];
-  }
-
-  getFallbackHolidays(): Holiday[] {
-    return [
-      {
-        id: '1',
-        title: 'Independence Day / National Holiday',
-        date: '2026-08-15',
-        day: 'Saturday',
-        type: 'Mandatory',
-        description: 'National holiday celebration and offices closed.',
-        isUpcoming: true
-      },
-      {
-        id: '2',
-        title: 'Ganesh Chaturthi',
-        date: '2026-09-14',
-        day: 'Monday',
-        type: 'Regional',
-        description: 'Regional festival holiday.',
-        isUpcoming: true
-      },
-      {
-        id: '3',
-        title: 'Mahatma Gandhi Jayanti',
-        date: '2026-10-02',
-        day: 'Friday',
-        type: 'Mandatory',
-        description: 'National holiday commemorating Mahatma Gandhi.',
-        isUpcoming: true
-      },
-      {
-        id: '4',
-        title: 'Diwali Festival of Lights',
-        date: '2026-11-08',
-        day: 'Sunday',
-        type: 'Mandatory',
-        description: 'Festival of Lights company wide holiday.',
-        isUpcoming: true
-      },
-      {
-        id: '5',
-        title: 'Christmas Day',
-        date: '2026-12-25',
-        day: 'Friday',
-        type: 'Mandatory',
-        description: 'Christmas Day celebration.',
-        isUpcoming: true
-      }
-    ];
-  }
 }

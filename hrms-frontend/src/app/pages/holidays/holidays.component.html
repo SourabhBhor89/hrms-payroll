@@ -8,29 +8,29 @@
   </div>
 
   <!-- Next Holiday Banner -->
-  <div class="next-holiday-banner glass-card">
+  <div class="next-holiday-banner glass-card" *ngIf="nextHoliday">
     <div class="banner-left">
       <span class="badge badge-info mb-2">NEXT UPCOMING HOLIDAY</span>
-      <h3>Independence Day</h3>
-      <p>Saturday, August 15, 2026 • Mandatory National Holiday</p>
+      <h3>{{ nextHoliday.title }}</h3>
+      <p>{{ nextHoliday.day }}, {{ nextHoliday.date }} &bull; {{ nextHoliday.type }} Holiday</p>
     </div>
     <div class="countdown-box">
       <div class="time-unit">
-        <span class="num">09</span>
+        <span class="num">{{ countdown.days < 10 ? '0' + countdown.days : countdown.days }}</span>
         <span class="lbl">Days</span>
       </div>
       <div class="time-unit">
-        <span class="num">14</span>
+        <span class="num">{{ countdown.hours < 10 ? '0' + countdown.hours : countdown.hours }}</span>
         <span class="lbl">Hours</span>
       </div>
       <div class="time-unit">
-        <span class="num">30</span>
+        <span class="num">{{ countdown.mins < 10 ? '0' + countdown.mins : countdown.mins }}</span>
         <span class="lbl">Mins</span>
       </div>
     </div>
   </div>
 
-  <!-- All Holidays List (no filter) -->
+  <!-- Upcoming Holidays List -->
   <div class="holidays-list">
     <div *ngFor="let h of hrms.holidays()" class="holiday-row glass-card" [class.upcoming]="h.isUpcoming">
       <div class="date-badge">
