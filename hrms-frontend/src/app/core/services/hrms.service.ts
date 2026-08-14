@@ -1,6 +1,7 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, tap, catchError, of } from 'rxjs';
+import { ToastService } from './toast.service';
 import {
   Employee,
   AttendanceRecord,
@@ -31,6 +32,7 @@ export interface DashboardSummary {
 })
 export class HrmsService {
   private http = inject(HttpClient);
+  private toastService = inject(ToastService);
 
 
 
@@ -68,6 +70,7 @@ export class HrmsService {
   leaveTypes = signal<LeaveTypeItem[]>([]);
   leaveBalances = signal<EmployeeLeaveBalanceDetail[]>([]);
   pendingLeaveApprovals = signal<LeaveRequest[]>([]);
+  approvedRejectedLeaves = signal<LeaveRequest[]>([]);
   holidays = signal<Holiday[]>([]);
   timesheets = signal<Timesheet[]>([]);
   regularizationRequests = signal<RegularizationRequest[]>([]);
@@ -187,6 +190,8 @@ export class HrmsService {
     this.employees.set([]);
     this.attendanceRecords.set([]);
     this.leaveRequests.set([]);
+    this.pendingLeaveApprovals.set([]);
+    this.approvedRejectedLeaves.set([]);
     this.timesheets.set([]);
     this.regularizationRequests.set([]);
     this.dashboardSummary.set({
@@ -318,7 +323,7 @@ export class HrmsService {
         leaveBalance: { casual: 10, sick: 7, paid: 15, wfh: 8 }
       }));
 
-      this.employees.set(mapped);
+      this.employees.set(mapped.length > 0 ? mapped : this.getFallbackEmployees());
     });
   }
 
@@ -638,6 +643,35 @@ export class HrmsService {
           updatedAt: l.updatedAt
         }));
         this.leaveRequests.set(mapped);
+
+        // Load approved/rejected leaves for HR/Admin users
+        if (res.approvedRejectedLeaves) {
+          const mappedApprovedRejected: LeaveRequest[] = res.approvedRejectedLeaves.map((l: any, idx: number) => ({
+            id: l.id || idx + 1,
+            employeeId: l.employeeId,
+            employeeName: l.employeeName || 'Employee',
+            employeeCode: l.employeeCode || '',
+            employeeAvatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80',
+            department: 'Engineering',
+            leaveTypeId: l.leaveTypeId,
+            leaveType: l.leaveTypeName || 'Leave',
+            leaveTypeName: l.leaveTypeName,
+            leaveTypeCode: l.leaveTypeCode,
+            startDate: l.startDate,
+            endDate: l.endDate,
+            totalDays: l.totalDays || 1,
+            reason: l.reason || '',
+            status: l.status || 'PENDING',
+            approvedBy: l.approvedBy,
+            approvedByName: l.approvedByName,
+            approvedAt: l.approvedAt,
+            rejectionReason: l.rejectionReason,
+            appliedOn: l.createdAt ? String(l.createdAt).split('T')[0] : '',
+            createdAt: l.createdAt,
+            updatedAt: l.updatedAt
+          }));
+          this.approvedRejectedLeaves.set(mappedApprovedRejected);
+        }
       }
     });
   }
@@ -725,7 +759,7 @@ export class HrmsService {
       }),
       catchError(err => {
         const msg = err?.error?.message || err?.error?.error || 'Failed to submit leave request.';
-        alert(msg);
+        this.toastService.showError(msg);
         return of(null);
       })
     );
@@ -739,7 +773,7 @@ export class HrmsService {
       }),
       catchError(err => {
         const msg = err?.error?.message || err?.error?.error || 'Failed to update leave request.';
-        alert(msg);
+        this.toastService.showError(msg);
         return of(null);
       })
     );
@@ -753,7 +787,7 @@ export class HrmsService {
       }),
       catchError(err => {
         const msg = err?.error?.message || err?.error?.error || 'Failed to cancel leave request.';
-        alert(msg);
+        this.toastService.showError(msg);
         return of(null);
       })
     );
@@ -768,7 +802,7 @@ export class HrmsService {
       }),
       catchError(err => {
         const msg = err?.error?.message || err?.error?.error || `Failed to ${approved ? 'approve' : 'reject'} leave request.`;
-        alert(msg);
+        this.toastService.showError(msg);
         return of(null);
       })
     );
@@ -952,7 +986,7 @@ export class HrmsService {
       {
         id: '1',
         employeeId: 'EMP-001',
-        name: 'System Admin',
+        name: 'Alexandra Vance',
         email: 'admin@hrms.local',
         phone: '+1 (555) 234-5678',
         role: 'Admin',
@@ -968,7 +1002,7 @@ export class HrmsService {
       {
         id: '2',
         employeeId: 'EMP-002',
-        name: 'Employee Staff',
+        name: 'Marcus Chen',
         email: 'employee@hrms.local',
         phone: '+1 (555) 876-5432',
         role: 'Employee',
@@ -984,7 +1018,7 @@ export class HrmsService {
       {
         id: '3',
         employeeId: 'EMP-003',
-        name: 'HR Manager',
+        name: 'Sarah Jenkins',
         email: 'hr@hrms.local',
         phone: '+1 (555) 987-6543',
         role: 'HR Manager',

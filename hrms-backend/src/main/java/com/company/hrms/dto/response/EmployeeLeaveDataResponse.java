@@ -23,4 +23,5 @@ public class EmployeeLeaveDataResponse {
     private Integer month;
     private List<EmployeeLeaveBalanceDetail> leaveBalances;
     private List<LeaveResponse> leaves;
+    private List<LeaveResponse> approvedRejectedLeaves; // Leaves approved/rejected by this HR/Admin
 }

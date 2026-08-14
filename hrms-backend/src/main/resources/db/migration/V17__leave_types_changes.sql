@@ -13,5 +13,5 @@ SET default_days_per_year = 0, paid = FALSE, updated_at = NOW()
 WHERE code = 'WFH';
 
 UPDATE leave_types
-SET name = 'LOP', description = 'Loss of Pay leave for personal reasons', max_carry_forward_days = 0.00, updated_at = NOW()
+SET code = 'LOP', name = 'LOP', description = 'Loss of Pay leave for personal reasons', max_carry_forward_days = 0.00, updated_at = NOW()
 WHERE code = 'UNPAID';

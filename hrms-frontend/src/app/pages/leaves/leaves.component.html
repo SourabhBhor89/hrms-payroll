@@ -1,19 +1,4 @@
 <div class="leaves-page">
-  <!-- Toast Notification Container -->
-  <div class="toast-container" *ngIf="popupMessage()">
-    <div class="toast" [class.toast-success]="popupMessage()?.type === 'success'" [class.toast-error]="popupMessage()?.type === 'error'">
-      <svg *ngIf="popupMessage()?.type === 'success'" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="20 6 9 17 4 12"></polyline>
-      </svg>
-      <svg *ngIf="popupMessage()?.type === 'error'" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="10"></circle>
-        <line x1="15" y1="9" x2="9" y2="15"></line>
-        <line x1="9" y1="9" x2="15" y2="15"></line>
-      </svg>
-      <span>{{ popupMessage()?.text }}</span>
-    </div>
-  </div>
-
   <!-- Header -->
   <div class="page-header">
     <div>
@@ -21,28 +6,29 @@
       <p class="subtitle">View leave balances, submit leave applications, and manage employee approvals.</p>
     </div>
 
-    <button class="btn btn-primary" (click)="openApplyModal()" *ngIf="auth.currentRole() !== 'Admin'">
+    <button class="btn btn-primary" (click)="openApplyModal()" *ngIf="!isAdmin()">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       Apply for Leave
     </button>
   </div>
 
   <!-- Dynamic Leave Balances Cards -->
-  <div class="balance-grid">
+  <div class="balance-grid" *ngIf="!isAdmin()">
     <div class="balance-card glass-card" *ngFor="let b of displayedBalances">
       <div class="b-header">
         <span>{{ b.leaveTypeName }}</span>
         <span class="b-icon" [ngSwitch]="b.leaveTypeCode">
           <span *ngSwitchCase="'EARNED'">💼</span>
           <span *ngSwitchCase="'WFH'">🏠</span>
+          <span *ngSwitchCase="'LOP'">📉</span>
           <span *ngSwitchCase="'UNPAID'">📅</span>
           <span *ngSwitchDefault>📅</span>
         </span>
       </div>
 
-      <!-- WFH leave type - show used days only -->
+      <!-- WFH/LOP leave type - show used days only -->
       <ng-container *ngIf="isWFHLeaveType(b.leaveTypeCode)">
-        <span class="b-count">{{ (b.usedDays || 0) | number }} Days</span>
+         <span class="b-count">{{ (b.usedDays || 0) | number }} Days</span>
         <div class="progress-bar">
           <div class="progress" [style.width.%]="100"></div>
         </div>
@@ -63,7 +49,7 @@
   <!-- Main Content Card with Tabs & Filter Register -->
   <div class="table-container glass-card mt-4">
     <div class="table-header-box flex-header">
-      <div class="view-tabs" *ngIf="canApprove()">
+      <div class="view-tabs" *ngIf="canApprove() && !isAdmin()">
         <button class="tab-btn" [class.active]="activeTab === 'my_leaves'" (click)="activeTab = 'my_leaves'">
           My Leave Applications
         </button>
@@ -74,7 +60,8 @@
           </span>
         </button>
       </div>
-      <h3 *ngIf="!canApprove()">My Leave Applications</h3>
+      <!-- <h3 *ngIf="!canApprove()">My Leave Applications</h3> -->
+      <!-- <h3 *ngIf="isAdmin()">Approvals Pending</h3> -->
 
       <div class="filter-pills">
         <button class="pill-btn" [class.active]="filterStatus === 'All'" (click)="filterStatus = 'All'">All</button>
@@ -128,8 +115,8 @@
             </span>
           </td>
           <td>
-            <!-- Approval Actions for Managers -->
-            <div class="action-buttons" *ngIf="activeTab === 'pending_approvals'">
+            <!-- Approval Actions for Managers (HR/Admin) -->
+            <div class="action-buttons" *ngIf="canApprove() && activeTab === 'pending_approvals'">
               <ng-container *ngIf="req.status === 'PENDING' || req.status === 'Pending'">
                 <button class="btn btn-success btn-sm" (click)="approve(req.id)">Approve</button>
                 <button class="btn btn-danger btn-sm" (click)="promptReject(req.id)">Reject</button>
@@ -140,7 +127,7 @@
             </div>
 
             <!-- Self Leave Request Actions -->
-            <div class="action-buttons" *ngIf="activeTab === 'my_leaves'">
+            <div class="action-buttons" *ngIf="!canApprove() || activeTab === 'my_leaves'">
               <ng-container *ngIf="req.status === 'PENDING' || req.status === 'Pending'">
                 <button class="btn btn-outline-primary btn-sm" (click)="openEditModal(req)">Edit</button>
                 <button class="btn btn-outline-danger btn-sm" (click)="cancelRequest(req.id)">Cancel</button>
@@ -169,7 +156,7 @@
       <form (ngSubmit)="submitForm()" class="mt-4">
         <div class="form-group">
           <label class="form-label">Leave Category</label>
-          <select class="form-select" [(ngModel)]="formData.leaveTypeId" name="leaveTypeId" required>
+          <select class="form-select" [(ngModel)]="formData.leaveTypeId" name="leaveTypeId" [class.error-border]="validationErrors.leaveTypeId" required>
             <option *ngFor="let type of activeLeaveTypes" [ngValue]="type.id">
               {{ type.name }}
             </option>
@@ -179,23 +166,23 @@
         <div class="form-row">
           <div class="form-group">
             <label class="form-label">Start Date</label>
-            <input type="date" class="form-input" [(ngModel)]="formData.startDate" (change)="onDateChange()" name="startDate" required />
+            <input type="date" class="form-input" [(ngModel)]="formData.startDate" (change)="onDateChange()" name="startDate" [class.error-border]="validationErrors.startDate" required />
           </div>
 
           <div class="form-group">
             <label class="form-label">End Date</label>
-            <input type="date" class="form-input" [(ngModel)]="formData.endDate" (change)="onDateChange()" name="endDate" required />
+            <input type="date" class="form-input" [(ngModel)]="formData.endDate" (change)="onDateChange()" name="endDate" [class.error-border]="validationErrors.endDate" required />
           </div>
         </div>
 
         <div class="form-group">
           <label class="form-label">Total Days</label>
-          <input type="number" class="form-input" [(ngModel)]="formData.totalDays" name="totalDays" min="0.5" step="0.5" max="30" required />
+          <input type="number" class="form-input" [(ngModel)]="formData.totalDays" name="totalDays" min="0.5" step="0.5" max="30" [class.error-border]="validationErrors.totalDays" required />
         </div>
 
         <div class="form-group">
           <label class="form-label">Reason / Justification</label>
-          <textarea class="form-textarea" rows="3" [(ngModel)]="formData.reason" name="reason" placeholder="State reason for leave request..." required></textarea>
+          <textarea class="form-textarea" rows="3" [(ngModel)]="formData.reason" name="reason" placeholder="State reason for leave request..." [class.error-border]="validationErrors.reason" required></textarea>
         </div>
 
         <div class="modal-actions">
@@ -229,7 +216,7 @@
   </div>
 
   <!-- Cancel Leave Confirmation Modal -->
-  <div class="modal-backdrop" *ngIf="showCancelConfirmModal()">
+  <div class="modal-backdrop" *ngIf="showConfirmCancelModal()">
     <div class="modal-content" style="max-width: 440px; text-align: center;">
       <div style="display: flex; justify-content: center; align-items: center; margin-bottom: 1.25rem;">
         <div style="width: 56px; height: 56px; border-radius: 50%; background: #fff1f2; display: flex; align-items: center; justify-content: center; border: 1px solid #fecdd3;">
@@ -250,15 +237,14 @@
       </p>
 
       <div class="modal-actions" style="justify-content: center; gap: 0.75rem; margin-top: 0;">
-        <button type="button" class="btn btn-secondary" (click)="showCancelConfirmModal.set(false)">
+        <button type="button" class="btn btn-secondary" (click)="showConfirmCancelModal.set(false)">
           Keep Application
         </button>
-        <button type="button" class="btn btn-danger" (click)="proceedCancelLeave()">
+        <button type="button" class="btn btn-danger" (click)="confirmCancelRequest()">
           Yes, Cancel Leave
         </button>
       </div>
     </div>
   </div>
-
 </div>
 

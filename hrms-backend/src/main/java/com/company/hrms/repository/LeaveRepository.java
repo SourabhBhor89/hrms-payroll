@@ -33,6 +33,9 @@ public interface LeaveRepository extends JpaRepository<Leave, Long> {
     @Query("SELECT l FROM Leave l WHERE l.status IN :statuses")
     List<Leave> findByStatusIn(@Param("statuses") List<Leave.LeaveStatus> statuses);
 
+    @Query("SELECT l FROM Leave l WHERE l.status IN :statuses AND l.employee.id != :approverId")
+    List<Leave> findByStatusInAndEmployeeIdNot(@Param("statuses") List<Leave.LeaveStatus> statuses, @Param("approverId") Long approverId);
+
     List<Leave> findByApprovedById(Long approvedById);
 
     @Query("SELECT COUNT(l) FROM Leave l WHERE l.employee = :employee " +

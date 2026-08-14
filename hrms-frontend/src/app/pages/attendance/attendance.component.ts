@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HrmsService } from '../../core/services/hrms.service';
 import { AuthService } from '../../core/services/auth.service';
+import { ToastService } from '../../core/services/toast.service';
 import { AttendanceRecord, AttendanceStatus, RegularizationRequest, RegularizationStatus } from '../../core/models/hrms.model';
 
 export interface CalendarDayCell {
@@ -31,6 +32,7 @@ export interface CalendarDayCell {
 export class AttendanceComponent implements OnInit {
   hrms = inject(HrmsService);
   auth = inject(AuthService);
+  toastService = inject(ToastService);
 
   ngOnInit() {
     this.hrms.loadTodayAttendance();
@@ -255,11 +257,11 @@ export class AttendanceComponent implements OnInit {
 
   openRegModal(cell?: CalendarDayCell) {
     if (this.auth.currentRole() === 'Admin') {
-      alert('Administrators do not submit self-regularization requests. Use the Regularization Panel to review and approve employee/HR requests.');
+      this.toastService.showError('Administrators do not submit self-regularization requests. Use the Regularization Panel to review and approve employee/HR requests.');
       return;
     }
     if (cell?.regularizationStatus === 'Rejected') {
-      alert('A regularization request for this date was rejected and cannot be resubmitted.');
+      this.toastService.showError('A regularization request for this date was rejected and cannot be resubmitted.');
       return;
     }
     const dateToUse = cell?.dateStr || new Date().toISOString().split('T')[0];
@@ -276,17 +278,17 @@ export class AttendanceComponent implements OnInit {
 
   submitRegRequest() {
     if (this.auth.currentRole() === 'Admin') {
-      alert('Administrators do not submit self-regularization requests.');
+      this.toastService.showError('Administrators do not submit self-regularization requests.');
       return;
     }
     if (!this.regForm.attendanceDate || !this.regForm.requestedClockInTime || !this.regForm.requestedClockOutTime || !this.regForm.reason) {
-      alert('Please fill all mandatory regularization fields (Date, Clock In, Clock Out, and Reason).');
+      this.toastService.showError('Please fill all mandatory regularization fields (Date, Clock In, Clock Out, and Reason).');
       return;
     }
 
     const existingReq = this.hrms.regularizationRequests().find(r => r.date === this.regForm.attendanceDate);
     if (existingReq?.status === 'Rejected') {
-      alert('A regularization request for this date was rejected and cannot be resubmitted.');
+      this.toastService.showError('A regularization request for this date was rejected and cannot be resubmitted.');
       return;
     }
 
@@ -353,7 +355,7 @@ export class AttendanceComponent implements OnInit {
     if (!req) return;
 
     if (this.reviewAction() === 'REJECT' && !this.reviewRemarks.trim()) {
-      alert('Please enter rejection remarks.');
+      this.toastService.showError('Please enter rejection remarks.');
       return;
     }
 

@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HrmsService } from '../../core/services/hrms.service';
 import { AuthService } from '../../core/services/auth.service';
+import { ToastService } from '../../core/services/toast.service';
 import { LeaveRequest, EmployeeLeaveBalanceDetail, LeaveTypeItem } from '../../core/models/hrms.model';
 
 @Component({
@@ -15,6 +16,7 @@ import { LeaveRequest, EmployeeLeaveBalanceDetail, LeaveTypeItem } from '../../c
 export class LeavesComponent implements OnInit {
   hrms = inject(HrmsService);
   auth = inject(AuthService);
+  toastService = inject(ToastService);
 
   activeTab: 'my_leaves' | 'pending_approvals' = 'my_leaves';
   filterStatus: string = 'All';
@@ -29,6 +31,10 @@ export class LeavesComponent implements OnInit {
   rejectingLeaveId: string | number | null = null;
   rejectionReasonInput: string = '';
 
+  // Confirm Cancel Modal Signals
+  showConfirmCancelModal = signal<boolean>(false);
+  cancelLeaveId: string | number | null = null;
+
   formData = {
     leaveTypeId: 1,
     startDate: '',
@@ -37,18 +43,20 @@ export class LeavesComponent implements OnInit {
     reason: ''
   };
 
-  popupMessage = signal<{ text: string; type: 'success' | 'error' } | null>(null);
-
-  showPopup(text: string, type: 'success' | 'error' = 'success') {
-    this.popupMessage.set({ text, type });
-    setTimeout(() => {
-      this.popupMessage.set(null);
-    }, 4000);
-  }
+  // Validation errors
+  validationErrors = {
+    leaveTypeId: false,
+    startDate: false,
+    endDate: false,
+    totalDays: false,
+    reason: false
+  };
 
   ngOnInit() {
     this.hrms.loadLeaveTypes();
-    this.hrms.loadLeaves(); // This loads both leave balances and leave requests
+    // Load leaves for all users - this includes approvedRejectedLeaves for HR/Admin
+    this.hrms.loadLeaves();
+    
     if (this.canApprove()) {
       this.hrms.loadPendingLeaveApprovals();
     }
@@ -58,8 +66,16 @@ export class LeavesComponent implements OnInit {
   }
 
   canApprove(): boolean {
+    return this.auth.hasPermission('LEAVE_APPROVE');
+  }
+
+  isAdmin(): boolean {
+    return this.auth.currentRole() === 'Admin';
+  }
+
+  isHrOrAdmin(): boolean {
     const role = this.auth.currentRole();
-    return (role === 'Admin' || role === 'HR Manager') && this.auth.hasPermission('LEAVE_APPROVE');
+    return role === 'Admin' || role === 'HR Manager';
   }
 
   get activeLeaveTypes() {
@@ -89,10 +105,27 @@ export class LeavesComponent implements OnInit {
   }
 
   isWFHLeaveType(leaveTypeCode: string): boolean {
-    return leaveTypeCode === 'WFH';
+    return leaveTypeCode === 'WFH' || leaveTypeCode === 'LOP';
   }
 
   filteredRequests(): LeaveRequest[] {
+    // For HR/Admin users, combine pending approvals and approved/rejected leaves when in pending_approvals tab
+    if (this.isHrOrAdmin() && this.activeTab === 'pending_approvals') {
+      const combinedList = [
+        ...this.hrms.pendingLeaveApprovals(),
+        ...this.hrms.approvedRejectedLeaves()
+      ];
+
+      if (this.filterStatus === 'All') return combinedList;
+
+      return combinedList.filter(r => {
+        const s = (r.status || '').toUpperCase();
+        const target = this.filterStatus.toUpperCase();
+        return s === target;
+      });
+    }
+
+    // For "My Leave Applications" tab, show only current user's leave requests
     const sourceList = this.activeTab === 'pending_approvals'
       ? this.hrms.pendingLeaveApprovals()
       : this.hrms.leaveRequests();
@@ -122,12 +155,55 @@ export class LeavesComponent implements OnInit {
     };
     this.editingId = null;
     this.isEditMode.set(false);
+    this.resetValidationErrors();
     this.showModal.set(true);
   }
 
   isLeaveTypeEligible(leaveType: LeaveTypeItem): boolean {
     // If eligible is explicitly false, mark as not eligible
     return leaveType.eligible !== false;
+  }
+
+  resetValidationErrors() {
+    this.validationErrors = {
+      leaveTypeId: false,
+      startDate: false,
+      endDate: false,
+      totalDays: false,
+      reason: false
+    };
+  }
+
+  validateForm(): boolean {
+    let isValid = true;
+    this.resetValidationErrors();
+
+    if (!this.formData.leaveTypeId || this.formData.leaveTypeId === 0) {
+      this.validationErrors.leaveTypeId = true;
+      isValid = false;
+    }
+
+    if (!this.formData.startDate) {
+      this.validationErrors.startDate = true;
+      isValid = false;
+    }
+
+    if (!this.formData.endDate) {
+      this.validationErrors.endDate = true;
+      isValid = false;
+    }
+
+    if (!this.formData.totalDays || this.formData.totalDays <= 0) {
+      this.validationErrors.totalDays = true;
+      isValid = false;
+    }
+
+    if (!this.formData.reason || this.formData.reason.trim() === '') {
+      this.validationErrors.reason = true;
+      isValid = false;
+    }
+
+    return isValid;
   }
 
   openEditModal(req: LeaveRequest) {
@@ -157,23 +233,7 @@ export class LeavesComponent implements OnInit {
   }
 
   submitForm() {
-    // 1. Validation for required fields
-    const missingFields: string[] = [];
-    if (!this.formData.leaveTypeId || this.formData.leaveTypeId === 0) missingFields.push('Leave Category');
-    if (!this.formData.startDate) missingFields.push('Start Date');
-    if (!this.formData.endDate) missingFields.push('End Date');
-    if (!this.formData.reason || !this.formData.reason.trim()) missingFields.push('Reason / Justification');
-
-    if (missingFields.length > 0) {
-      this.showPopup(`Please fill in all required fields: ${missingFields.join(', ')}`, 'error');
-      return;
-    }
-
-    // 2. Date sequence validation
-    const start = new Date(this.formData.startDate);
-    const end = new Date(this.formData.endDate);
-    if (end < start) {
-      this.showPopup('End Date cannot be earlier than Start Date.', 'error');
+    if (!this.validateForm()) {
       return;
     }
 
@@ -186,7 +246,7 @@ export class LeavesComponent implements OnInit {
     }
 
     if (!targetLeaveTypeId || targetLeaveTypeId === 0) {
-      this.showPopup('Leave Category not found. Please select a valid category.', 'error');
+      this.toastService.showError('Leave type not found. Please ensure leave categories are loaded from the backend.');
       return;
     }
 
@@ -197,14 +257,8 @@ export class LeavesComponent implements OnInit {
         endDate: this.formData.endDate || this.formData.startDate,
         totalDays: Number(this.formData.totalDays),
         reason: this.formData.reason
-      }).subscribe({
-        next: (res) => {
-          this.showPopup('Leave application updated successfully!', 'success');
-          this.showModal.set(false);
-        },
-        error: (err) => {
-          this.showPopup('Failed to update leave application: ' + (err.error?.message || err.message || 'Error occurred'), 'error');
-        }
+      }).subscribe((res) => {
+        if (res) this.showModal.set(false);
       });
     } else {
       this.hrms.applyLeave({
@@ -213,33 +267,22 @@ export class LeavesComponent implements OnInit {
         endDate: this.formData.endDate || this.formData.startDate,
         totalDays: Number(this.formData.totalDays),
         reason: this.formData.reason
-      }).subscribe({
-        next: (res) => {
-          this.showPopup('Leave application submitted successfully!', 'success');
-          this.showModal.set(false);
-        },
-        error: (err) => {
-          this.showPopup('Failed to submit leave application: ' + (err.error?.message || err.message || 'Error occurred'), 'error');
-        }
+      }).subscribe((res) => {
+        if (res) this.showModal.set(false);
       });
     }
   }
 
-  // Cancel Confirm Modal Signals
-  showCancelConfirmModal = signal<boolean>(false);
-  leaveIdToCancel = signal<string | number | null>(null);
-
   cancelRequest(id: string | number) {
-    this.leaveIdToCancel.set(id);
-    this.showCancelConfirmModal.set(true);
+    this.cancelLeaveId = id;
+    this.showConfirmCancelModal.set(true);
   }
 
-  proceedCancelLeave() {
-    const id = this.leaveIdToCancel();
-    if (id !== null) {
-      this.hrms.cancelLeave(id).subscribe();
-      this.showCancelConfirmModal.set(false);
-      this.leaveIdToCancel.set(null);
+  confirmCancelRequest() {
+    if (this.cancelLeaveId) {
+      this.hrms.cancelLeave(this.cancelLeaveId).subscribe();
+      this.showConfirmCancelModal.set(false);
+      this.cancelLeaveId = null;
     }
   }
 
@@ -258,6 +301,9 @@ export class LeavesComponent implements OnInit {
       this.hrms.approveLeave(this.rejectingLeaveId, false, this.rejectionReasonInput).subscribe(() => {
         this.showRejectModal.set(false);
         this.rejectingLeaveId = null;
+        if (this.canApprove()) {
+          this.hrms.approvedRejectedLeaves;
+        }
       });
     }
   }
