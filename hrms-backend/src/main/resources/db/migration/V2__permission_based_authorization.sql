@@ -4,20 +4,20 @@
 
 -- 1. Ensure HR role exists
 INSERT INTO roles (name, created_at, updated_at, created_by, updated_by)
-SELECT 'HR', NOW(6), NOW(6), NULL, NULL
+SELECT 'HR', NOW(), NOW(), NULL, NULL
 WHERE NOT EXISTS (SELECT 1 FROM roles WHERE name = 'HR');
 
 -- 2. PERMISSIONS TABLE
 CREATE TABLE permissions
 (
-    id BIGINT NOT NULL AUTO_INCREMENT,
+    id BIGSERIAL NOT NULL,
     name VARCHAR(100) NOT NULL,
     description VARCHAR(255) NULL,
 
-    created_at DATETIME(6) NOT NULL,
+    created_at TIMESTAMP NOT NULL,
     created_by BIGINT NULL,
 
-    updated_at DATETIME(6) NULL,
+    updated_at TIMESTAMP NULL,
     updated_by BIGINT NULL,
 
     PRIMARY KEY (id),
@@ -71,21 +71,21 @@ CREATE INDEX idx_employee_permissions_employee ON employee_permissions(employee_
 
 -- 6. INITIAL PERMISSIONS SEED
 INSERT INTO permissions (name, description, created_at, updated_at) VALUES
-('ATTENDANCE_VIEW', 'View attendance records', NOW(6), NOW(6)),
-('ATTENDANCE_CREATE', 'Create attendance records', NOW(6), NOW(6)),
-('ATTENDANCE_UPDATE', 'Update attendance records', NOW(6), NOW(6)),
-('LEAVE_VIEW', 'View leave requests and balances', NOW(6), NOW(6)),
-('LEAVE_APPLY', 'Apply for leave', NOW(6), NOW(6)),
-('LEAVE_APPROVE', 'Approve or reject leave requests', NOW(6), NOW(6)),
-('EMPLOYEE_MANAGEMENT_VIEW', 'View employee profiles and work details', NOW(6), NOW(6)),
-('EMPLOYEE_MANAGEMENT_CREATE', 'Create new employee profiles', NOW(6), NOW(6)),
-('EMPLOYEE_MANAGEMENT_UPDATE', 'Update employee profiles and status', NOW(6), NOW(6)),
-('HOLIDAY_VIEW', 'View company holidays', NOW(6), NOW(6)),
-('WORK_WEEK_VIEW', 'View work week schedules', NOW(6), NOW(6)),
-('PROJECTS_VIEW', 'View assigned projects', NOW(6), NOW(6)),
-('TIMESHEET_CATEGORIES_VIEW', 'View timesheet categories', NOW(6), NOW(6)),
-('LEAVE_SETUP_VIEW', 'View leave configuration and policies', NOW(6), NOW(6)),
-('ATTENDANCE_SETUP_VIEW', 'View attendance configuration and rules', NOW(6), NOW(6));
+('ATTENDANCE_VIEW', 'View attendance records', NOW(), NOW()),
+('ATTENDANCE_CREATE', 'Create attendance records', NOW(), NOW()),
+('ATTENDANCE_UPDATE', 'Update attendance records', NOW(), NOW()),
+('LEAVE_VIEW', 'View leave requests and balances', NOW(), NOW()),
+('LEAVE_APPLY', 'Apply for leave', NOW(), NOW()),
+('LEAVE_APPROVE', 'Approve or reject leave requests', NOW(), NOW()),
+('EMPLOYEE_MANAGEMENT_VIEW', 'View employee profiles and work details', NOW(), NOW()),
+('EMPLOYEE_MANAGEMENT_CREATE', 'Create new employee profiles', NOW(), NOW()),
+('EMPLOYEE_MANAGEMENT_UPDATE', 'Update employee profiles and status', NOW(), NOW()),
+('HOLIDAY_VIEW', 'View company holidays', NOW(), NOW()),
+('WORK_WEEK_VIEW', 'View work week schedules', NOW(), NOW()),
+('PROJECTS_VIEW', 'View assigned projects', NOW(), NOW()),
+('TIMESHEET_CATEGORIES_VIEW', 'View timesheet categories', NOW(), NOW()),
+('LEAVE_SETUP_VIEW', 'View leave configuration and policies', NOW(), NOW()),
+('ATTENDANCE_SETUP_VIEW', 'View attendance configuration and rules', NOW(), NOW());
 
 -- 7. ASSIGN ALL PERMISSIONS TO ADMIN ROLE
 INSERT INTO role_permissions (role_id, permission_id)

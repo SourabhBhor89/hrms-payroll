@@ -10,9 +10,11 @@ import com.company.hrms.entity.Employee;
 import com.company.hrms.entity.EmployeeWorkDetails;
 import com.company.hrms.entity.RegularizationStatus;
 import com.company.hrms.entity.User;
+import com.company.hrms.entity.Leave;
 import com.company.hrms.repository.AttendanceRegularizationRepository;
 import com.company.hrms.repository.AttendanceRepository;
 import com.company.hrms.repository.EmployeeRepository;
+import com.company.hrms.repository.LeaveRepository;
 import com.company.hrms.repository.UserRepository;
 import com.company.hrms.service.AttendanceCalculationService;
 import com.company.hrms.service.AttendanceRegularizationService;
@@ -34,12 +36,14 @@ public class AttendanceRegularizationServiceImpl implements AttendanceRegulariza
     private final EmployeeRepository employeeRepository;
     private final UserRepository userRepository;
     private final AttendanceCalculationService calculationService;
+    private final LeaveRepository leaveRepository;
 
     @Override
     @Transactional
     public AttendanceRegularizationDto createRegularization(String userEmail, CreateRegularizationRequest request) {
-        User user = userRepository.findByEmailAndActiveTrue(userEmail)
-                .orElseThrow(() -> new IllegalArgumentException("User not found: " + userEmail));
+        User user = userRepository.findByEmail(userEmail)
+                .orElseGet(() -> userRepository.findByEmailAndActiveTrue(userEmail)
+                        .orElseThrow(() -> new IllegalArgumentException("User not found: " + userEmail)));
 
         Employee employee = getOrCreateEmployee(user);
 
@@ -68,15 +72,25 @@ public class AttendanceRegularizationServiceImpl implements AttendanceRegulariza
             throw new IllegalStateException("Attendance for " + date + " is locked by payroll and cannot be regularized.");
         }
 
-        if (attendance.getStatus() == AttendanceStatus.LEAVE ||
+        // Check if employee has an approved leave / WFH for this date
+        List<Leave> activeLeaves = leaveRepository.findByEmployeeId(employee.getId());
+        boolean isOnLeaveOrWfh = activeLeaves.stream().anyMatch(l -> {
+            boolean isApproved = l.getStatus() == Leave.LeaveStatus.APPROVED;
+            if (!isApproved || l.getStartDate() == null || l.getEndDate() == null) return false;
+            return !date.isBefore(l.getStartDate()) && !date.isAfter(l.getEndDate());
+        });
+
+        if (isOnLeaveOrWfh ||
+            attendance.getStatus() == AttendanceStatus.WFH ||
+            attendance.getStatus() == AttendanceStatus.LEAVE ||
             attendance.getStatus() == AttendanceStatus.HOLIDAY ||
             attendance.getStatus() == AttendanceStatus.WEEKEND) {
-            throw new IllegalStateException("Regularization is not allowed for " + attendance.getStatus() + " days.");
+            throw new IllegalStateException("Regularization is not allowed for Work From Home (WFH) or Leave days.");
         }
 
-        // Check for existing PENDING or APPROVED requests
+        // Check for existing PENDING, APPROVED, or REJECTED requests
         List<AttendanceRegularization> existingRequests = regularizationRepository
-                .findByAttendanceIdAndStatusIn(attendance.getId(), List.of(RegularizationStatus.PENDING, RegularizationStatus.APPROVED));
+                .findByAttendanceIdAndStatusIn(attendance.getId(), List.of(RegularizationStatus.PENDING, RegularizationStatus.APPROVED, RegularizationStatus.REJECTED));
 
         for (AttendanceRegularization req : existingRequests) {
             if (req.getStatus() == RegularizationStatus.PENDING) {
@@ -84,6 +98,9 @@ public class AttendanceRegularizationServiceImpl implements AttendanceRegulariza
             }
             if (req.getStatus() == RegularizationStatus.APPROVED) {
                 throw new IllegalStateException("Attendance for " + date + " has already been regularized.");
+            }
+            if (req.getStatus() == RegularizationStatus.REJECTED) {
+                throw new IllegalStateException("A regularization request for " + date + " was rejected and cannot be resubmitted.");
             }
         }
 
@@ -114,8 +131,9 @@ public class AttendanceRegularizationServiceImpl implements AttendanceRegulariza
     @Override
     @Transactional(readOnly = true)
     public List<AttendanceRegularizationDto> getMyRegularizations(String userEmail) {
-        User user = userRepository.findByEmailAndActiveTrue(userEmail)
-                .orElseThrow(() -> new IllegalArgumentException("User not found: " + userEmail));
+        User user = userRepository.findByEmail(userEmail)
+                .orElseGet(() -> userRepository.findByEmailAndActiveTrue(userEmail)
+                        .orElseThrow(() -> new IllegalArgumentException("User not found: " + userEmail)));
 
         Employee employee = getOrCreateEmployee(user);
 

@@ -2,11 +2,34 @@ spring:
   application:
     name: hrms-backend
 
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2000ms
+
+  cache:
+    type: redis
+    ttl:
+      user-permissions: 30m
+      employees: 5m
+      employee-profiles: 10m
+      leave-types: 24h
+      holidays: 24h
+      leaves: 5m
+    redis:
+      time-to-live: 86400000ms
+      cache-null-values: false
+
+ 
   datasource:
-    url: jdbc:mysql://localhost:3306/hrms_db
-    username: ${DB_USERNAME:root}
-    password: ${DB_PASSWORD:root}
-    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:postgresql://db.xpjtliwteybzoczamafk.supabase.co:5432/postgres
+    databse: postgres
+    username: postgres
+    password: '@Trhhrms@1234'
+    # driver-class-name: com.mysql.cj.jdbc.Driver
+    driver-class-name: org.postgresql.Driver
 
   flyway:
     enabled: true
@@ -38,11 +61,22 @@ springdoc:
   swagger-ui:
     path: /swagger-ui.html
 
-app:
+security:
   jwt:
     secret: ${JWT_SECRET:bXktZGV2LWhybXMtc2VjcmV0LWtleS1tdXN0LWJlLWxvbmctZW5vdWdoLTEyMzQ1Njc4OTA=}
-    expiration: ${JWT_EXPIRATION:3600000}
+    access-token-expiration: ${ACCESS_TOKEN_EXPIRATION:15m}
+    refresh-token-idle-timeout: ${REFRESH_TOKEN_IDLE_TIMEOUT:30m}
+    activity-update-interval: ${ACTIVITY_UPDATE_INTERVAL:5m}
+    cookie-secure: ${COOKIE_SECURE:false}
+    cookie-same-site: ${COOKIE_SAME_SITE:Lax}
+
+app:
 
   admin:
     email: ${ADMIN_EMAIL:admin@hrms.local}
     password: ${ADMIN_PASSWORD:Admin@12345}
+
+google:
+  calendar:
+    api-key: ${GOOGLE_CALENDAR_API_KEY:xyz_Api_Key}
+    calendar-id: en.indian#holiday@group.v.calendar.google.com

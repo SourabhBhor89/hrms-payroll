@@ -6,161 +6,246 @@
       <p class="subtitle">View leave balances, submit leave applications, and manage employee approvals.</p>
     </div>
 
-    <button class="btn btn-primary" (click)="openRequestModal()">
+    <button class="btn btn-primary" (click)="openApplyModal()" *ngIf="!isAdmin()">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      Request Leave
+      Apply for Leave
     </button>
   </div>
 
-  <!-- Leave Balances Cards -->
-  <div class="balance-grid">
-    <div class="balance-card glass-card">
+  <!-- Dynamic Leave Balances Cards -->
+  <div class="balance-grid" *ngIf="!isAdmin()">
+    <div class="balance-card glass-card" *ngFor="let b of displayedBalances">
       <div class="b-header">
-        <span>Casual Leave</span>
-        <span class="b-icon">🏖️</span>
+        <span>{{ b.leaveTypeName }}</span>
+        <span class="b-icon" [ngSwitch]="b.leaveTypeCode">
+          <span *ngSwitchCase="'EARNED'">💼</span>
+          <span *ngSwitchCase="'WFH'">🏠</span>
+          <span *ngSwitchCase="'LOP'">📉</span>
+          <span *ngSwitchCase="'UNPAID'">📅</span>
+          <span *ngSwitchDefault>📅</span>
+        </span>
       </div>
-      <span class="b-count">8 / 12</span>
-      <div class="progress-bar"><div class="progress" style="width: 66%"></div></div>
-      <span class="b-sub">4 days taken</span>
-    </div>
 
-    <div class="balance-card glass-card">
-      <div class="b-header">
-        <span>Sick Leave</span>
-        <span class="b-icon">🤒</span>
-      </div>
-      <span class="b-count">5 / 7</span>
-      <div class="progress-bar"><div class="progress amber" style="width: 71%"></div></div>
-      <span class="b-sub">2 days taken</span>
-    </div>
+      <!-- WFH/LOP leave type - show used days only -->
+      <ng-container *ngIf="isWFHLeaveType(b.leaveTypeCode)">
+        <span class="b-count">{{ (b.usedDays || 0) | number }} Days</span>
+        <div class="progress-bar">
+          <div class="progress" [style.width.%]="100"></div>
+        </div>
+        <span class="b-sub">{{ (b.usedDays || 0) | number }} day(s) approved & used</span>
+      </ng-container>
 
-    <div class="balance-card glass-card">
-      <div class="b-header">
-        <span>Paid Leave (Earned)</span>
-        <span class="b-icon">💼</span>
-      </div>
-      <span class="b-count">14 / 15</span>
-      <div class="progress-bar"><div class="progress emerald" style="width: 93%"></div></div>
-      <span class="b-sub">1 day taken</span>
-    </div>
-
-    <div class="balance-card glass-card">
-      <div class="b-header">
-        <span>Work From Home</span>
-        <span class="b-icon">🏠</span>
-      </div>
-      <span class="b-count">6 / 10</span>
-      <div class="progress-bar"><div class="progress purple" style="width: 60%"></div></div>
-      <span class="b-sub">4 days used</span>
+      <!-- Other leave types - show balance -->
+      <ng-container *ngIf="!isWFHLeaveType(b.leaveTypeCode)">
+        <span class="b-count">{{ (b.balanceDays || 0) | number }} / {{ (b.totalDays || 0) | number }}</span>
+        <div class="progress-bar">
+          <div class="progress" [style.width.%]="((+b.balanceDays || 0) / (+b.totalDays || 1)) * 100"></div>
+        </div>
+        <span class="b-sub">{{ (b.usedDays || 0) | number }} days used &bull; {{ (b.balanceDays || 0) | number }} pending</span>
+      </ng-container>
     </div>
   </div>
 
-  <!-- Requests List & Manager Approval Table -->
+  <!-- Main Content Card with Tabs & Filter Register -->
   <div class="table-container glass-card mt-4">
-    <div class="table-header-box">
-      <h3>Leave Request Register</h3>
+    <div class="table-header-box flex-header">
+      <div class="view-tabs" *ngIf="canApprove() && !isAdmin()">
+        <button class="tab-btn" [class.active]="activeTab === 'my_leaves'" (click)="activeTab = 'my_leaves'">
+          My Leave Applications
+        </button>
+        <button class="tab-btn" [class.active]="activeTab === 'pending_approvals'" (click)="activeTab = 'pending_approvals'">
+          Approvals Pending
+          <span class="tab-badge" *ngIf="hrms.pendingLeaveApprovals().length > 0">
+            {{ hrms.pendingLeaveApprovals().length }}
+          </span>
+        </button>
+      </div>
+      <h3 *ngIf="isAdmin()">Approvals Pending</h3>
+      <h3 *ngIf="!canApprove()">My Leave Applications</h3>
+
       <div class="filter-pills">
         <button class="pill-btn" [class.active]="filterStatus === 'All'" (click)="filterStatus = 'All'">All</button>
-        <button class="pill-btn" [class.active]="filterStatus === 'Pending'" (click)="filterStatus = 'Pending'">
-          Pending ({{ hrms.pendingLeavesCount() }})
-        </button>
+        <button class="pill-btn" [class.active]="filterStatus === 'Pending'" (click)="filterStatus = 'Pending'">Pending</button>
         <button class="pill-btn" [class.active]="filterStatus === 'Approved'" (click)="filterStatus = 'Approved'">Approved</button>
         <button class="pill-btn" [class.active]="filterStatus === 'Rejected'" (click)="filterStatus = 'Rejected'">Rejected</button>
+        <button class="pill-btn" [class.active]="filterStatus === 'Cancelled'" (click)="filterStatus = 'Cancelled'">Cancelled</button>
       </div>
     </div>
 
     <table class="custom-table">
       <thead>
         <tr>
-          <th>Employee</th>
-          <th>Leave Type</th>
+          <th>Applicant</th>
+          <th>Category</th>
           <th>Date Range</th>
-          <th>Days</th>
+          <th>Duration</th>
           <th>Reason</th>
           <th>Applied On</th>
           <th>Status</th>
-          <th *ngIf="canApprove()">Manager Actions</th>
+          <th>Actions</th>
         </tr>
       </thead>
       <tbody>
         <tr *ngFor="let req of filteredRequests()">
           <td>
             <div class="user-cell">
-              <img [src]="req.employeeAvatar" class="table-avatar" />
+              <img [src]="req.employeeAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'" class="table-avatar" />
               <div>
-                <strong>{{ req.employeeName }}</strong>
-                <span class="sub-text">{{ req.department }}</span>
+                <strong>{{ req.employeeName || 'Employee' }}</strong>
+                <span class="sub-text" *ngIf="req.employeeCode">{{ req.employeeCode }}</span>
+                <span class="sub-text" *ngIf="!req.employeeCode">{{ req.department || 'Staff' }}</span>
               </div>
             </div>
           </td>
-          <td><span class="badge badge-purple">{{ req.leaveType }}</span></td>
+          <td>
+            <span class="badge badge-purple">{{ req.leaveTypeName || req.leaveType || 'Leave' }}</span>
+          </td>
           <td><code>{{ req.startDate }}</code> to <code>{{ req.endDate }}</code></td>
           <td><strong>{{ req.totalDays }} day(s)</strong></td>
-          <td class="reason-cell" [title]="req.reason">{{ req.reason }}</td>
-          <td>{{ req.appliedOn }}</td>
+          <td class="reason-cell">
+            <div>{{ req.reason }}</div>
+            <div *ngIf="req.rejectionReason" class="rejection-note">
+              <small><strong>Rejection Note:</strong> {{ req.rejectionReason }}</small>
+            </div>
+          </td>
+          <td>{{ req.appliedOn || 'N/A' }}</td>
           <td>
-            <span class="badge" [class.badge-warning]="req.status === 'Pending'" [class.badge-success]="req.status === 'Approved'" [class.badge-danger]="req.status === 'Rejected'">
-              {{ req.status }}
+            <span class="badge" [ngClass]="getStatusBadgeClass(req.status)">
+              {{ getStatusDisplay(req.status) }}
             </span>
           </td>
-          <td *ngIf="canApprove()">
-            <div class="action-buttons" *ngIf="req.status === 'Pending'">
-              <button class="btn btn-success btn-sm" (click)="approve(req.id)">Approve</button>
-              <button class="btn btn-danger btn-sm" (click)="reject(req.id)">Reject</button>
+          <td>
+            <!-- Approval Actions for Managers -->
+            <div class="action-buttons" *ngIf="activeTab === 'pending_approvals'">
+              <ng-container *ngIf="req.status === 'PENDING' || req.status === 'Pending'">
+                <button class="btn btn-success btn-sm" (click)="approve(req.id)">Approve</button>
+                <button class="btn btn-danger btn-sm" (click)="promptReject(req.id)">Reject</button>
+              </ng-container>
+              <span *ngIf="req.status !== 'PENDING' && req.status !== 'Pending'" class="action-done">
+                {{ getStatusDisplay(req.status) }}
+              </span>
             </div>
-            <span *ngIf="req.status !== 'Pending'" class="action-done">
-              {{ req.managerNotes || 'Decision Processed' }}
-            </span>
+
+            <!-- Self Leave Request Actions -->
+            <div class="action-buttons" *ngIf="activeTab === 'my_leaves'">
+              <ng-container *ngIf="req.status === 'PENDING' || req.status === 'Pending'">
+                <button class="btn btn-outline-primary btn-sm" (click)="openEditModal(req)">Edit</button>
+                <button class="btn btn-outline-danger btn-sm" (click)="cancelRequest(req.id)">Cancel</button>
+              </ng-container>
+              <span *ngIf="req.status !== 'PENDING' && req.status !== 'Pending'" class="action-done">
+                -
+              </span>
+            </div>
+          </td>
+        </tr>
+        <tr *ngIf="filteredRequests().length === 0">
+          <td colspan="8" class="text-center py-4 text-muted">
+            No leave requests found for selected filter.
           </td>
         </tr>
       </tbody>
     </table>
   </div>
 
-  <!-- Request Leave Modal Form -->
+  <!-- Apply / Edit Leave Modal Form -->
   <div class="modal-backdrop" *ngIf="showModal()">
     <div class="modal-content">
-      <h3>Apply for Leave</h3>
-      <p class="sub-text">Submit your leave request to management for approval.</p>
+      <h3>{{ isEditMode() ? 'Edit Leave Application' : 'Apply for Leave' }}</h3>
+      <p class="sub-text">Submit your leave request details for manager review.</p>
 
       <form (ngSubmit)="submitForm()" class="mt-4">
         <div class="form-group">
           <label class="form-label">Leave Category</label>
-          <select class="form-select" [(ngModel)]="newRequest.leaveType" name="leaveType">
-            <option value="Casual Leave">Casual Leave</option>
-            <option value="Sick Leave">Sick Leave</option>
-            <option value="Paid Leave">Paid Leave</option>
-            <option value="Work From Home">Work From Home</option>
+          <select class="form-select" [(ngModel)]="formData.leaveTypeId" name="leaveTypeId" required>
+            <option *ngFor="let type of activeLeaveTypes" [ngValue]="type.id">
+              {{ type.name }}
+            </option>
           </select>
         </div>
 
         <div class="form-row">
           <div class="form-group">
             <label class="form-label">Start Date</label>
-            <input type="date" class="form-input" [(ngModel)]="newRequest.startDate" name="startDate" required />
+            <input type="date" class="form-input" [(ngModel)]="formData.startDate" (change)="onDateChange()" name="startDate" required />
           </div>
 
           <div class="form-group">
             <label class="form-label">End Date</label>
-            <input type="date" class="form-input" [(ngModel)]="newRequest.endDate" name="endDate" required />
+            <input type="date" class="form-input" [(ngModel)]="formData.endDate" (change)="onDateChange()" name="endDate" required />
           </div>
         </div>
 
         <div class="form-group">
           <label class="form-label">Total Days</label>
-          <input type="number" class="form-input" [(ngModel)]="newRequest.totalDays" name="totalDays" min="1" max="30" required />
+          <input type="number" class="form-input" [(ngModel)]="formData.totalDays" name="totalDays" min="0.5" step="0.5" max="30" required />
         </div>
 
         <div class="form-group">
           <label class="form-label">Reason / Justification</label>
-          <textarea class="form-textarea" rows="3" [(ngModel)]="newRequest.reason" name="reason" placeholder="State reason for absence..." required></textarea>
+          <textarea class="form-textarea" rows="3" [(ngModel)]="formData.reason" name="reason" placeholder="State reason for leave request..." required></textarea>
         </div>
 
         <div class="modal-actions">
           <button type="button" class="btn btn-secondary" (click)="showModal.set(false)">Cancel</button>
-          <button type="submit" class="btn btn-primary">Submit Application</button>
+          <button type="submit" class="btn btn-primary">
+            {{ isEditMode() ? 'Save Changes' : 'Submit Application' }}
+          </button>
         </div>
       </form>
     </div>
   </div>
+
+  <!-- Rejection Reason Modal Form -->
+  <div class="modal-backdrop" *ngIf="showRejectModal()">
+    <div class="modal-content">
+      <h3>Reject Leave Application</h3>
+      <p class="sub-text">Please provide a reason for rejecting this leave request.</p>
+
+      <form (ngSubmit)="confirmReject()" class="mt-4">
+        <div class="form-group">
+          <label class="form-label">Rejection Reason</label>
+          <textarea class="form-textarea" rows="3" [(ngModel)]="rejectionReasonInput" name="rejectionReasonInput" placeholder="Explain why this request is rejected..." required></textarea>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" (click)="showRejectModal.set(false)">Cancel</button>
+          <button type="submit" class="btn btn-danger">Confirm Rejection</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Cancel Leave Confirmation Modal -->
+  <div class="modal-backdrop" *ngIf="showCancelConfirmModal()">
+    <div class="modal-content" style="max-width: 440px; text-align: center;">
+      <div style="display: flex; justify-content: center; align-items: center; margin-bottom: 1.25rem;">
+        <div style="width: 56px; height: 56px; border-radius: 50%; background: #fff1f2; display: flex; align-items: center; justify-content: center; border: 1px solid #fecdd3;">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#e11d48" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="15" y1="9" x2="9" y2="15"></line>
+            <line x1="9" y1="9" x2="15" y2="15"></line>
+          </svg>
+        </div>
+      </div>
+
+      <h3 style="margin-bottom: 0.5rem; color: var(--text-main); font-weight: 700; font-size: 1.25rem;">
+        Cancel Leave Application?
+      </h3>
+
+      <p class="sub-text" style="margin-bottom: 1.5rem; color: var(--text-muted); font-size: 0.875rem; line-height: 1.5;">
+        Are you sure you want to cancel this leave application? This action cannot be undone.
+      </p>
+
+      <div class="modal-actions" style="justify-content: center; gap: 0.75rem; margin-top: 0;">
+        <button type="button" class="btn btn-secondary" (click)="showCancelConfirmModal.set(false)">
+          Keep Application
+        </button>
+        <button type="button" class="btn btn-danger" (click)="proceedCancelLeave()">
+          Yes, Cancel Leave
+        </button>
+      </div>
+    </div>
+  </div>
+
 </div>
+

@@ -1,4 +1,4 @@
-import { Component, inject, signal, computed } from '@angular/core';
+import { Component, inject, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HrmsService } from '../../core/services/hrms.service';
@@ -21,6 +21,8 @@ export interface CalendarDayCell {
   canRegularize?: boolean;
 }
 
+import { NotificationService } from '../../core/services/notification.service';
+
 @Component({
   selector: 'app-attendance',
   standalone: true,
@@ -28,9 +30,20 @@ export interface CalendarDayCell {
   templateUrl: './attendance.component.html',
   styleUrl: './attendance.component.css'
 })
-export class AttendanceComponent {
+export class AttendanceComponent implements OnInit {
   hrms = inject(HrmsService);
   auth = inject(AuthService);
+  notify = inject(NotificationService);
+
+  ngOnInit() {
+    this.hrms.loadTodayAttendance();
+    this.hrms.loadAttendance();
+    this.hrms.loadRegularizations();
+    if (this.auth.currentRole() === 'Admin' || this.auth.currentRole() === 'HR Manager') {
+      this.hrms.loadDashboardSummary();
+    }
+    this.hrms.loadLeaves();
+  }
 
   weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -110,14 +123,14 @@ export class AttendanceComponent {
       const attRecord = records.find(r => r.date === dateStr);
       const regReq = regRequests.find(r => r.date === dateStr && r.status !== 'Cancelled');
 
-      let status: AttendanceStatus = isWeekend ? 'Leave' : 'Absent';
+      let status: AttendanceStatus = isWeekend ? 'Week Off' : 'Absent';
       let checkIn = '--';
       let checkOut = '--';
       let totalHours = '--';
       let isLocked = false;
-      let regStatus: RegularizationStatus | undefined = regReq?.status;
+      let regStatus: RegularizationStatus | undefined = regReq?.status || (attRecord?.regularizationStatus as any);
 
-      if (attRecord) {
+      if (attRecord && !isWeekend) {
         status = attRecord.status;
         checkIn = attRecord.clockIn || '--';
         checkOut = attRecord.clockOut || '--';
@@ -125,9 +138,46 @@ export class AttendanceComponent {
         isLocked = attRecord.isLocked || false;
       }
 
-      // Check regularization eligibility rules
+      // Check if employee has an approved leave / WFH application for dateStr
+      const matchingLeave = this.hrms.leaveRequests().find(l => {
+        const isApproved = l.status === 'APPROVED' || l.status === 'Approved';
+        if (!isApproved || !l.startDate || !l.endDate) return false;
+        const s = l.startDate.split('T')[0];
+        const e = l.endDate.split('T')[0];
+        return s <= dateStr && dateStr <= e;
+      });
+
+      let hasApprovedLeaveOrWfh = false;
+      if (matchingLeave && !isWeekend) {
+        hasApprovedLeaveOrWfh = true;
+        const isWfh = (matchingLeave.leaveTypeCode && matchingLeave.leaveTypeCode.toUpperCase() === 'WFH') ||
+          (matchingLeave.leaveType && matchingLeave.leaveType.toLowerCase().includes('work from home')) ||
+          (matchingLeave.leaveTypeName && matchingLeave.leaveTypeName.toLowerCase().includes('work from home'));
+        status = isWfh ? 'WFH' : 'Leave';
+      }
+
+      if (isWeekend) {
+        status = 'Week Off';
+      }
+
+      // If regularization is approved, the attendance status for this date is Present
+      if (regStatus === 'Approved') {
+        status = 'Present';
+        if (checkIn === '--' && regReq) {
+          checkIn = regReq.requestedClockIn || regReq.checkIn || '10:00 AM';
+        }
+        if (checkOut === '--' && regReq) {
+          checkOut = regReq.requestedClockOut || regReq.checkOut || '07:00 PM';
+        }
+        if (totalHours === '--') {
+          totalHours = regReq ? `${regReq.requestedWorkingHours || 9.0} hrs` : '9.0 hrs';
+        }
+      }
+
+      // Check regularization eligibility rules (Admin cannot self-regularize; WFH & Leave days cannot be regularized)
+      const isAdminUser = this.auth.currentRole() === 'Admin';
       const isPastOrToday = dateStr <= todayStr;
-      const canReg = isPastOrToday && !isWeekend && status !== 'Leave' && status !== 'Holiday' && !isLocked && regStatus !== 'Pending' && regStatus !== 'Approved';
+      const canReg = !isAdminUser && isPastOrToday && !isWeekend && !hasApprovedLeaveOrWfh && status !== 'Leave' && status !== 'WFH' && status !== 'Week Off' && status !== 'Holiday' && !isLocked && regStatus !== 'Pending' && regStatus !== 'Approved' && regStatus !== 'Rejected';
 
       cells.push({
         dateStr,
@@ -186,8 +236,9 @@ export class AttendanceComponent {
       case 'Present': return 'badge-success';
       case 'WFH': return 'badge-info';
       case 'Half Day': return 'badge-warning';
-      case 'Leave': return 'badge-secondary';
+      case 'Leave': return 'badge-warning';
       case 'Holiday': return 'badge-purple';
+      case 'Week Off': return 'badge-secondary';
       default: return 'badge-danger';
     }
   }
@@ -214,6 +265,14 @@ export class AttendanceComponent {
   };
 
   openRegModal(cell?: CalendarDayCell) {
+    if (this.auth.currentRole() === 'Admin') {
+      this.notify.showAlert('Administrators do not submit self-regularization requests. Use the Regularization Panel to review and approve employee/HR requests.');
+      return;
+    }
+    if (cell?.regularizationStatus === 'Rejected') {
+      this.notify.showAlert('A regularization request for this date was rejected and cannot be resubmitted.');
+      return;
+    }
     const dateToUse = cell?.dateStr || new Date().toISOString().split('T')[0];
     this.regForm = {
       attendanceDate: dateToUse,
@@ -227,8 +286,18 @@ export class AttendanceComponent {
   }
 
   submitRegRequest() {
+    if (this.auth.currentRole() === 'Admin') {
+      this.notify.showAlert('Administrators do not submit self-regularization requests.');
+      return;
+    }
     if (!this.regForm.attendanceDate || !this.regForm.requestedClockInTime || !this.regForm.requestedClockOutTime || !this.regForm.reason) {
-      alert('Please fill all mandatory regularization fields (Date, Clock In, Clock Out, and Reason).');
+      this.notify.showAlert('Please fill all mandatory regularization fields (Date, Clock In, Clock Out, and Reason).');
+      return;
+    }
+
+    const existingReq = this.hrms.regularizationRequests().find(r => r.date === this.regForm.attendanceDate);
+    if (existingReq?.status === 'Rejected') {
+      this.notify.showAlert('A regularization request for this date was rejected and cannot be resubmitted.');
       return;
     }
 
@@ -249,9 +318,31 @@ export class AttendanceComponent {
     });
   }
 
+  // Cancel Modal State
+  showCancelConfirmModal = signal<boolean>(false);
+  reqToCancel = signal<RegularizationRequest | null>(null);
+
+  openCancelModal(req: RegularizationRequest) {
+    this.reqToCancel.set(req);
+    this.showCancelConfirmModal.set(true);
+  }
+
   cancelRequest(id: string) {
-    if (confirm('Are you sure you want to cancel this regularization request?')) {
-      this.hrms.cancelRegularizationRequest(id);
+    const req = this.myRegularizations().find(r => r.id === id) || null;
+    if (req) {
+      this.openCancelModal(req);
+    } else {
+      this.reqToCancel.set({ id } as any);
+      this.showCancelConfirmModal.set(true);
+    }
+  }
+
+  proceedCancelRequest() {
+    const req = this.reqToCancel();
+    if (req && req.id) {
+      this.hrms.cancelRegularizationRequest(req.id);
+      this.showCancelConfirmModal.set(false);
+      this.reqToCancel.set(null);
     }
   }
 
@@ -273,7 +364,7 @@ export class AttendanceComponent {
     if (!req) return;
 
     if (this.reviewAction() === 'REJECT' && !this.reviewRemarks.trim()) {
-      alert('Please enter rejection remarks.');
+      this.notify.showAlert('Please enter rejection remarks.');
       return;
     }
 
@@ -291,17 +382,21 @@ export class AttendanceComponent {
   }
 
   // Filters for Admin / HR Panel
-  filterStatus = signal<string>('ALL');
+  activePanelTab = signal<'Pending' | 'Rejected'>('Pending');
   filterDepartment = signal<string>('All');
   searchQuery = signal<string>('');
 
-  filteredRegularizations = computed(() => {
-    let list = this.hrms.regularizationRequests();
+  pendingRegularizationsCount = computed(() => {
+    return this.hrms.regularizationRequests().filter(r => r.status === 'Pending').length;
+  });
 
-    const status = this.filterStatus();
-    if (status !== 'ALL') {
-      list = list.filter(r => r.status === status);
-    }
+  rejectedRegularizationsCount = computed(() => {
+    return this.hrms.regularizationRequests().filter(r => r.status === 'Rejected').length;
+  });
+
+  filteredRegularizations = computed(() => {
+    const targetStatus = this.activePanelTab();
+    let list = this.hrms.regularizationRequests().filter(r => r.status === targetStatus);
 
     const dept = this.filterDepartment();
     if (dept !== 'All') {
@@ -322,11 +417,356 @@ export class AttendanceComponent {
 
   myRegularizations = computed(() => {
     const user = this.auth.currentUser();
+    const isEmployeeView = !this.canApproveRequests();
+    const all = this.hrms.regularizationRequests();
+
     if (!user) return [];
-    return this.hrms.regularizationRequests().filter(r => r.employeeId === user.employeeId || r.employeeName === user.name);
+
+    if (isEmployeeView) {
+      return all;
+    }
+
+    return all.filter(r =>
+      r.employeeId === user.id ||
+      r.employeeCode === user.employeeId ||
+      r.employeeId === user.employeeId ||
+      (r.employeeName && user.name && r.employeeName.toLowerCase().includes(user.name.toLowerCase()))
+    );
   });
 
   pendingApprovals = computed(() => {
     return this.hrms.regularizationRequests().filter(r => r.status === 'Pending');
   });
+
+  todayStr = computed(() => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  });
+
+  presentTodayCount = computed(() => {
+    const today = this.todayStr();
+    const records = this.hrms.attendanceRecords();
+
+    const todayPresentRecords = records.filter(r => {
+      const isTodayRecord = r.date === today;
+      const isClockedIn = !!(r.clockIn && r.clockIn !== '--' && r.clockIn !== '');
+      const isPresentStatus = r.status === 'Present' || r.status === 'Half Day' || r.status === 'WFH' || r.regularizationStatus === 'Approved';
+      const isNotAbsentOrLeave = r.status !== 'Absent' && r.status !== 'Leave';
+      return isTodayRecord && (isPresentStatus || isClockedIn) && isNotAbsentOrLeave;
+    });
+
+    const uniqueEmpIds = new Set(todayPresentRecords.map(r => String(r.employeeId)));
+
+    const liveClockState = this.hrms.todayAttendanceState();
+    if (liveClockState.isClockedIn || liveClockState.clockIn) {
+      const currentUser = this.auth.currentUser();
+      if (currentUser?.id) {
+        uniqueEmpIds.add(String(currentUser.id));
+      }
+    }
+
+    return uniqueEmpIds.size;
+  });
+
+  wfhTodayCount = computed(() => {
+    const today = this.todayStr();
+    const records = this.hrms.attendanceRecords();
+    const leaves = this.hrms.leaveRequests();
+
+    const uniqueEmpIds = new Set<string>();
+
+    records.forEach(r => {
+      if (r.date === today) {
+        const isWfhStatus = r.status === 'WFH' || (r.notes && r.notes.toLowerCase().includes('wfh'));
+        if (isWfhStatus) {
+          uniqueEmpIds.add(String(r.employeeId));
+        }
+      }
+    });
+
+    leaves.forEach(l => {
+      const isApproved = l.status === 'APPROVED' || l.status === 'Approved';
+      const isWfhCategory = (l.leaveTypeCode && l.leaveTypeCode.toUpperCase() === 'WFH') ||
+        (l.leaveType && l.leaveType.toLowerCase().includes('work from home')) ||
+        (l.leaveTypeName && l.leaveTypeName.toLowerCase().includes('work from home'));
+
+      if (isApproved && isWfhCategory && l.startDate && l.endDate) {
+        const start = l.startDate.split('T')[0];
+        const end = l.endDate.split('T')[0];
+        if (start <= today && today <= end) {
+          if (l.employeeId) {
+            uniqueEmpIds.add(String(l.employeeId));
+          }
+        }
+      }
+    });
+
+    return uniqueEmpIds.size;
+  });
+
+  leaveTodayCount = computed(() => {
+    const today = this.todayStr();
+    const records = this.hrms.attendanceRecords();
+    const leaves = this.hrms.leaveRequests();
+
+    const uniqueEmpIds = new Set<string>();
+
+    records.forEach(r => {
+      if (r.date === today && r.status === 'Leave') {
+        if (r.employeeId) {
+          uniqueEmpIds.add(String(r.employeeId));
+        }
+      }
+    });
+
+    leaves.forEach(l => {
+      const isApproved = l.status === 'APPROVED' || l.status === 'Approved';
+      const isWfhCategory = (l.leaveTypeCode && l.leaveTypeCode.toUpperCase() === 'WFH') ||
+        (l.leaveType && l.leaveType.toLowerCase().includes('work from home')) ||
+        (l.leaveTypeName && l.leaveTypeName.toLowerCase().includes('work from home'));
+
+      if (isApproved && !isWfhCategory && l.startDate && l.endDate) {
+        const start = l.startDate.split('T')[0];
+        const end = l.endDate.split('T')[0];
+        if (start <= today && today <= end) {
+          if (l.employeeId) {
+            uniqueEmpIds.add(String(l.employeeId));
+          }
+        }
+      }
+    });
+
+    return uniqueEmpIds.size;
+  });
+
+  daysPresentCount = computed(() => {
+    return this.calendarGrid().filter(cell =>
+      !cell.otherMonth && (cell.status === 'Present' || cell.status === 'Half Day' || cell.regularizationStatus === 'Approved')
+    ).length;
+  });
+
+  wfhCount = computed(() => {
+    return this.calendarGrid().filter(cell =>
+      !cell.otherMonth && cell.status === 'WFH'
+    ).length;
+  });
+
+  totalHoursWorked = computed(() => {
+    let total = 0;
+    this.calendarGrid().forEach(cell => {
+      if (!cell.otherMonth && cell.totalHours && cell.totalHours !== '--') {
+        const val = parseFloat(cell.totalHours.replace(/[^\d.]/g, ''));
+        if (!isNaN(val) && (cell.status === 'Present' || cell.status === 'Half Day' || cell.status === 'WFH' || cell.regularizationStatus === 'Approved')) {
+          total += val;
+        }
+      }
+    });
+    return total.toFixed(1);
+  });
+
+  // Stat Card Detail Modal State
+  showStatDetailModal = signal<boolean>(false);
+  statDetailCategory = signal<'PRESENT' | 'WFH' | 'LEAVE'>('PRESENT');
+  statDetailTitle = signal<string>('');
+
+  openStatDetailModal(category: 'PRESENT' | 'WFH' | 'LEAVE') {
+    if (this.auth.currentRole() !== 'Admin' && this.auth.currentRole() !== 'HR Manager') {
+      return;
+    }
+    this.statDetailCategory.set(category);
+    if (category === 'PRESENT') {
+      this.statDetailTitle.set('Employees Present Today');
+    } else if (category === 'WFH') {
+      this.statDetailTitle.set('Employees on Work From Home Today');
+    } else if (category === 'LEAVE') {
+      this.statDetailTitle.set('Employees on Leave Today');
+    }
+    this.showStatDetailModal.set(true);
+  }
+
+  closeStatDetailModal() {
+    this.showStatDetailModal.set(false);
+  }
+
+  get statDetailEmployees(): Array<{
+    id: string;
+    name: string;
+    code: string;
+    avatar: string;
+    department: string;
+    designation: string;
+    status: string;
+    details: string;
+  }> {
+    const category = this.statDetailCategory();
+    const today = this.todayStr();
+    const records = this.hrms.attendanceRecords();
+    const leaves = this.hrms.leaveRequests();
+    const employees = this.hrms.employees();
+
+    const empMap = new Map<string, any>();
+    employees.forEach(e => {
+      empMap.set(String(e.id), e);
+      if (e.employeeId) empMap.set(String(e.employeeId), e);
+    });
+
+    const resultList: Array<{
+      id: string;
+      name: string;
+      code: string;
+      avatar: string;
+      department: string;
+      designation: string;
+      status: string;
+      details: string;
+    }> = [];
+
+    const addedEmpIds = new Set<string>();
+
+    if (category === 'PRESENT') {
+      records.forEach(r => {
+        if (r.date === today) {
+          const isClockedIn = !!(r.clockIn && r.clockIn !== '--' && r.clockIn !== '');
+          const isPresentStatus = r.status === 'Present' || r.status === 'Half Day' || r.status === 'WFH' || r.regularizationStatus === 'Approved';
+          const isNotAbsentOrLeave = r.status !== 'Absent' && r.status !== 'Leave';
+
+          const isPresent = (isPresentStatus || isClockedIn) && isNotAbsentOrLeave;
+
+          if (isPresent && r.employeeId && !addedEmpIds.has(String(r.employeeId))) {
+            addedEmpIds.add(String(r.employeeId));
+            const empInfo = empMap.get(String(r.employeeId));
+            const inTime = r.clockIn && r.clockIn !== '--' ? `Clocked in at ${r.clockIn}` : 'Present';
+            const outTime = r.clockOut && r.clockOut !== '--' ? ` (Clocked out at ${r.clockOut})` : '';
+            resultList.push({
+              id: String(r.employeeId),
+              name: r.employeeName || empInfo?.name || 'Employee',
+              code: empInfo?.employeeId || `EMP-00${r.employeeId}`,
+              avatar: r.avatar || empInfo?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+              department: empInfo?.department || 'Staff',
+              designation: empInfo?.designation || 'Staff Member',
+              status: r.status === 'WFH' ? 'WFH' : (r.status === 'Half Day' ? 'Half Day' : 'Present'),
+              details: `${inTime}${outTime}`
+            });
+          }
+        }
+      });
+
+      const liveClockState = this.hrms.todayAttendanceState();
+      if (liveClockState.isClockedIn || liveClockState.clockIn) {
+        const currentUser = this.auth.currentUser();
+        if (currentUser?.id && !addedEmpIds.has(String(currentUser.id))) {
+          addedEmpIds.add(String(currentUser.id));
+          const empInfo = empMap.get(String(currentUser.id));
+          const inTime = liveClockState.clockIn ? `Clocked in at ${liveClockState.clockIn}` : 'Present';
+          const outTime = liveClockState.clockOut ? ` (Clocked out at ${liveClockState.clockOut})` : '';
+          resultList.push({
+            id: String(currentUser.id),
+            name: currentUser.name || empInfo?.name || 'Employee',
+            code: empInfo?.employeeId || currentUser.email?.split('@')[0] || `EMP-00${currentUser.id}`,
+            avatar: empInfo?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+            department: empInfo?.department || 'Staff',
+            designation: empInfo?.designation || 'Staff Member',
+            status: 'Present',
+            details: `${inTime}${outTime}`
+          });
+        }
+      }
+    } else if (category === 'WFH') {
+      records.forEach(r => {
+        if (r.date === today && (r.status === 'WFH' || (r.notes && r.notes.toLowerCase().includes('wfh')))) {
+          if (r.employeeId && !addedEmpIds.has(String(r.employeeId))) {
+            addedEmpIds.add(String(r.employeeId));
+            const empInfo = empMap.get(String(r.employeeId));
+            resultList.push({
+              id: String(r.employeeId),
+              name: r.employeeName || empInfo?.name || 'Employee',
+              code: empInfo?.employeeId || `EMP-00${r.employeeId}`,
+              avatar: r.avatar || empInfo?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+              department: empInfo?.department || 'Staff',
+              designation: empInfo?.designation || 'Staff Member',
+              status: 'WFH',
+              details: 'Approved Work From Home'
+            });
+          }
+        }
+      });
+
+      leaves.forEach(l => {
+        const isApproved = l.status === 'APPROVED' || l.status === 'Approved';
+        const isWfhCat = (l.leaveTypeCode && l.leaveTypeCode.toUpperCase() === 'WFH') ||
+          (l.leaveType && l.leaveType.toLowerCase().includes('work from home')) ||
+          (l.leaveTypeName && l.leaveTypeName.toLowerCase().includes('work from home'));
+
+        if (isApproved && isWfhCat && l.startDate && l.endDate) {
+          const s = l.startDate.split('T')[0];
+          const e = l.endDate.split('T')[0];
+          if (s <= today && today <= e && l.employeeId && !addedEmpIds.has(String(l.employeeId))) {
+            addedEmpIds.add(String(l.employeeId));
+            const empInfo = empMap.get(String(l.employeeId));
+            resultList.push({
+              id: String(l.employeeId),
+              name: l.employeeName || empInfo?.name || 'Employee',
+              code: l.employeeCode || empInfo?.employeeId || `EMP-00${l.employeeId}`,
+              avatar: l.employeeAvatar || empInfo?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+              department: l.department || empInfo?.department || 'Staff',
+              designation: empInfo?.designation || 'Staff Member',
+              status: 'WFH',
+              details: `Approved WFH (${s} to ${e})`
+            });
+          }
+        }
+      });
+    } else if (category === 'LEAVE') {
+      records.forEach(r => {
+        if (r.date === today && r.status === 'Leave') {
+          if (r.employeeId && !addedEmpIds.has(String(r.employeeId))) {
+            addedEmpIds.add(String(r.employeeId));
+            const empInfo = empMap.get(String(r.employeeId));
+            resultList.push({
+              id: String(r.employeeId),
+              name: r.employeeName || empInfo?.name || 'Employee',
+              code: empInfo?.employeeId || `EMP-00${r.employeeId}`,
+              avatar: r.avatar || empInfo?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+              department: empInfo?.department || 'Staff',
+              designation: empInfo?.designation || 'Staff Member',
+              status: 'Leave',
+              details: 'Approved Leave'
+            });
+          }
+        }
+      });
+
+      leaves.forEach(l => {
+        const isApproved = l.status === 'APPROVED' || l.status === 'Approved';
+        const isWfhCat = (l.leaveTypeCode && l.leaveTypeCode.toUpperCase() === 'WFH') ||
+                         (l.leaveType && l.leaveType.toLowerCase().includes('work from home')) ||
+                         (l.leaveTypeName && l.leaveTypeName.toLowerCase().includes('work from home'));
+
+        if (isApproved && !isWfhCat && l.startDate && l.endDate) {
+          const s = l.startDate.split('T')[0];
+          const e = l.endDate.split('T')[0];
+          if (s <= today && today <= e && l.employeeId && !addedEmpIds.has(String(l.employeeId))) {
+            addedEmpIds.add(String(l.employeeId));
+            const empInfo = empMap.get(String(l.employeeId));
+            const leaveName = l.leaveTypeName || l.leaveType || 'Leave';
+            resultList.push({
+              id: String(l.employeeId),
+              name: l.employeeName || empInfo?.name || 'Employee',
+              code: l.employeeCode || empInfo?.employeeId || `EMP-00${l.employeeId}`,
+              avatar: l.employeeAvatar || empInfo?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+              department: l.department || empInfo?.department || 'Staff',
+              designation: empInfo?.designation || 'Staff Member',
+              status: 'Leave',
+              details: `Approved ${leaveName} (${s} to ${e})`
+            });
+          }
+        }
+      });
+    }
+
+    return resultList;
+  }
 }

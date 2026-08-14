@@ -11,6 +11,10 @@ import com.company.hrms.repository.RoleRepository;
 import com.company.hrms.repository.UserRepository;
 import com.company.hrms.service.EmployeeService;
 import lombok.RequiredArgsConstructor;
+import com.company.hrms.constants.CacheNames;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +32,7 @@ public class EmployeeServiceImpl implements EmployeeService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = CacheNames.EMPLOYEES, key = "'all'")
     public List<EmployeeDto> getAllEmployees() {
         return employeeRepository.findAll().stream()
                 .map(this::mapToDto)
@@ -36,6 +41,7 @@ public class EmployeeServiceImpl implements EmployeeService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = CacheNames.EMPLOYEE_PROFILES, key = "#id")
     public EmployeeDto getEmployeeById(Long id) {
         Employee employee = employeeRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Employee not found with ID: " + id));
@@ -44,6 +50,7 @@ public class EmployeeServiceImpl implements EmployeeService {
 
     @Override
     @Transactional
+    @CacheEvict(value = CacheNames.EMPLOYEES, key = "'all'")
     public EmployeeDto createEmployee(CreateEmployeeRequest request) {
         if (employeeRepository.existsByEmployeeCode(request.getEmployeeCode())) {
             throw new IllegalArgumentException("Employee code already exists: " + request.getEmployeeCode());
@@ -112,6 +119,10 @@ public class EmployeeServiceImpl implements EmployeeService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = CacheNames.EMPLOYEES, key = "'all'"),
+        @CacheEvict(value = CacheNames.EMPLOYEE_PROFILES, key = "#id")
+    })
     public EmployeeDto updateEmployee(Long id, CreateEmployeeRequest request) {
         Employee employee = employeeRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Employee not found with ID: " + id));
@@ -154,6 +165,10 @@ public class EmployeeServiceImpl implements EmployeeService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = CacheNames.EMPLOYEES, key = "'all'"),
+        @CacheEvict(value = CacheNames.EMPLOYEE_PROFILES, key = "#id")
+    })
     public void deleteEmployee(Long id) {
         Employee employee = employeeRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Employee not found with ID: " + id));

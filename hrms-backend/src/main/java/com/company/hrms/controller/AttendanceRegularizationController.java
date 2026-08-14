@@ -11,6 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -34,9 +35,9 @@ public class AttendanceRegularizationController {
     @PreAuthorize("hasAuthority('ATTENDANCE_REGULARIZATION_CREATE')")
     public ResponseEntity<AttendanceRegularizationDto> createRegularization(
             Authentication authentication,
-            @Valid @RequestBody CreateRegularizationRequest request
-    ) {
-        AttendanceRegularizationDto result = regularizationService.createRegularization(authentication.getName(), request);
+            @Valid @RequestBody CreateRegularizationRequest request) {
+        AttendanceRegularizationDto result = regularizationService.createRegularization(authentication.getName(),
+                request);
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
 
@@ -51,8 +52,7 @@ public class AttendanceRegularizationController {
     @PreAuthorize("hasAuthority('ATTENDANCE_VIEW')")
     public ResponseEntity<AttendanceRegularizationDto> getRegularizationById(
             Authentication authentication,
-            @PathVariable Long id
-    ) {
+            @PathVariable Long id) {
         AttendanceRegularizationDto dto = regularizationService.getRegularizationById(id, authentication.getName());
         return ResponseEntity.ok(dto);
     }
@@ -61,28 +61,34 @@ public class AttendanceRegularizationController {
     @PreAuthorize("hasAuthority('ATTENDANCE_REGULARIZATION_CREATE')")
     public ResponseEntity<AttendanceRegularizationDto> cancelRegularization(
             Authentication authentication,
-            @PathVariable Long id
-    ) {
+            @PathVariable Long id) {
         AttendanceRegularizationDto result = regularizationService.cancelRegularization(id, authentication.getName());
         return ResponseEntity.ok(result);
     }
 
     @GetMapping
     @PreAuthorize("isAuthenticated()")
+    @Transactional(readOnly = true)
     public ResponseEntity<List<AttendanceRegularizationDto>> getAllRegularizations(
             Authentication authentication,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String department,
             @RequestParam(required = false) Long employeeId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate
-    ) {
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
         boolean canViewAll = authentication != null && authentication.getAuthorities().stream()
-                .anyMatch(a -> a.getAuthority().equals("ATTENDANCE_REGULARIZATION_VIEW_ALL"));
+                .anyMatch(a -> a.getAuthority().equals("ATTENDANCE_REGULARIZATION_VIEW_ALL") ||
+                               a.getAuthority().equals("ATTENDANCE_REGULARIZATION_APPROVE") ||
+                               a.getAuthority().equals("ATTENDANCE_UPDATE") ||
+                               a.getAuthority().equals("ROLE_ADMIN") ||
+                               a.getAuthority().equals("ADMIN") ||
+                               a.getAuthority().equals("ROLE_HR") ||
+                               a.getAuthority().equals("HR"));
         if (!canViewAll && authentication != null) {
             return ResponseEntity.ok(regularizationService.getMyRegularizations(authentication.getName()));
         }
-        List<AttendanceRegularizationDto> list = regularizationService.getAllRegularizations(status, department, employeeId, startDate, endDate);
+        List<AttendanceRegularizationDto> list = regularizationService.getAllRegularizations(status, department,
+                employeeId, startDate, endDate);
         return ResponseEntity.ok(list);
     }
 
@@ -91,9 +97,9 @@ public class AttendanceRegularizationController {
     public ResponseEntity<AttendanceRegularizationDto> approveRegularization(
             Authentication authentication,
             @PathVariable Long id,
-            @RequestBody(required = false) ReviewRegularizationRequest request
-    ) {
-        AttendanceRegularizationDto result = regularizationService.approveRegularization(id, authentication.getName(), request);
+            @RequestBody(required = false) ReviewRegularizationRequest request) {
+        AttendanceRegularizationDto result = regularizationService.approveRegularization(id, authentication.getName(),
+                request);
         return ResponseEntity.ok(result);
     }
 
@@ -102,9 +108,9 @@ public class AttendanceRegularizationController {
     public ResponseEntity<AttendanceRegularizationDto> rejectRegularization(
             Authentication authentication,
             @PathVariable Long id,
-            @RequestBody(required = false) ReviewRegularizationRequest request
-    ) {
-        AttendanceRegularizationDto result = regularizationService.rejectRegularization(id, authentication.getName(), request);
+            @RequestBody(required = false) ReviewRegularizationRequest request) {
+        AttendanceRegularizationDto result = regularizationService.rejectRegularization(id, authentication.getName(),
+                request);
         return ResponseEntity.ok(result);
     }
 }
