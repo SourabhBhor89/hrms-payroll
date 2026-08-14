@@ -49,6 +49,10 @@ public class LeaveController {
             Authentication authentication
     ) {
         Long employeeId = getEmployeeIdFromAuthentication(authentication);
+        boolean isAdminOrHr = authentication != null && authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ADMIN") ||
+                        a.getAuthority().equals("ROLE_HR") || a.getAuthority().equals("HR") ||
+                        a.getAuthority().equals("LEAVE_APPROVE"));
 
         if (year == null) {
             year = java.time.Year.now().getValue();
@@ -56,7 +60,7 @@ public class LeaveController {
         if (month == null) {
             month = java.time.LocalDate.now().getMonthValue();
         }
-        EmployeeLeaveDataResponse data = leaveService.getEmployeeLeaveData(employeeId, year, month);
+        EmployeeLeaveDataResponse data = leaveService.getEmployeeLeaveData(employeeId, year, month, isAdminOrHr);
         return ResponseEntity.ok(data);
     }
 

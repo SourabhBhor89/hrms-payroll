@@ -16,6 +16,8 @@ public interface LeaveService {
 
     EmployeeLeaveDataResponse getEmployeeLeaveData(Long employeeId, Integer year, Integer month);
 
+    EmployeeLeaveDataResponse getEmployeeLeaveData(Long employeeId, Integer year, Integer month, boolean isAdminOrHr);
+
     LeaveResponse updateLeave(Long id, UpdateLeaveRequest request, Long employeeId);
 
     void cancelLeave(Long id, Long employeeId);

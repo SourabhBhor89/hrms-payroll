@@ -80,7 +80,7 @@
 
   <!-- Stat Summary Grid -->
   <div class="stats-grid">
-    <div class="stat-card glass-card">
+    <div class="stat-card glass-card" [class.clickable]="auth.currentRole() === 'Admin' || auth.currentRole() === 'HR Manager'" (click)="openStatDetailModal('PRESENT')">
       <div class="stat-icon present-icon">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
@@ -90,7 +90,7 @@
       <ng-container *ngIf="auth.currentRole() === 'Admin' || auth.currentRole() === 'HR Manager'; else employeeDaysPresent">
         <span class="stat-label">Present Today</span>
         <span class="stat-value text-emerald">{{ presentTodayCount() }} {{ presentTodayCount() === 1 ? 'Employee' : 'Employees' }}</span>
-        <span class="stat-sub">Employees & HR Clocked In</span>
+        <span class="stat-sub">Employees & HR Clocked In &bull; <strong class="click-hint">View List →</strong></span>
       </ng-container>
       <ng-template #employeeDaysPresent>
         <span class="stat-label">Days Present</span>
@@ -99,7 +99,7 @@
       </ng-template>
     </div>
 
-    <div class="stat-card glass-card">
+    <div class="stat-card glass-card" [class.clickable]="auth.currentRole() === 'Admin' || auth.currentRole() === 'HR Manager'" (click)="openStatDetailModal('WFH')">
       <div class="stat-icon wfh-icon">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
@@ -109,7 +109,7 @@
       <ng-container *ngIf="auth.currentRole() === 'Admin' || auth.currentRole() === 'HR Manager'; else employeeWfhCard">
         <span class="stat-label">Work From Home Today</span>
         <span class="stat-value text-sky">{{ wfhTodayCount() }} {{ wfhTodayCount() === 1 ? 'Employee' : 'Employees' }}</span>
-        <span class="stat-sub">Employees on WFH Today</span>
+        <span class="stat-sub">Employees on WFH Today &bull; <strong class="click-hint">View List →</strong></span>
       </ng-container>
       <ng-template #employeeWfhCard>
         <span class="stat-label">Work From Home</span>
@@ -118,7 +118,7 @@
       </ng-template>
     </div>
 
-    <div class="stat-card glass-card">
+    <div class="stat-card glass-card" [class.clickable]="auth.currentRole() === 'Admin' || auth.currentRole() === 'HR Manager'" (click)="openStatDetailModal('LEAVE')">
       <div class="stat-icon leave-icon">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
@@ -127,9 +127,16 @@
           <line x1="3" y1="10" x2="21" y2="10" />
         </svg>
       </div>
-      <span class="stat-label">Regularizations</span>
-      <span class="stat-value text-amber">{{ myRegularizations().length }} Requests</span>
-      <span class="stat-sub">{{ pendingApprovals().length }} Pending Approval</span>
+      <ng-container *ngIf="auth.currentRole() === 'Admin' || auth.currentRole() === 'HR Manager'; else employeeRegCard">
+        <span class="stat-label">On Leave Today</span>
+        <span class="stat-value text-amber">{{ leaveTodayCount() }} {{ leaveTodayCount() === 1 ? 'Employee' : 'Employees' }}</span>
+        <span class="stat-sub">Employees on Leave Today &bull; <strong class="click-hint">View List →</strong></span>
+      </ng-container>
+      <ng-template #employeeRegCard>
+        <span class="stat-label">Regularizations</span>
+        <span class="stat-value text-amber">{{ myRegularizations().length }} Requests</span>
+        <span class="stat-sub">{{ pendingApprovals().length }} Pending Approval</span>
+      </ng-template>
     </div>
 
     <div class="stat-card glass-card">
@@ -140,7 +147,7 @@
         </svg>
       </div>
       <span class="stat-label">Total Hours Worked</span>
-      <span class="stat-value text-primary">{{ totalHoursWorked() }} Hrs</span>
+      <span class="stat-value text-sky">{{ totalHoursWorked() }} Hrs</span>
       <span class="stat-sub">Avg 8.4 hrs/day</span>
     </div>
   </div>
@@ -232,16 +239,16 @@
 
       <!-- Two Tabs: Pending Requests & Rejected Requests -->
       <div class="panel-tabs">
-        <button class="panel-tab-btn" 
-          [class.active]="activePanelTab() === 'Pending'" 
+        <button class="panel-tab-btn"
+          [class.active]="activePanelTab() === 'Pending'"
           (click)="activePanelTab.set('Pending')">
           Pending Requests
           <span class="tab-badge badge-amber" *ngIf="pendingRegularizationsCount() > 0">
             {{ pendingRegularizationsCount() }}
           </span>
         </button>
-        <button class="panel-tab-btn" 
-          [class.active]="activePanelTab() === 'Rejected'" 
+        <button class="panel-tab-btn"
+          [class.active]="activePanelTab() === 'Rejected'"
           [class.rejected-tab]="activePanelTab() === 'Rejected'"
           (click)="activePanelTab.set('Rejected')">
           Rejected Requests
@@ -538,6 +545,80 @@
         <button type="button" class="btn btn-danger" (click)="proceedCancelRequest()">
           Yes, Cancel Request
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Employee Stat Detail Modal (Admin / HR View) -->
+  <div class="modal-backdrop" *ngIf="showStatDetailModal()" (click)="closeStatDetailModal()">
+    <div class="modal-content stat-detail-modal" (click)="$event.stopPropagation()" style="max-width: 520px; padding: 0;">
+      <div class="modal-header" style="padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border-color, #e2e8f0); display: flex; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div class="stat-icon" [ngClass]="{
+            'present-icon': statDetailCategory() === 'PRESENT',
+            'wfh-icon': statDetailCategory() === 'WFH',
+            'leave-icon': statDetailCategory() === 'LEAVE'
+          }">
+            <svg *ngIf="statDetailCategory() === 'PRESENT'" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+              <polyline points="22 4 12 14.01 9 11.01" />
+            </svg>
+            <svg *ngIf="statDetailCategory() === 'WFH'" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+              <polyline points="9 22 9 12 15 12 15 22" />
+            </svg>
+            <svg *ngIf="statDetailCategory() === 'LEAVE'" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+              <line x1="16" y1="2" x2="16" y2="6" />
+              <line x1="8" y1="2" x2="8" y2="6" />
+              <line x1="3" y1="10" x2="21" y2="10" />
+            </svg>
+          </div>
+          <div>
+            <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: var(--text-main, #0f172a);">{{ statDetailTitle() }}</h3>
+            <p class="sub-text" style="margin: 2px 0 0; font-size: 0.8125rem; color: var(--text-muted, #64748b);">{{ statDetailEmployees.length }} employee(s) found for today</p>
+          </div>
+        </div>
+        <button type="button" class="close-btn" (click)="closeStatDetailModal()">✕</button>
+      </div>
+
+      <div class="modal-body" style="padding: 1.25rem 1.5rem; max-height: 380px; overflow-y: auto;">
+        <div class="employee-detail-list" *ngIf="statDetailEmployees.length > 0; else noEmployeesState">
+          <div class="emp-list-item" *ngFor="let emp of statDetailEmployees">
+            <img [src]="emp.avatar" class="table-avatar" [alt]="emp.name" style="width: 44px; height: 44px; border-radius: 50%; object-fit: cover;" />
+            <div style="flex: 1; text-align: left;">
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <strong style="font-size: 0.95rem; color: var(--text-main, #0f172a);">{{ emp.name }}</strong>
+                <span class="badge" [ngClass]="{
+                  'badge-success': emp.status === 'Present',
+                  'badge-info': emp.status === 'WFH',
+                  'badge-warning': emp.status === 'Leave',
+                  'badge-danger': emp.status === 'Absent'
+                }">{{ emp.status }}</span>
+              </div>
+              <div style="font-size: 0.8125rem; color: var(--text-muted, #64748b); margin-top: 2px;">
+                {{ emp.code }} &bull; {{ emp.department }} ({{ emp.designation }})
+              </div>
+              <div style="font-size: 0.8125rem; color: #0284c7; font-weight: 500; margin-top: 4px;">
+                ℹ️ {{ emp.details }}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <ng-template #noEmployeesState>
+          <div style="text-align: center; padding: 2.5rem 1rem;">
+            <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">👥</div>
+            <h4 style="margin: 0 0 0.5rem; color: var(--text-main, #0f172a); font-weight: 600;">No Employees Found</h4>
+            <p style="margin: 0; color: var(--text-muted, #64748b); font-size: 0.875rem;">
+              There are no employees currently {{ statDetailCategory() === 'PRESENT' ? 'Present' : (statDetailCategory() === 'WFH' ? 'on Work From Home' : (statDetailCategory() === 'LEAVE' ? 'on Leave' : 'Absent')) }} for today.
+            </p>
+          </div>
+        </ng-template>
+      </div>
+
+      <div class="modal-footer" style="padding: 1rem 1.5rem; border-top: 1px solid var(--border-color, #e2e8f0); display: flex; justify-content: flex-end;">
+        <button type="button" class="btn btn-secondary" (click)="closeStatDetailModal()">Close</button>
       </div>
     </div>
   </div>

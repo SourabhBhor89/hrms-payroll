@@ -11,6 +11,13 @@ spring:
 
   cache:
     type: redis
+    ttl:
+      user-permissions: 30m
+      employees: 5m
+      employee-profiles: 10m
+      leave-types: 24h
+      holidays: 24h
+      leaves: 5m
     redis:
       time-to-live: 86400000ms
       cache-null-values: false
@@ -20,7 +27,7 @@ spring:
     url: jdbc:postgresql://db.xpjtliwteybzoczamafk.supabase.co:5432/postgres
     databse: postgres
     username: postgres
-    password: ${DB_PASSWORD:@Trhhrms@1234}
+    password: '@Trhhrms@1234'
     # driver-class-name: com.mysql.cj.jdbc.Driver
     driver-class-name: org.postgresql.Driver
 

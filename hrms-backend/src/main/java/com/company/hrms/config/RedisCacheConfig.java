@@ -42,6 +42,9 @@ public class RedisCacheConfig implements CachingConfigurer {
     @Value("${spring.cache.ttl.holidays:24h}")
     private Duration holidaysTtl;
 
+    @Value("${spring.cache.ttl.leaves:5m}")
+    private Duration leavesTtl;
+
     @Bean
     public RedisCacheConfiguration defaultCacheConfiguration() {
         return RedisCacheConfiguration.defaultCacheConfig()
@@ -61,6 +64,7 @@ public class RedisCacheConfig implements CachingConfigurer {
         cacheConfigurations.put(CacheNames.EMPLOYEE_PROFILES, defaultConfig.entryTtl(employeeProfilesTtl));
         cacheConfigurations.put(CacheNames.LEAVE_TYPES, defaultConfig.entryTtl(leaveTypesTtl));
         cacheConfigurations.put(CacheNames.HOLIDAYS, defaultConfig.entryTtl(holidaysTtl));
+        cacheConfigurations.put(CacheNames.LEAVES, defaultConfig.entryTtl(leavesTtl));
 
         return RedisCacheManager.builder(connectionFactory)
                 .cacheDefaults(defaultConfig)

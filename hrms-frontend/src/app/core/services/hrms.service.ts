@@ -1,7 +1,6 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, tap, catchError, of } from 'rxjs';
-import { ToastService } from './toast.service';
 import {
   Employee,
   AttendanceRecord,
@@ -27,12 +26,14 @@ export interface DashboardSummary {
   upcomingHolidays: number;
 }
 
+import { NotificationService } from './notification.service';
+
 @Injectable({
   providedIn: 'root'
 })
 export class HrmsService {
   private http = inject(HttpClient);
-  private toastService = inject(ToastService);
+  private notify = inject(NotificationService);
 
 
 
@@ -70,7 +71,6 @@ export class HrmsService {
   leaveTypes = signal<LeaveTypeItem[]>([]);
   leaveBalances = signal<EmployeeLeaveBalanceDetail[]>([]);
   pendingLeaveApprovals = signal<LeaveRequest[]>([]);
-  approvedRejectedLeaves = signal<LeaveRequest[]>([]);
   holidays = signal<Holiday[]>([]);
   timesheets = signal<Timesheet[]>([]);
   regularizationRequests = signal<RegularizationRequest[]>([]);
@@ -177,6 +177,9 @@ export class HrmsService {
 
   refreshAllData() {
     this.loadDashboardSummary();
+    if (this.isAdminOrHrUser()) {
+      this.loadEmployees();
+    }
     this.loadTodayAttendance();
     this.loadAttendance();
     this.loadLeaveTypes();
@@ -190,8 +193,6 @@ export class HrmsService {
     this.employees.set([]);
     this.attendanceRecords.set([]);
     this.leaveRequests.set([]);
-    this.pendingLeaveApprovals.set([]);
-    this.approvedRejectedLeaves.set([]);
     this.timesheets.set([]);
     this.regularizationRequests.set([]);
     this.dashboardSummary.set({
@@ -265,16 +266,41 @@ export class HrmsService {
     });
   }
 
+  isAdminOrHrUser(): boolean {
+    if (typeof localStorage === 'undefined') return false;
+    const raw = localStorage.getItem('user_info');
+    if (!raw) return false;
+    try {
+      const user = JSON.parse(raw);
+      const role = user?.role;
+      return role === 'Admin' || role === 'ADMIN' || role === 'HR Manager' || role === 'HR';
+    } catch {
+      return false;
+    }
+  }
+
   // Dashboard API
   loadDashboardSummary() {
+    if (!this.isAdminOrHrUser()) {
+      this.dashboardSummary.set({
+        totalEmployees: 0,
+        presentToday: 0,
+        absentToday: 0,
+        pendingLeaves: 0,
+        activeProjects: 0,
+        upcomingHolidays: 0
+      });
+      return;
+    }
+
     this.http.get<DashboardSummary>('/api/v1/dashboard/summary').pipe(
       catchError(() => of({
-        totalEmployees: 24,
-        presentToday: 20,
-        absentToday: 4,
-        pendingLeaves: 3,
-        activeProjects: 8,
-        upcomingHolidays: 4
+        totalEmployees: 0,
+        presentToday: 0,
+        absentToday: 0,
+        pendingLeaves: 0,
+        activeProjects: 0,
+        upcomingHolidays: 0
       }))
     ).subscribe(data => this.dashboardSummary.set(data));
   }
@@ -323,7 +349,7 @@ export class HrmsService {
         leaveBalance: { casual: 10, sick: 7, paid: 15, wfh: 8 }
       }));
 
-      this.employees.set(mapped.length > 0 ? mapped : this.getFallbackEmployees());
+      this.employees.set(mapped);
     });
   }
 
@@ -534,8 +560,8 @@ export class HrmsService {
   createRegularizationPayload(payload: any) {
     return this.http.post<any>('/api/v1/attendance/regularizations', payload).pipe(
       catchError(err => {
-        const msg = err?.error?.message || 'Failed to submit regularization request.';
-        alert(msg);
+        const msg = err?.error?.message || err?.error?.error || 'Failed to submit regularization request.';
+        this.notify.showAlert(msg);
         return of(null);
       })
     );
@@ -553,8 +579,8 @@ export class HrmsService {
   approveRegularizationRequest(id: string, reviewRemarks?: string) {
     this.http.put<any>(`/api/v1/attendance/regularizations/${id}/approve`, { reviewRemarks }).pipe(
       catchError(err => {
-        const msg = err?.error?.message || 'Failed to approve request.';
-        alert(msg);
+        const msg = err?.error?.message || err?.error?.error || 'Failed to approve request.';
+        this.notify.showAlert(msg);
         return of(null);
       })
     ).subscribe(() => {
@@ -566,8 +592,8 @@ export class HrmsService {
   rejectRegularizationRequest(id: string, reviewRemarks?: string) {
     this.http.put<any>(`/api/v1/attendance/regularizations/${id}/reject`, { reviewRemarks }).pipe(
       catchError(err => {
-        const msg = err?.error?.message || 'Failed to reject request.';
-        alert(msg);
+        const msg = err?.error?.message || err?.error?.error || 'Failed to reject request.';
+        this.notify.showAlert(msg);
         return of(null);
       })
     ).subscribe(() => {
@@ -643,35 +669,6 @@ export class HrmsService {
           updatedAt: l.updatedAt
         }));
         this.leaveRequests.set(mapped);
-
-        // Load approved/rejected leaves for HR/Admin users
-        if (res.approvedRejectedLeaves) {
-          const mappedApprovedRejected: LeaveRequest[] = res.approvedRejectedLeaves.map((l: any, idx: number) => ({
-            id: l.id || idx + 1,
-            employeeId: l.employeeId,
-            employeeName: l.employeeName || 'Employee',
-            employeeCode: l.employeeCode || '',
-            employeeAvatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80',
-            department: 'Engineering',
-            leaveTypeId: l.leaveTypeId,
-            leaveType: l.leaveTypeName || 'Leave',
-            leaveTypeName: l.leaveTypeName,
-            leaveTypeCode: l.leaveTypeCode,
-            startDate: l.startDate,
-            endDate: l.endDate,
-            totalDays: l.totalDays || 1,
-            reason: l.reason || '',
-            status: l.status || 'PENDING',
-            approvedBy: l.approvedBy,
-            approvedByName: l.approvedByName,
-            approvedAt: l.approvedAt,
-            rejectionReason: l.rejectionReason,
-            appliedOn: l.createdAt ? String(l.createdAt).split('T')[0] : '',
-            createdAt: l.createdAt,
-            updatedAt: l.updatedAt
-          }));
-          this.approvedRejectedLeaves.set(mappedApprovedRejected);
-        }
       }
     });
   }
@@ -700,22 +697,6 @@ export class HrmsService {
   }
 
   loadPendingLeaveApprovals() {
-    // Restrict this API call to HR and ADMIN roles only
-    const userInfoStr = localStorage.getItem('user_info');
-    if (userInfoStr) {
-      try {
-        const user = JSON.parse(userInfoStr);
-        const role = (user?.role || '').toUpperCase();
-        if (role !== 'ADMIN' && role !== 'HR' && role !== 'HR MANAGER') {
-          return;
-        }
-      } catch (e) {
-        return;
-      }
-    } else {
-      return;
-    }
-
     this.http.get<any[]>('/api/v1/leaves/approvals/pending').pipe(
       catchError(() => of([]))
     ).subscribe(data => {
@@ -759,7 +740,7 @@ export class HrmsService {
       }),
       catchError(err => {
         const msg = err?.error?.message || err?.error?.error || 'Failed to submit leave request.';
-        this.toastService.showError(msg);
+        this.notify.showAlert(msg);
         return of(null);
       })
     );
@@ -773,7 +754,7 @@ export class HrmsService {
       }),
       catchError(err => {
         const msg = err?.error?.message || err?.error?.error || 'Failed to update leave request.';
-        this.toastService.showError(msg);
+        this.notify.showAlert(msg);
         return of(null);
       })
     );
@@ -787,7 +768,7 @@ export class HrmsService {
       }),
       catchError(err => {
         const msg = err?.error?.message || err?.error?.error || 'Failed to cancel leave request.';
-        this.toastService.showError(msg);
+        this.notify.showAlert(msg);
         return of(null);
       })
     );
@@ -802,7 +783,7 @@ export class HrmsService {
       }),
       catchError(err => {
         const msg = err?.error?.message || err?.error?.error || `Failed to ${approved ? 'approve' : 'reject'} leave request.`;
-        this.toastService.showError(msg);
+        this.notify.showAlert(msg);
         return of(null);
       })
     );
@@ -980,59 +961,5 @@ export class HrmsService {
       });
     }
   }
-
-  private getFallbackEmployees(): Employee[] {
-    return [
-      {
-        id: '1',
-        employeeId: 'EMP-001',
-        name: 'Alexandra Vance',
-        email: 'admin@hrms.local',
-        phone: '+1 (555) 234-5678',
-        role: 'Admin',
-        department: 'Engineering',
-        designation: 'Chief Technology Officer',
-        joinDate: '2021-03-15',
-        status: 'Active',
-        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-        salary: 165000,
-        location: 'San Francisco, CA',
-        leaveBalance: { casual: 10, sick: 7, paid: 15, wfh: 8 }
-      },
-      {
-        id: '2',
-        employeeId: 'EMP-002',
-        name: 'Marcus Chen',
-        email: 'employee@hrms.local',
-        phone: '+1 (555) 876-5432',
-        role: 'Employee',
-        department: 'Engineering',
-        designation: 'Lead Frontend Engineer',
-        joinDate: '2022-01-10',
-        status: 'Active',
-        avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-        salary: 135000,
-        location: 'Austin, TX',
-        leaveBalance: { casual: 8, sick: 5, paid: 12, wfh: 6 }
-      },
-      {
-        id: '3',
-        employeeId: 'EMP-003',
-        name: 'Sarah Jenkins',
-        email: 'hr@hrms.local',
-        phone: '+1 (555) 987-6543',
-        role: 'HR Manager',
-        department: 'Human Resources',
-        designation: 'Head of People Operations',
-        joinDate: '2020-11-20',
-        status: 'Active',
-        avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80',
-        salary: 125000,
-        location: 'Seattle, WA',
-        leaveBalance: { casual: 12, sick: 7, paid: 18, wfh: 5 }
-      }
-    ];
-  }
-
 
 }

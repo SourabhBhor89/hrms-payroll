@@ -1,38 +1,17 @@
-import { Component, inject } from '@angular/core';
+import { Component } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
-import { LoaderComponent } from './layout/loader/loader.component';
-import { CommonModule } from '@angular/common';
-import { ToastService } from './core/services/toast.service';
+import { AlertModalComponent } from './core/components/alert-modal/alert-modal.component';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, LoaderComponent, CommonModule],
+  imports: [RouterOutlet, AlertModalComponent],
   template: `
-    <app-loader></app-loader>
     <router-outlet></router-outlet>
-
-    <!-- Global Toast Notification Container -->
-    <div class="global-toast-container" *ngIf="toastService.toast()">
-      <div class="global-toast" [class.toast-success]="toastService.toast()?.type === 'success'" [class.toast-error]="toastService.toast()?.type === 'error'">
-        <svg *ngIf="toastService.toast()?.type === 'success'" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-        </svg>
-        <svg *ngIf="toastService.toast()?.type === 'error'" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 001.414 1.414L10 11.414l2.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
-        </svg>
-        <span>{{ toastService.toast()?.text }}</span>
-      </div>
-    </div>
+    <app-alert-modal></app-alert-modal>
   `,
-  styleUrls: ['./app.component.css']
+  styles: []
 })
 export class AppComponent {
   title = 'NexusHR Dashboard';
-  toastService = inject(ToastService);
-
-  constructor() {
-    console.log('AppComponent initialized');
-    console.log('ToastService:', this.toastService);
-  }
 }

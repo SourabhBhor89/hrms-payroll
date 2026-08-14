@@ -45,6 +45,7 @@ public class LeaveServiceImpl implements LeaveService {
 
     @Override
     @Transactional
+    @CacheEvict(value = CacheNames.LEAVES, allEntries = true)
     public LeaveResponse createLeave(CreateLeaveRequest request, Long employeeId) {
         Employee employee = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> new IllegalArgumentException("Employee not found with ID: " + employeeId));
@@ -186,6 +187,13 @@ public class LeaveServiceImpl implements LeaveService {
     @Override
     @Transactional
     public EmployeeLeaveDataResponse getEmployeeLeaveData(Long employeeId, Integer year, Integer month) {
+        return getEmployeeLeaveData(employeeId, year, month, false);
+    }
+
+    @Override
+    @Transactional
+    @Cacheable(value = CacheNames.LEAVES, key = "#employeeId + '_' + #year + '_' + #month + '_' + #isAdminOrHr")
+    public EmployeeLeaveDataResponse getEmployeeLeaveData(Long employeeId, Integer year, Integer month, boolean isAdminOrHr) {
         Employee employee = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> new IllegalArgumentException("Employee not found with ID: " + employeeId));
 
@@ -232,17 +240,9 @@ public class LeaveServiceImpl implements LeaveService {
             balanceDetails.add(detail);
         }
 
-        // Get leaves for the employee (always return own leaves, approvedRejectedLeaves will contain HR/Admin approvals)
-        List<Leave> leaves = leaveRepository.findByEmployeeId(employeeId);
+        // Get leaves for the employee (or all leaves if admin/hr)
+        List<Leave> leaves = isAdminOrHr ? leaveRepository.findAll() : leaveRepository.findByEmployeeId(employeeId);
         List<LeaveResponse> leaveResponses = leaves.stream()
-                .map(this::mapToLeaveResponse)
-                .collect(Collectors.toList());
-
-        // Get approved/rejected leaves by this employee (if they are HR/Admin)
-        List<LeaveResponse> approvedRejectedLeaves;
-        List<Leave> allApprovedRejected = leaveRepository.findByApprovedById(employeeId);
-        approvedRejectedLeaves = allApprovedRejected.stream()
-                .filter(leave -> leave.getStatus() == Leave.LeaveStatus.APPROVED || leave.getStatus() == Leave.LeaveStatus.REJECTED)
                 .map(this::mapToLeaveResponse)
                 .collect(Collectors.toList());
 
@@ -257,12 +257,12 @@ public class LeaveServiceImpl implements LeaveService {
                 .month(month)
                 .leaveBalances(balanceDetails)
                 .leaves(leaveResponses)
-                .approvedRejectedLeaves(approvedRejectedLeaves)
                 .build();
     }
 
     @Override
     @Transactional
+    @CacheEvict(value = CacheNames.LEAVES, allEntries = true)
     public LeaveResponse updateLeave(Long id, UpdateLeaveRequest request, Long employeeId) {
         Leave leave = leaveRepository.findByIdAndEmployeeId(id, employeeId)
                 .orElseThrow(() -> new IllegalArgumentException("Leave not found with ID: " + id));
@@ -314,6 +314,7 @@ public class LeaveServiceImpl implements LeaveService {
 
     @Override
     @Transactional
+    @CacheEvict(value = CacheNames.LEAVES, allEntries = true)
     public void cancelLeave(Long id, Long employeeId) {
         Leave leave = leaveRepository.findByIdAndEmployeeId(id, employeeId)
                 .orElseThrow(() -> new IllegalArgumentException("Leave not found with ID: " + id));
@@ -357,6 +358,7 @@ public class LeaveServiceImpl implements LeaveService {
 
     @Override
     @Transactional
+    @CacheEvict(value = CacheNames.LEAVES, allEntries = true)
     public LeaveResponse approveLeave(Long id, ApproveLeaveRequest request, Long approverId) {
         Leave leave = leaveRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Leave not found with ID: " + id));
@@ -421,8 +423,6 @@ public class LeaveServiceImpl implements LeaveService {
         } else {
             leave.setStatus(Leave.LeaveStatus.REJECTED);
             leave.setRejectionReason(request.getRejectionReason());
-            leave.setApprovedBy(approver);
-            leave.setApprovedAt(LocalDateTime.now());
 
             // Restore pending days (only for limited leave types)
             if (leave.getLeaveType().getDefaultDaysPerYear() > 0) {
@@ -440,7 +440,7 @@ public class LeaveServiceImpl implements LeaveService {
     @Transactional(readOnly = true)
     public List<LeaveResponse> getPendingApprovals(Long approverId) {
         List<Leave.LeaveStatus> statuses = List.of(Leave.LeaveStatus.PENDING);
-        List<Leave> leaves = leaveRepository.findByStatusInAndEmployeeIdNot(statuses, approverId);
+        List<Leave> leaves = leaveRepository.findByStatusIn(statuses);
         return leaves.stream().map(this::mapToLeaveResponse).collect(Collectors.toList());
     }
 

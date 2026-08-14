@@ -3,7 +3,6 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HrmsService } from '../../core/services/hrms.service';
 import { AuthService } from '../../core/services/auth.service';
-import { ToastService } from '../../core/services/toast.service';
 import { AttendanceRecord, AttendanceStatus, RegularizationRequest, RegularizationStatus } from '../../core/models/hrms.model';
 
 export interface CalendarDayCell {
@@ -22,6 +21,8 @@ export interface CalendarDayCell {
   canRegularize?: boolean;
 }
 
+import { NotificationService } from '../../core/services/notification.service';
+
 @Component({
   selector: 'app-attendance',
   standalone: true,
@@ -32,13 +33,15 @@ export interface CalendarDayCell {
 export class AttendanceComponent implements OnInit {
   hrms = inject(HrmsService);
   auth = inject(AuthService);
-  toastService = inject(ToastService);
+  notify = inject(NotificationService);
 
   ngOnInit() {
     this.hrms.loadTodayAttendance();
     this.hrms.loadAttendance();
     this.hrms.loadRegularizations();
-    this.hrms.loadDashboardSummary();
+    if (this.auth.currentRole() === 'Admin' || this.auth.currentRole() === 'HR Manager') {
+      this.hrms.loadDashboardSummary();
+    }
     this.hrms.loadLeaves();
   }
 
@@ -144,10 +147,12 @@ export class AttendanceComponent implements OnInit {
         return s <= dateStr && dateStr <= e;
       });
 
-      if (matchingLeave && (!attRecord || attRecord.status === 'Absent')) {
+      let hasApprovedLeaveOrWfh = false;
+      if (matchingLeave) {
+        hasApprovedLeaveOrWfh = true;
         const isWfh = (matchingLeave.leaveTypeCode && matchingLeave.leaveTypeCode.toUpperCase() === 'WFH') ||
-                      (matchingLeave.leaveType && matchingLeave.leaveType.toLowerCase().includes('work from home')) ||
-                      (matchingLeave.leaveTypeName && matchingLeave.leaveTypeName.toLowerCase().includes('work from home'));
+          (matchingLeave.leaveType && matchingLeave.leaveType.toLowerCase().includes('work from home')) ||
+          (matchingLeave.leaveTypeName && matchingLeave.leaveTypeName.toLowerCase().includes('work from home'));
         status = isWfh ? 'WFH' : 'Leave';
       }
 
@@ -168,7 +173,7 @@ export class AttendanceComponent implements OnInit {
       // Check regularization eligibility rules (Admin cannot self-regularize; WFH & Leave days cannot be regularized)
       const isAdminUser = this.auth.currentRole() === 'Admin';
       const isPastOrToday = dateStr <= todayStr;
-      const canReg = !isAdminUser && isPastOrToday && !isWeekend && status !== 'Leave' && status !== 'WFH' && status !== 'Week Off' && status !== 'Holiday' && !isLocked && regStatus !== 'Pending' && regStatus !== 'Approved' && regStatus !== 'Rejected';
+      const canReg = !isAdminUser && isPastOrToday && !isWeekend && !hasApprovedLeaveOrWfh && status !== 'Leave' && status !== 'WFH' && status !== 'Week Off' && status !== 'Holiday' && !isLocked && regStatus !== 'Pending' && regStatus !== 'Approved' && regStatus !== 'Rejected';
 
       cells.push({
         dateStr,
@@ -257,11 +262,11 @@ export class AttendanceComponent implements OnInit {
 
   openRegModal(cell?: CalendarDayCell) {
     if (this.auth.currentRole() === 'Admin') {
-      this.toastService.showError('Administrators do not submit self-regularization requests. Use the Regularization Panel to review and approve employee/HR requests.');
+      this.notify.showAlert('Administrators do not submit self-regularization requests. Use the Regularization Panel to review and approve employee/HR requests.');
       return;
     }
     if (cell?.regularizationStatus === 'Rejected') {
-      this.toastService.showError('A regularization request for this date was rejected and cannot be resubmitted.');
+      this.notify.showAlert('A regularization request for this date was rejected and cannot be resubmitted.');
       return;
     }
     const dateToUse = cell?.dateStr || new Date().toISOString().split('T')[0];
@@ -278,17 +283,17 @@ export class AttendanceComponent implements OnInit {
 
   submitRegRequest() {
     if (this.auth.currentRole() === 'Admin') {
-      this.toastService.showError('Administrators do not submit self-regularization requests.');
+      this.notify.showAlert('Administrators do not submit self-regularization requests.');
       return;
     }
     if (!this.regForm.attendanceDate || !this.regForm.requestedClockInTime || !this.regForm.requestedClockOutTime || !this.regForm.reason) {
-      this.toastService.showError('Please fill all mandatory regularization fields (Date, Clock In, Clock Out, and Reason).');
+      this.notify.showAlert('Please fill all mandatory regularization fields (Date, Clock In, Clock Out, and Reason).');
       return;
     }
 
     const existingReq = this.hrms.regularizationRequests().find(r => r.date === this.regForm.attendanceDate);
     if (existingReq?.status === 'Rejected') {
-      this.toastService.showError('A regularization request for this date was rejected and cannot be resubmitted.');
+      this.notify.showAlert('A regularization request for this date was rejected and cannot be resubmitted.');
       return;
     }
 
@@ -355,7 +360,7 @@ export class AttendanceComponent implements OnInit {
     if (!req) return;
 
     if (this.reviewAction() === 'REJECT' && !this.reviewRemarks.trim()) {
-      this.toastService.showError('Please enter rejection remarks.');
+      this.notify.showAlert('Please enter rejection remarks.');
       return;
     }
 
@@ -445,7 +450,8 @@ export class AttendanceComponent implements OnInit {
       const isTodayRecord = r.date === today;
       const isClockedIn = !!(r.clockIn && r.clockIn !== '--' && r.clockIn !== '');
       const isPresentStatus = r.status === 'Present' || r.status === 'Half Day' || r.status === 'WFH' || r.regularizationStatus === 'Approved';
-      return isTodayRecord && (isClockedIn || isPresentStatus);
+      const isNotAbsentOrLeave = r.status !== 'Absent' && r.status !== 'Leave';
+      return isTodayRecord && (isPresentStatus || isClockedIn) && isNotAbsentOrLeave;
     });
 
     const uniqueEmpIds = new Set(todayPresentRecords.map(r => String(r.employeeId)));
@@ -458,12 +464,7 @@ export class AttendanceComponent implements OnInit {
       }
     }
 
-    const count = uniqueEmpIds.size;
-    if (count === 0 && this.hrms.dashboardSummary().presentToday > 0) {
-      return this.hrms.dashboardSummary().presentToday;
-    }
-
-    return count;
+    return uniqueEmpIds.size;
   });
 
   wfhTodayCount = computed(() => {
@@ -485,10 +486,45 @@ export class AttendanceComponent implements OnInit {
     leaves.forEach(l => {
       const isApproved = l.status === 'APPROVED' || l.status === 'Approved';
       const isWfhCategory = (l.leaveTypeCode && l.leaveTypeCode.toUpperCase() === 'WFH') ||
-                            (l.leaveType && l.leaveType.toLowerCase().includes('work from home')) ||
-                            (l.leaveTypeName && l.leaveTypeName.toLowerCase().includes('work from home'));
+        (l.leaveType && l.leaveType.toLowerCase().includes('work from home')) ||
+        (l.leaveTypeName && l.leaveTypeName.toLowerCase().includes('work from home'));
 
       if (isApproved && isWfhCategory && l.startDate && l.endDate) {
+        const start = l.startDate.split('T')[0];
+        const end = l.endDate.split('T')[0];
+        if (start <= today && today <= end) {
+          if (l.employeeId) {
+            uniqueEmpIds.add(String(l.employeeId));
+          }
+        }
+      }
+    });
+
+    return uniqueEmpIds.size;
+  });
+
+  leaveTodayCount = computed(() => {
+    const today = this.todayStr();
+    const records = this.hrms.attendanceRecords();
+    const leaves = this.hrms.leaveRequests();
+
+    const uniqueEmpIds = new Set<string>();
+
+    records.forEach(r => {
+      if (r.date === today && r.status === 'Leave') {
+        if (r.employeeId) {
+          uniqueEmpIds.add(String(r.employeeId));
+        }
+      }
+    });
+
+    leaves.forEach(l => {
+      const isApproved = l.status === 'APPROVED' || l.status === 'Approved';
+      const isWfhCategory = (l.leaveTypeCode && l.leaveTypeCode.toUpperCase() === 'WFH') ||
+        (l.leaveType && l.leaveType.toLowerCase().includes('work from home')) ||
+        (l.leaveTypeName && l.leaveTypeName.toLowerCase().includes('work from home'));
+
+      if (isApproved && !isWfhCategory && l.startDate && l.endDate) {
         const start = l.startDate.split('T')[0];
         const end = l.endDate.split('T')[0];
         if (start <= today && today <= end) {
@@ -526,4 +562,207 @@ export class AttendanceComponent implements OnInit {
     });
     return total.toFixed(1);
   });
+
+  // Stat Card Detail Modal State
+  showStatDetailModal = signal<boolean>(false);
+  statDetailCategory = signal<'PRESENT' | 'WFH' | 'LEAVE'>('PRESENT');
+  statDetailTitle = signal<string>('');
+
+  openStatDetailModal(category: 'PRESENT' | 'WFH' | 'LEAVE') {
+    if (this.auth.currentRole() !== 'Admin' && this.auth.currentRole() !== 'HR Manager') {
+      return;
+    }
+    this.statDetailCategory.set(category);
+    if (category === 'PRESENT') {
+      this.statDetailTitle.set('Employees Present Today');
+    } else if (category === 'WFH') {
+      this.statDetailTitle.set('Employees on Work From Home Today');
+    } else if (category === 'LEAVE') {
+      this.statDetailTitle.set('Employees on Leave Today');
+    }
+    this.showStatDetailModal.set(true);
+  }
+
+  closeStatDetailModal() {
+    this.showStatDetailModal.set(false);
+  }
+
+  get statDetailEmployees(): Array<{
+    id: string;
+    name: string;
+    code: string;
+    avatar: string;
+    department: string;
+    designation: string;
+    status: string;
+    details: string;
+  }> {
+    const category = this.statDetailCategory();
+    const today = this.todayStr();
+    const records = this.hrms.attendanceRecords();
+    const leaves = this.hrms.leaveRequests();
+    const employees = this.hrms.employees();
+
+    const empMap = new Map<string, any>();
+    employees.forEach(e => {
+      empMap.set(String(e.id), e);
+      if (e.employeeId) empMap.set(String(e.employeeId), e);
+    });
+
+    const resultList: Array<{
+      id: string;
+      name: string;
+      code: string;
+      avatar: string;
+      department: string;
+      designation: string;
+      status: string;
+      details: string;
+    }> = [];
+
+    const addedEmpIds = new Set<string>();
+
+    if (category === 'PRESENT') {
+      records.forEach(r => {
+        if (r.date === today) {
+          const isClockedIn = !!(r.clockIn && r.clockIn !== '--' && r.clockIn !== '');
+          const isPresentStatus = r.status === 'Present' || r.status === 'Half Day' || r.status === 'WFH' || r.regularizationStatus === 'Approved';
+          const isNotAbsentOrLeave = r.status !== 'Absent' && r.status !== 'Leave';
+
+          const isPresent = (isPresentStatus || isClockedIn) && isNotAbsentOrLeave;
+
+          if (isPresent && r.employeeId && !addedEmpIds.has(String(r.employeeId))) {
+            addedEmpIds.add(String(r.employeeId));
+            const empInfo = empMap.get(String(r.employeeId));
+            const inTime = r.clockIn && r.clockIn !== '--' ? `Clocked in at ${r.clockIn}` : 'Present';
+            const outTime = r.clockOut && r.clockOut !== '--' ? ` (Clocked out at ${r.clockOut})` : '';
+            resultList.push({
+              id: String(r.employeeId),
+              name: r.employeeName || empInfo?.name || 'Employee',
+              code: empInfo?.employeeId || `EMP-00${r.employeeId}`,
+              avatar: r.avatar || empInfo?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+              department: empInfo?.department || 'Staff',
+              designation: empInfo?.designation || 'Staff Member',
+              status: r.status === 'WFH' ? 'WFH' : (r.status === 'Half Day' ? 'Half Day' : 'Present'),
+              details: `${inTime}${outTime}`
+            });
+          }
+        }
+      });
+
+      const liveClockState = this.hrms.todayAttendanceState();
+      if (liveClockState.isClockedIn || liveClockState.clockIn) {
+        const currentUser = this.auth.currentUser();
+        if (currentUser?.id && !addedEmpIds.has(String(currentUser.id))) {
+          addedEmpIds.add(String(currentUser.id));
+          const empInfo = empMap.get(String(currentUser.id));
+          const inTime = liveClockState.clockIn ? `Clocked in at ${liveClockState.clockIn}` : 'Present';
+          const outTime = liveClockState.clockOut ? ` (Clocked out at ${liveClockState.clockOut})` : '';
+          resultList.push({
+            id: String(currentUser.id),
+            name: currentUser.name || empInfo?.name || 'Employee',
+            code: empInfo?.employeeId || currentUser.email?.split('@')[0] || `EMP-00${currentUser.id}`,
+            avatar: empInfo?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+            department: empInfo?.department || 'Staff',
+            designation: empInfo?.designation || 'Staff Member',
+            status: 'Present',
+            details: `${inTime}${outTime}`
+          });
+        }
+      }
+    } else if (category === 'WFH') {
+      records.forEach(r => {
+        if (r.date === today && (r.status === 'WFH' || (r.notes && r.notes.toLowerCase().includes('wfh')))) {
+          if (r.employeeId && !addedEmpIds.has(String(r.employeeId))) {
+            addedEmpIds.add(String(r.employeeId));
+            const empInfo = empMap.get(String(r.employeeId));
+            resultList.push({
+              id: String(r.employeeId),
+              name: r.employeeName || empInfo?.name || 'Employee',
+              code: empInfo?.employeeId || `EMP-00${r.employeeId}`,
+              avatar: r.avatar || empInfo?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+              department: empInfo?.department || 'Staff',
+              designation: empInfo?.designation || 'Staff Member',
+              status: 'WFH',
+              details: 'Approved Work From Home'
+            });
+          }
+        }
+      });
+
+      leaves.forEach(l => {
+        const isApproved = l.status === 'APPROVED' || l.status === 'Approved';
+        const isWfhCat = (l.leaveTypeCode && l.leaveTypeCode.toUpperCase() === 'WFH') ||
+          (l.leaveType && l.leaveType.toLowerCase().includes('work from home')) ||
+          (l.leaveTypeName && l.leaveTypeName.toLowerCase().includes('work from home'));
+
+        if (isApproved && isWfhCat && l.startDate && l.endDate) {
+          const s = l.startDate.split('T')[0];
+          const e = l.endDate.split('T')[0];
+          if (s <= today && today <= e && l.employeeId && !addedEmpIds.has(String(l.employeeId))) {
+            addedEmpIds.add(String(l.employeeId));
+            const empInfo = empMap.get(String(l.employeeId));
+            resultList.push({
+              id: String(l.employeeId),
+              name: l.employeeName || empInfo?.name || 'Employee',
+              code: l.employeeCode || empInfo?.employeeId || `EMP-00${l.employeeId}`,
+              avatar: l.employeeAvatar || empInfo?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+              department: l.department || empInfo?.department || 'Staff',
+              designation: empInfo?.designation || 'Staff Member',
+              status: 'WFH',
+              details: `Approved WFH (${s} to ${e})`
+            });
+          }
+        }
+      });
+    } else if (category === 'LEAVE') {
+      records.forEach(r => {
+        if (r.date === today && r.status === 'Leave') {
+          if (r.employeeId && !addedEmpIds.has(String(r.employeeId))) {
+            addedEmpIds.add(String(r.employeeId));
+            const empInfo = empMap.get(String(r.employeeId));
+            resultList.push({
+              id: String(r.employeeId),
+              name: r.employeeName || empInfo?.name || 'Employee',
+              code: empInfo?.employeeId || `EMP-00${r.employeeId}`,
+              avatar: r.avatar || empInfo?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+              department: empInfo?.department || 'Staff',
+              designation: empInfo?.designation || 'Staff Member',
+              status: 'Leave',
+              details: 'Approved Leave'
+            });
+          }
+        }
+      });
+
+      leaves.forEach(l => {
+        const isApproved = l.status === 'APPROVED' || l.status === 'Approved';
+        const isWfhCat = (l.leaveTypeCode && l.leaveTypeCode.toUpperCase() === 'WFH') ||
+                         (l.leaveType && l.leaveType.toLowerCase().includes('work from home')) ||
+                         (l.leaveTypeName && l.leaveTypeName.toLowerCase().includes('work from home'));
+
+        if (isApproved && !isWfhCat && l.startDate && l.endDate) {
+          const s = l.startDate.split('T')[0];
+          const e = l.endDate.split('T')[0];
+          if (s <= today && today <= e && l.employeeId && !addedEmpIds.has(String(l.employeeId))) {
+            addedEmpIds.add(String(l.employeeId));
+            const empInfo = empMap.get(String(l.employeeId));
+            const leaveName = l.leaveTypeName || l.leaveType || 'Leave';
+            resultList.push({
+              id: String(l.employeeId),
+              name: l.employeeName || empInfo?.name || 'Employee',
+              code: l.employeeCode || empInfo?.employeeId || `EMP-00${l.employeeId}`,
+              avatar: l.employeeAvatar || empInfo?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+              department: l.department || empInfo?.department || 'Staff',
+              designation: empInfo?.designation || 'Staff Member',
+              status: 'Leave',
+              details: `Approved ${leaveName} (${s} to ${e})`
+            });
+          }
+        }
+      });
+    }
+
+    return resultList;
+  }
 }
