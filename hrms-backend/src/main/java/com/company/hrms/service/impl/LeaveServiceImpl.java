@@ -7,18 +7,23 @@ import com.company.hrms.dto.response.EmployeeLeaveBalanceDetail;
 import com.company.hrms.dto.response.EmployeeLeaveDataResponse;
 import com.company.hrms.dto.response.LeaveResponse;
 import com.company.hrms.dto.response.LeaveTypeResponse;
+import com.company.hrms.entity.Attendance;
+import com.company.hrms.entity.AttendanceStatus;
 import com.company.hrms.entity.Employee;
 import com.company.hrms.entity.Leave;
 import com.company.hrms.entity.LeaveBalance;
 import com.company.hrms.entity.LeaveType;
+import com.company.hrms.repository.AttendanceRepository;
 import com.company.hrms.repository.EmployeeRepository;
 import com.company.hrms.repository.LeaveBalanceRepository;
 import com.company.hrms.repository.LeaveRepository;
 import com.company.hrms.repository.LeaveTypeRepository;
 import com.company.hrms.service.LeaveService;
+import com.company.hrms.constants.CacheNames;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -36,6 +41,7 @@ public class LeaveServiceImpl implements LeaveService {
     private final LeaveTypeRepository leaveTypeRepository;
     private final LeaveBalanceRepository leaveBalanceRepository;
     private final EmployeeRepository employeeRepository;
+    private final AttendanceRepository attendanceRepository;
 
     @Override
     @Transactional
@@ -180,6 +186,12 @@ public class LeaveServiceImpl implements LeaveService {
     @Override
     @Transactional
     public EmployeeLeaveDataResponse getEmployeeLeaveData(Long employeeId, Integer year, Integer month) {
+        return getEmployeeLeaveData(employeeId, year, month, false);
+    }
+
+    @Override
+    @Transactional
+    public EmployeeLeaveDataResponse getEmployeeLeaveData(Long employeeId, Integer year, Integer month, boolean isAdminOrHr) {
         Employee employee = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> new IllegalArgumentException("Employee not found with ID: " + employeeId));
 
@@ -196,12 +208,27 @@ public class LeaveServiceImpl implements LeaveService {
                     .findByEmployeeAndLeaveTypeAndYearAndMonth(employee, leaveType, year, month)
                     .orElseGet(() -> createInitialLeaveBalance(employee, leaveType, year, month));
 
+            BigDecimal usedDaysVal = balance.getUsedDays() != null ? balance.getUsedDays() : BigDecimal.ZERO;
+            if ("WFH".equalsIgnoreCase(leaveType.getCode()) || (leaveType.getName() != null && leaveType.getName().toLowerCase().contains("work from home"))) {
+                List<Leave> empLeaves = leaveRepository.findByEmployeeId(employee.getId());
+                double wfhSum = empLeaves.stream()
+                        .filter(l -> l.getLeaveType() != null && l.getLeaveType().getId().equals(leaveType.getId()))
+                        .filter(l -> l.getStatus() == Leave.LeaveStatus.APPROVED)
+                        .mapToDouble(l -> l.getTotalDays() != null ? l.getTotalDays() : 0.0)
+                        .sum();
+                if (wfhSum > 0) {
+                    usedDaysVal = BigDecimal.valueOf(wfhSum);
+                    balance.setUsedDays(usedDaysVal);
+                    leaveBalanceRepository.save(balance);
+                }
+            }
+
             EmployeeLeaveBalanceDetail detail = EmployeeLeaveBalanceDetail.builder()
                     .leaveTypeId(leaveType.getId())
                     .leaveTypeCode(leaveType.getCode())
                     .leaveTypeName(leaveType.getName())
                     .totalDays(balance.getTotalDays())
-                    .usedDays(balance.getUsedDays())
+                    .usedDays(usedDaysVal)
                     .pendingDays(balance.getPendingDays())
                     .balanceDays(balance.getBalanceDays())
                     .carriedForwardDays(balance.getCarriedForwardDays())
@@ -211,8 +238,8 @@ public class LeaveServiceImpl implements LeaveService {
             balanceDetails.add(detail);
         }
 
-        // Get leaves for the employee
-        List<Leave> leaves = leaveRepository.findByEmployeeId(employeeId);
+        // Get leaves for the employee (or all leaves if admin/hr)
+        List<Leave> leaves = isAdminOrHr ? leaveRepository.findAll() : leaveRepository.findByEmployeeId(employeeId);
         List<LeaveResponse> leaveResponses = leaves.stream()
                 .map(this::mapToLeaveResponse)
                 .collect(Collectors.toList());
@@ -349,11 +376,44 @@ public class LeaveServiceImpl implements LeaveService {
             leave.setApprovedBy(approver);
             leave.setApprovedAt(LocalDateTime.now());
 
-            // Update balance (only for limited leave types)
+            // Update balance
             if (leave.getLeaveType().getDefaultDaysPerYear() > 0) {
                 leaveBalance.setPendingDays(leaveBalance.getPendingDays().subtract(BigDecimal.valueOf(leave.getTotalDays())));
                 leaveBalance.setUsedDays(leaveBalance.getUsedDays().add(BigDecimal.valueOf(leave.getTotalDays())));
                 leaveBalance.setBalanceDays(leaveBalance.getBalanceDays().subtract(BigDecimal.valueOf(leave.getTotalDays())));
+            } else {
+                leaveBalance.setUsedDays((leaveBalance.getUsedDays() != null ? leaveBalance.getUsedDays() : BigDecimal.ZERO).add(BigDecimal.valueOf(leave.getTotalDays())));
+            }
+
+            // Sync Attendance records for approved WFH or Leave date range
+            if (leave.getLeaveType() != null) {
+                boolean isWfh = "WFH".equalsIgnoreCase(leave.getLeaveType().getCode()) ||
+                        (leave.getLeaveType().getName() != null && leave.getLeaveType().getName().toLowerCase().contains("work from home"));
+
+                AttendanceStatus statusToSet = isWfh ? AttendanceStatus.WFH : AttendanceStatus.LEAVE;
+
+                final Employee targetEmp = leave.getEmployee();
+                LocalDate curDate = leave.getStartDate();
+                LocalDate endDate = leave.getEndDate();
+                while (curDate != null && endDate != null && !curDate.isAfter(endDate)) {
+                    final LocalDate targetDate = curDate;
+                    Attendance att = attendanceRepository.findByEmployeeIdAndDate(targetEmp.getId(), targetDate)
+                            .orElseGet(() -> {
+                                Attendance a = new Attendance();
+                                a.setEmployee(targetEmp);
+                                a.setDate(targetDate);
+                                a.setCreatedBy("SYSTEM_LEAVE_APPROVAL");
+                                return a;
+                            });
+                    att.setStatus(statusToSet);
+                    if (att.getNotes() == null || att.getNotes().isBlank()) {
+                        att.setNotes(isWfh ? "Approved Work From Home" : "Approved Leave: " + leave.getLeaveType().getName());
+                    }
+                    att.setUpdatedBy("SYSTEM_LEAVE_APPROVAL");
+                    attendanceRepository.save(att);
+
+                    curDate = curDate.plusDays(1);
+                }
             }
         } else {
             leave.setStatus(Leave.LeaveStatus.REJECTED);
@@ -381,6 +441,7 @@ public class LeaveServiceImpl implements LeaveService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = CacheNames.LEAVE_TYPES, key = "'all'")
     public List<LeaveTypeResponse> getAllLeaveTypes() {
         return leaveTypeRepository.findAll().stream()
                 .filter(lt -> Boolean.TRUE.equals(lt.getActive()))

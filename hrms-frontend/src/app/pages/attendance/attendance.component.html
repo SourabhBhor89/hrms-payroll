@@ -57,16 +57,16 @@
     </div>
 
     <div class="punch-actions">
-      <button class="btn-punch check-in" (click)="checkIn()" [disabled]="hrms.isClockedInComputed() || hrms.isClockedOutToday()"
-        [class.done]="hrms.todayClockInTime() || hrms.isClockedOutToday()">
+      <button class="btn-punch check-in" (click)="checkIn()" [disabled]="hrms.isClockedInComputed() || hrms.isClockedOutToday() || hrms.isOnLeaveOrWfhToday()"
+        [class.done]="hrms.todayClockInTime() || hrms.isClockedOutToday() || hrms.isOnLeaveOrWfhToday()">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
           <circle cx="12" cy="12" r="10" />
           <polyline points="12 8 12 12 14 14" />
         </svg>
-        {{ hrms.isClockedOutToday() ? 'Completed ✓' : (hrms.isClockedInComputed() ? 'Checked In ✓' : 'Check In') }}
+        {{ hrms.isOnLeaveOrWfhToday() ? 'On WFH / Leave' : (hrms.isClockedOutToday() ? 'Completed ✓' : (hrms.isClockedInComputed() ? 'Checked In ✓' : 'Check In')) }}
       </button>
 
-      <button class="btn-punch check-out" (click)="checkOut()" [disabled]="!hrms.isClockedInComputed()"
+      <button class="btn-punch check-out" (click)="checkOut()" [disabled]="!hrms.isClockedInComputed() || hrms.isOnLeaveOrWfhToday()"
         [class.done]="hrms.todayClockOutTime()">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
           <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
@@ -87,9 +87,16 @@
           <polyline points="22 4 12 14.01 9 11.01" />
         </svg>
       </div>
-      <span class="stat-label">Days Present</span>
-      <span class="stat-value text-emerald">{{ daysPresentCount() }} Days</span>
-      <span class="stat-sub">Monthly Attendance</span>
+      <ng-container *ngIf="auth.currentRole() === 'Admin' || auth.currentRole() === 'HR Manager'; else employeeDaysPresent">
+        <span class="stat-label">Present Today</span>
+        <span class="stat-value text-emerald">{{ presentTodayCount() }} {{ presentTodayCount() === 1 ? 'Employee' : 'Employees' }}</span>
+        <span class="stat-sub">Employees & HR Clocked In</span>
+      </ng-container>
+      <ng-template #employeeDaysPresent>
+        <span class="stat-label">Days Present</span>
+        <span class="stat-value text-emerald">{{ daysPresentCount() }} Days</span>
+        <span class="stat-sub">Monthly Attendance</span>
+      </ng-template>
     </div>
 
     <div class="stat-card glass-card">
@@ -99,9 +106,16 @@
           <polyline points="9 22 9 12 15 12 15 22" />
         </svg>
       </div>
-      <span class="stat-label">Work From Home</span>
-      <span class="stat-value text-sky">{{ wfhCount() }} Days</span>
-      <span class="stat-sub">Approved WFH</span>
+      <ng-container *ngIf="auth.currentRole() === 'Admin' || auth.currentRole() === 'HR Manager'; else employeeWfhCard">
+        <span class="stat-label">Work From Home Today</span>
+        <span class="stat-value text-sky">{{ wfhTodayCount() }} {{ wfhTodayCount() === 1 ? 'Employee' : 'Employees' }}</span>
+        <span class="stat-sub">Employees on WFH Today</span>
+      </ng-container>
+      <ng-template #employeeWfhCard>
+        <span class="stat-label">Work From Home</span>
+        <span class="stat-value text-sky">{{ wfhCount() }} Days</span>
+        <span class="stat-sub">Approved WFH</span>
+      </ng-template>
     </div>
 
     <div class="stat-card glass-card">
@@ -210,12 +224,32 @@
 
   <!-- Admin & HR Attendance Regularization Panel -->
   <div class="regularization-section glass-card mt-4" *ngIf="canApproveRequests()">
-    <div class="section-header">
+    <div class="section-header flex-header">
       <div>
         <h3>Attendance Regularization Panel</h3>
-        <p class="subtitle mb-0">Review, approve, or reject employee punch correction requests.</p>
+        <p class="subtitle mb-0">Review, approve, or view rejected employee punch correction requests.</p>
       </div>
-      <span class="badge badge-warning">{{ filteredRegularizations().length }} Pending Requests</span>
+
+      <!-- Two Tabs: Pending Requests & Rejected Requests -->
+      <div class="panel-tabs">
+        <button class="panel-tab-btn" 
+          [class.active]="activePanelTab() === 'Pending'" 
+          (click)="activePanelTab.set('Pending')">
+          Pending Requests
+          <span class="tab-badge badge-amber" *ngIf="pendingRegularizationsCount() > 0">
+            {{ pendingRegularizationsCount() }}
+          </span>
+        </button>
+        <button class="panel-tab-btn" 
+          [class.active]="activePanelTab() === 'Rejected'" 
+          [class.rejected-tab]="activePanelTab() === 'Rejected'"
+          (click)="activePanelTab.set('Rejected')">
+          Rejected Requests
+          <span class="tab-badge badge-red" *ngIf="rejectedRegularizationsCount() > 0">
+            {{ rejectedRegularizationsCount() }}
+          </span>
+        </button>
+      </div>
     </div>
 
     <!-- Filters & Search Bar -->
@@ -251,7 +285,7 @@
             <th>Working Hours</th>
             <th>Reason</th>
             <th>Status</th>
-            <th>Actions</th>
+            <th>{{ activePanelTab() === 'Pending' ? 'Actions' : 'Rejection Remarks & Reviewer' }}</th>
           </tr>
         </thead>
         <tbody>
@@ -298,16 +332,21 @@
                 <button class="btn btn-success btn-sm" (click)="openReviewModal(req, 'APPROVE')">Approve</button>
                 <button class="btn btn-danger btn-sm" (click)="openReviewModal(req, 'REJECT')">Reject</button>
               </div>
-              <span class="sub-text" *ngIf="req.status !== 'Pending'">
-                {{ req.reviewedBy ? 'Reviewed by ' + req.reviewedBy : '--' }}
-              </span>
+              <div class="review-info" *ngIf="req.status === 'Rejected'">
+                <span class="remarks-text" style="color: var(--danger, #ef4444); font-weight: 600; display: block;">
+                  {{ req.reviewRemarks && req.reviewRemarks !== '--' ? req.reviewRemarks : 'No remarks recorded' }}
+                </span>
+                <span class="sub-text" style="display: block; font-size: 0.75rem;" *ngIf="req.reviewedBy">
+                  Reviewed by {{ req.reviewedBy }}
+                </span>
+              </div>
             </td>
           </tr>
         </tbody>
       </table>
     </div>
-    <div class="no-records-box" *ngIf="filteredRegularizations().length === 0">
-      No regularization requests match the selected filters.
+    <div class="no-records-box" *ngIf="filteredRegularizations().length > 0 === false">
+      No {{ activePanelTab() === 'Pending' ? 'pending' : 'rejected' }} regularization requests match the selected filters.
     </div>
   </div>
 
@@ -357,7 +396,7 @@
             </td>
             <td><span class="remarks-text">{{ (req.status === 'Approved' || req.status === 'Rejected') ? (req.reviewRemarks || '--') : '' }}</span></td>
             <td>
-              <button class="btn btn-secondary btn-sm" *ngIf="req.status === 'Pending'" (click)="cancelRequest(req.id)">
+              <button class="btn btn-secondary btn-sm" *ngIf="req.status === 'Pending'" (click)="openCancelModal(req)">
                 Cancel
               </button>
               <span class="sub-text" *ngIf="req.status !== 'Pending'">--</span>
@@ -461,6 +500,43 @@
         <button type="button" class="btn" [class.btn-success]="reviewAction() === 'APPROVE'"
           [class.btn-danger]="reviewAction() === 'REJECT'" (click)="submitReview()">
           Confirm {{ reviewAction() === 'APPROVE' ? 'Approval' : 'Rejection' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cancel Regularization Confirmation Modal -->
+  <div class="modal-backdrop" *ngIf="showCancelConfirmModal()">
+    <div class="modal-content" style="max-width: 440px; text-align: center;">
+      <div style="display: flex; justify-content: center; align-items: center; margin-bottom: 1.25rem;">
+        <div style="width: 56px; height: 56px; border-radius: 50%; background: #fff1f2; display: flex; align-items: center; justify-content: center; border: 1px solid #fecdd3;">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#e11d48" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="15" y1="9" x2="9" y2="15"></line>
+            <line x1="9" y1="9" x2="15" y2="15"></line>
+          </svg>
+        </div>
+      </div>
+
+      <h3 style="margin-bottom: 0.5rem; color: var(--text-main); font-weight: 700; font-size: 1.25rem;">
+        Cancel Regularization Request?
+      </h3>
+
+      <p class="sub-text" style="margin-bottom: 1.25rem; color: var(--text-muted); font-size: 0.875rem; line-height: 1.5;">
+        Are you sure you want to cancel this regularization request<span *ngIf="reqToCancel()?.date"> for <strong style="color: var(--text-main);">{{ reqToCancel()?.date }}</strong></span>? This action cannot be undone.
+      </p>
+
+      <div *ngIf="reqToCancel()?.reason" style="background: var(--bg-body, #f8fafc); border: 1px solid var(--border-color, #e2e8f0); border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1.5rem; text-align: left; font-size: 0.8125rem;">
+        <span style="color: var(--text-muted, #64748b); font-weight: 600;">Reason:</span>
+        <span style="color: var(--text-main, #334155); margin-left: 0.25rem;">{{ reqToCancel()?.reason }}</span>
+      </div>
+
+      <div class="modal-actions" style="justify-content: center; gap: 0.75rem; margin-top: 0;">
+        <button type="button" class="btn btn-secondary" (click)="showCancelConfirmModal.set(false)">
+          Keep Request
+        </button>
+        <button type="button" class="btn btn-danger" (click)="proceedCancelRequest()">
+          Yes, Cancel Request
         </button>
       </div>
     </div>

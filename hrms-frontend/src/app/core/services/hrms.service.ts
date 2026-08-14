@@ -174,14 +174,12 @@ export class HrmsService {
 
   refreshAllData() {
     this.loadDashboardSummary();
-    this.loadEmployees();
     this.loadTodayAttendance();
     this.loadAttendance();
     this.loadLeaveTypes();
     this.loadLeaves();
     this.loadPendingLeaveApprovals();
     this.loadHolidays();
-    this.loadTimesheets();
     this.loadRegularizations();
   }
 
@@ -320,7 +318,7 @@ export class HrmsService {
         leaveBalance: { casual: 10, sick: 7, paid: 15, wfh: 8 }
       }));
 
-      this.employees.set(mapped.length > 0 ? mapped : this.getFallbackEmployees());
+      this.employees.set(mapped);
     });
   }
 
@@ -640,8 +638,6 @@ export class HrmsService {
           updatedAt: l.updatedAt
         }));
         this.leaveRequests.set(mapped);
-      } else {
-        this.setFallbackLeavesData();
       }
     });
   }
@@ -779,39 +775,6 @@ export class HrmsService {
     this.approveLeave(id, approved, managerNotes).subscribe();
   }
 
-  private setFallbackLeavesData() {
-    this.leaveRequests.set([
-      {
-        id: 'lv-101',
-        employeeId: 'EMP-003',
-        employeeName: 'Elena Rostova',
-        employeeAvatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80',
-        department: 'Design',
-        leaveType: 'Casual Leave',
-        startDate: '2026-08-12',
-        endDate: '2026-08-14',
-        totalDays: 3,
-        reason: 'Family event in New York.',
-        status: 'PENDING',
-        appliedOn: '2026-08-04'
-      },
-      {
-        id: 'lv-102',
-        employeeId: 'EMP-005',
-        employeeName: 'David Kim',
-        employeeAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
-        department: 'Marketing',
-        leaveType: 'Work From Home',
-        startDate: '2026-08-10',
-        endDate: '2026-08-11',
-        totalDays: 2,
-        reason: 'Home renovation internet setup.',
-        status: 'PENDING',
-        appliedOn: '2026-08-05'
-      }
-    ]);
-  }
-
   // Holidays API
   loadHolidays() {
     this.http.get<any[]>('/api/v1/holidays').pipe(
@@ -893,8 +856,38 @@ export class HrmsService {
     this.timesheets.update(list => list.map(t => t.id === id ? { ...t, status, approvedBy: approverName } : t));
   }
 
+  todayStr = computed(() => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  });
+
+  isOnLeaveOrWfhToday = computed(() => {
+    const today = this.todayStr();
+    const leaves = this.leaveRequests();
+
+    const onLeaveOrWfh = leaves.some(l => {
+      const isApproved = l.status === 'APPROVED' || l.status === 'Approved';
+      if (!isApproved || !l.startDate || !l.endDate) return false;
+      const start = l.startDate.split('T')[0];
+      const end = l.endDate.split('T')[0];
+      return start <= today && today <= end;
+    });
+
+    if (onLeaveOrWfh) return true;
+
+    const recStatus = (this.todayRecord()?.status || '').toUpperCase();
+    return recStatus === 'WFH' || recStatus === 'LEAVE' || recStatus === 'HOLIDAY';
+  });
+
   // Clock Widget Actions
   toggleClockIn() {
+    if (this.isOnLeaveOrWfhToday()) {
+      alert('Clock In and Clock Out are disabled for today because you are on approved Work From Home (WFH) or Leave.');
+      return;
+    }
     if (this.isClockedOutToday()) {
       return;
     }
@@ -943,7 +936,7 @@ export class HrmsService {
       {
         id: '1',
         employeeId: 'EMP-001',
-        name: 'Alexandra Vance',
+        name: 'System Admin',
         email: 'admin@hrms.local',
         phone: '+1 (555) 234-5678',
         role: 'Admin',
@@ -959,7 +952,7 @@ export class HrmsService {
       {
         id: '2',
         employeeId: 'EMP-002',
-        name: 'Marcus Chen',
+        name: 'Employee Staff',
         email: 'employee@hrms.local',
         phone: '+1 (555) 876-5432',
         role: 'Employee',
@@ -975,7 +968,7 @@ export class HrmsService {
       {
         id: '3',
         employeeId: 'EMP-003',
-        name: 'Sarah Jenkins',
+        name: 'HR Manager',
         email: 'hr@hrms.local',
         phone: '+1 (555) 987-6543',
         role: 'HR Manager',

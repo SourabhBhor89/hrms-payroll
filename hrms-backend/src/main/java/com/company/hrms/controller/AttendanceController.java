@@ -7,9 +7,11 @@ import com.company.hrms.entity.AttendanceStatus;
 import com.company.hrms.entity.Employee;
 import com.company.hrms.entity.RegularizationStatus;
 import com.company.hrms.entity.User;
+import com.company.hrms.entity.Leave;
 import com.company.hrms.repository.AttendanceRegularizationRepository;
 import com.company.hrms.repository.AttendanceRepository;
 import com.company.hrms.repository.EmployeeRepository;
+import com.company.hrms.repository.LeaveRepository;
 import com.company.hrms.repository.UserRepository;
 import com.company.hrms.service.AttendanceCalculationService;
 import lombok.RequiredArgsConstructor;
@@ -46,6 +48,7 @@ public class AttendanceController {
     private final UserRepository userRepository;
     private final AttendanceRegularizationRepository regularizationRepository;
     private final AttendanceCalculationService calculationService;
+    private final LeaveRepository leaveRepository;
 
     @GetMapping
     @PreAuthorize("hasAuthority('ATTENDANCE_VIEW')")
@@ -193,6 +196,18 @@ public class AttendanceController {
             Employee emp = getOrCreateEmployee(user);
 
             LocalDate today = LocalDate.now();
+            List<Leave> activeLeaves = leaveRepository.findByEmployeeId(emp.getId());
+            boolean isOnLeaveOrWfh = activeLeaves.stream().anyMatch(l -> {
+                boolean isApproved = l.getStatus() == Leave.LeaveStatus.APPROVED;
+                if (!isApproved || l.getStartDate() == null || l.getEndDate() == null) return false;
+                return !today.isBefore(l.getStartDate()) && !today.isAfter(l.getEndDate());
+            });
+
+            if (isOnLeaveOrWfh) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Map.of("error", "Clock in and clock out are disabled for today because you are on approved Work From Home (WFH) or Leave."));
+            }
+
             Attendance att = attendanceRepository.findByEmployeeIdAndDate(emp.getId(), today)
                     .orElseGet(() -> {
                         Attendance a = new Attendance();
@@ -241,6 +256,17 @@ public class AttendanceController {
             Employee emp = getOrCreateEmployee(user);
 
             LocalDate today = LocalDate.now();
+            List<Leave> activeLeaves = leaveRepository.findByEmployeeId(emp.getId());
+            boolean isOnLeaveOrWfh = activeLeaves.stream().anyMatch(l -> {
+                boolean isApproved = l.getStatus() == Leave.LeaveStatus.APPROVED;
+                if (!isApproved || l.getStartDate() == null || l.getEndDate() == null) return false;
+                return !today.isBefore(l.getStartDate()) && !today.isAfter(l.getEndDate());
+            });
+
+            if (isOnLeaveOrWfh) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Map.of("error", "Clock in and clock out are disabled for today because you are on approved Work From Home (WFH) or Leave."));
+            }
             Attendance att = attendanceRepository.findByEmployeeIdAndDate(emp.getId(), today)
                     .orElseGet(() -> {
                         Attendance a = new Attendance();

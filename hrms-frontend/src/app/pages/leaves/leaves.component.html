@@ -6,7 +6,7 @@
       <p class="subtitle">View leave balances, submit leave applications, and manage employee approvals.</p>
     </div>
 
-    <button class="btn btn-primary" (click)="openApplyModal()">
+    <button class="btn btn-primary" (click)="openApplyModal()" *ngIf="auth.currentRole() !== 'Admin'">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       Apply for Leave
     </button>
@@ -27,11 +27,11 @@
 
       <!-- WFH leave type - show used days only -->
       <ng-container *ngIf="isWFHLeaveType(b.leaveTypeCode)">
-        <span class="b-count">&nbsp;</span>
+        <span class="b-count">{{ (b.usedDays || 0) | number }} Days</span>
         <div class="progress-bar">
           <div class="progress" [style.width.%]="100"></div>
         </div>
-        <span class="b-sub">{{ (b.usedDays || 0) | number }} days used</span>
+        <span class="b-sub">{{ (b.usedDays || 0) | number }} day(s) approved & used</span>
       </ng-container>
 
       <!-- Other leave types - show balance -->
@@ -212,5 +212,38 @@
       </form>
     </div>
   </div>
+
+  <!-- Cancel Leave Confirmation Modal -->
+  <div class="modal-backdrop" *ngIf="showCancelConfirmModal()">
+    <div class="modal-content" style="max-width: 440px; text-align: center;">
+      <div style="display: flex; justify-content: center; align-items: center; margin-bottom: 1.25rem;">
+        <div style="width: 56px; height: 56px; border-radius: 50%; background: #fff1f2; display: flex; align-items: center; justify-content: center; border: 1px solid #fecdd3;">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#e11d48" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="15" y1="9" x2="9" y2="15"></line>
+            <line x1="9" y1="9" x2="15" y2="15"></line>
+          </svg>
+        </div>
+      </div>
+
+      <h3 style="margin-bottom: 0.5rem; color: var(--text-main); font-weight: 700; font-size: 1.25rem;">
+        Cancel Leave Application?
+      </h3>
+
+      <p class="sub-text" style="margin-bottom: 1.5rem; color: var(--text-muted); font-size: 0.875rem; line-height: 1.5;">
+        Are you sure you want to cancel this leave application? This action cannot be undone.
+      </p>
+
+      <div class="modal-actions" style="justify-content: center; gap: 0.75rem; margin-top: 0;">
+        <button type="button" class="btn btn-secondary" (click)="showCancelConfirmModal.set(false)">
+          Keep Application
+        </button>
+        <button type="button" class="btn btn-danger" (click)="proceedCancelLeave()">
+          Yes, Cancel Leave
+        </button>
+      </div>
+    </div>
+  </div>
+
 </div>
 

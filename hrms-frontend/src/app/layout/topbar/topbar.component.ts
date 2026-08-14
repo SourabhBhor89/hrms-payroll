@@ -1,9 +1,10 @@
-import { Component, inject, signal, HostListener, ElementRef } from '@angular/core';
+import { Component, inject, signal, computed, HostListener, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { ThemeService } from '../../core/services/theme.service';
+import { HrmsService } from '../../core/services/hrms.service';
 
 @Component({
   selector: 'app-topbar',
@@ -15,6 +16,7 @@ import { ThemeService } from '../../core/services/theme.service';
 export class TopbarComponent {
   auth = inject(AuthService);
   theme = inject(ThemeService);
+  hrms = inject(HrmsService);
   router = inject(Router);
   elementRef = inject(ElementRef);
 
@@ -37,11 +39,33 @@ export class TopbarComponent {
     confirmNewPassword: ''
   };
 
-  unreadNotificationsCount = 2;
-  notifications = [
-    { message: 'Elena Rostova submitted a new leave request.', time: '10 mins ago', type: 'info' },
-    { message: 'Timesheet for week Aug 03 approved.', time: '2 hours ago', type: 'success' }
-  ];
+  notifications = computed(() => {
+    const list: { message: string; time: string; type: 'info' | 'success' | 'warning' }[] = [];
+
+    const leaves = this.hrms.leaveRequests().filter(l => l.status === 'PENDING' || l.status === 'Pending');
+    leaves.slice(0, 3).forEach(l => {
+      list.push({
+        message: `${l.employeeName} submitted a new leave request.`,
+        time: l.appliedOn || 'Recently',
+        type: 'info'
+      });
+    });
+
+    const regs = this.hrms.regularizationRequests().filter(r => r.status === 'Pending');
+    regs.slice(0, 3).forEach(r => {
+      list.push({
+        message: `${r.employeeName} submitted an attendance regularization request.`,
+        time: r.appliedOn || 'Recently',
+        type: 'warning'
+      });
+    });
+
+    return list;
+  });
+
+  get unreadNotificationsCount(): number {
+    return this.notifications().length;
+  }
 
   toggleNotifDropdown() {
     this.showNotifDropdown.set(!this.showNotifDropdown());

@@ -818,3 +818,71 @@
     background-color: #cbd5e1;
   }
 }
+
+/* Panel Tabs Navigation */
+.panel-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--bg-hover, #f1f5f9);
+  padding: 4px;
+  border-radius: var(--radius-lg, 10px);
+  border: 1px solid var(--border-color, #e2e8f0);
+}
+
+.panel-tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.875rem;
+  border: none;
+  background: transparent;
+  color: var(--text-muted, #64748b);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  border-radius: var(--radius-md, 6px);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.panel-tab-btn:hover {
+  color: var(--text-main, #0f172a);
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.panel-tab-btn.active {
+  background: #ffffff;
+  color: var(--primary, #0ea5e9);
+  font-weight: 700;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.panel-tab-btn.active.rejected-tab {
+  color: #ef4444;
+}
+
+.tab-badge {
+  font-size: 0.7rem;
+  font-weight: 800;
+  padding: 1px 7px;
+  border-radius: 12px;
+  line-height: 1.2;
+}
+
+.tab-badge.badge-amber {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.tab-badge.badge-red {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.flex-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}

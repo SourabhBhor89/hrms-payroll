@@ -10,6 +10,9 @@ import com.company.hrms.repository.UserPermissionRepository;
 import com.company.hrms.repository.UserRepository;
 import com.company.hrms.service.PermissionService;
 import lombok.RequiredArgsConstructor;
+import com.company.hrms.constants.CacheNames;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,6 +41,7 @@ public class PermissionServiceImpl implements PermissionService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = CacheNames.USER_PERMISSIONS, key = "#userId")
     public Set<String> getPermissionsByUserId(Long userId) {
         if (userId == null) {
             return Set.of();
@@ -88,6 +92,7 @@ public class PermissionServiceImpl implements PermissionService {
 
     @Override
     @Transactional
+    @CacheEvict(value = CacheNames.USER_PERMISSIONS, key = "#targetUserId")
     public List<PermissionResponseDto> replaceUserPermissions(Long targetUserId, Set<Long> permissionIds, String actorEmail) {
         User actor = getUserByEmail(actorEmail);
         User targetUser = getUserById(targetUserId);
@@ -125,6 +130,7 @@ public class PermissionServiceImpl implements PermissionService {
 
     @Override
     @Transactional
+    @CacheEvict(value = CacheNames.USER_PERMISSIONS, key = "#targetUserId")
     public List<PermissionResponseDto> addPermissionToUser(Long targetUserId, Long permissionId, String actorEmail) {
         User actor = getUserByEmail(actorEmail);
         User targetUser = getUserById(targetUserId);
@@ -150,6 +156,7 @@ public class PermissionServiceImpl implements PermissionService {
 
     @Override
     @Transactional
+    @CacheEvict(value = CacheNames.USER_PERMISSIONS, key = "#targetUserId")
     public List<PermissionResponseDto> removePermissionFromUser(Long targetUserId, Long permissionId, String actorEmail) {
         User actor = getUserByEmail(actorEmail);
         User targetUser = getUserById(targetUserId);

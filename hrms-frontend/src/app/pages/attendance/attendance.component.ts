@@ -35,6 +35,9 @@ export class AttendanceComponent implements OnInit {
   ngOnInit() {
     this.hrms.loadTodayAttendance();
     this.hrms.loadAttendance();
+    this.hrms.loadRegularizations();
+    this.hrms.loadDashboardSummary();
+    this.hrms.loadLeaves();
   }
 
   weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -130,6 +133,22 @@ export class AttendanceComponent implements OnInit {
         isLocked = attRecord.isLocked || false;
       }
 
+      // Check if employee has an approved leave / WFH application for dateStr
+      const matchingLeave = this.hrms.leaveRequests().find(l => {
+        const isApproved = l.status === 'APPROVED' || l.status === 'Approved';
+        if (!isApproved || !l.startDate || !l.endDate) return false;
+        const s = l.startDate.split('T')[0];
+        const e = l.endDate.split('T')[0];
+        return s <= dateStr && dateStr <= e;
+      });
+
+      if (matchingLeave && (!attRecord || attRecord.status === 'Absent')) {
+        const isWfh = (matchingLeave.leaveTypeCode && matchingLeave.leaveTypeCode.toUpperCase() === 'WFH') ||
+                      (matchingLeave.leaveType && matchingLeave.leaveType.toLowerCase().includes('work from home')) ||
+                      (matchingLeave.leaveTypeName && matchingLeave.leaveTypeName.toLowerCase().includes('work from home'));
+        status = isWfh ? 'WFH' : 'Leave';
+      }
+
       // If regularization is approved, the attendance status for this date is Present
       if (regStatus === 'Approved') {
         status = 'Present';
@@ -144,10 +163,10 @@ export class AttendanceComponent implements OnInit {
         }
       }
 
-      // Check regularization eligibility rules (Admin cannot self-regularize)
+      // Check regularization eligibility rules (Admin cannot self-regularize; WFH & Leave days cannot be regularized)
       const isAdminUser = this.auth.currentRole() === 'Admin';
       const isPastOrToday = dateStr <= todayStr;
-      const canReg = !isAdminUser && isPastOrToday && !isWeekend && status !== 'Leave' && status !== 'Week Off' && status !== 'Holiday' && !isLocked && regStatus !== 'Pending' && regStatus !== 'Approved' && regStatus !== 'Rejected';
+      const canReg = !isAdminUser && isPastOrToday && !isWeekend && status !== 'Leave' && status !== 'WFH' && status !== 'Week Off' && status !== 'Holiday' && !isLocked && regStatus !== 'Pending' && regStatus !== 'Approved' && regStatus !== 'Rejected';
 
       cells.push({
         dateStr,
@@ -288,9 +307,31 @@ export class AttendanceComponent implements OnInit {
     });
   }
 
+  // Cancel Modal State
+  showCancelConfirmModal = signal<boolean>(false);
+  reqToCancel = signal<RegularizationRequest | null>(null);
+
+  openCancelModal(req: RegularizationRequest) {
+    this.reqToCancel.set(req);
+    this.showCancelConfirmModal.set(true);
+  }
+
   cancelRequest(id: string) {
-    if (confirm('Are you sure you want to cancel this regularization request?')) {
-      this.hrms.cancelRegularizationRequest(id);
+    const req = this.myRegularizations().find(r => r.id === id) || null;
+    if (req) {
+      this.openCancelModal(req);
+    } else {
+      this.reqToCancel.set({ id } as any);
+      this.showCancelConfirmModal.set(true);
+    }
+  }
+
+  proceedCancelRequest() {
+    const req = this.reqToCancel();
+    if (req && req.id) {
+      this.hrms.cancelRegularizationRequest(req.id);
+      this.showCancelConfirmModal.set(false);
+      this.reqToCancel.set(null);
     }
   }
 
@@ -330,12 +371,21 @@ export class AttendanceComponent implements OnInit {
   }
 
   // Filters for Admin / HR Panel
-  filterStatus = signal<string>('Pending');
+  activePanelTab = signal<'Pending' | 'Rejected'>('Pending');
   filterDepartment = signal<string>('All');
   searchQuery = signal<string>('');
 
+  pendingRegularizationsCount = computed(() => {
+    return this.hrms.regularizationRequests().filter(r => r.status === 'Pending').length;
+  });
+
+  rejectedRegularizationsCount = computed(() => {
+    return this.hrms.regularizationRequests().filter(r => r.status === 'Rejected').length;
+  });
+
   filteredRegularizations = computed(() => {
-    let list = this.hrms.regularizationRequests().filter(r => r.status === 'Pending');
+    const targetStatus = this.activePanelTab();
+    let list = this.hrms.regularizationRequests().filter(r => r.status === targetStatus);
 
     const dept = this.filterDepartment();
     if (dept !== 'All') {
@@ -375,6 +425,79 @@ export class AttendanceComponent implements OnInit {
 
   pendingApprovals = computed(() => {
     return this.hrms.regularizationRequests().filter(r => r.status === 'Pending');
+  });
+
+  todayStr = computed(() => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  });
+
+  presentTodayCount = computed(() => {
+    const today = this.todayStr();
+    const records = this.hrms.attendanceRecords();
+
+    const todayPresentRecords = records.filter(r => {
+      const isTodayRecord = r.date === today;
+      const isClockedIn = !!(r.clockIn && r.clockIn !== '--' && r.clockIn !== '');
+      const isPresentStatus = r.status === 'Present' || r.status === 'Half Day' || r.status === 'WFH' || r.regularizationStatus === 'Approved';
+      return isTodayRecord && (isClockedIn || isPresentStatus);
+    });
+
+    const uniqueEmpIds = new Set(todayPresentRecords.map(r => String(r.employeeId)));
+
+    const liveClockState = this.hrms.todayAttendanceState();
+    if (liveClockState.isClockedIn || liveClockState.clockIn) {
+      const currentUser = this.auth.currentUser();
+      if (currentUser?.id) {
+        uniqueEmpIds.add(String(currentUser.id));
+      }
+    }
+
+    const count = uniqueEmpIds.size;
+    if (count === 0 && this.hrms.dashboardSummary().presentToday > 0) {
+      return this.hrms.dashboardSummary().presentToday;
+    }
+
+    return count;
+  });
+
+  wfhTodayCount = computed(() => {
+    const today = this.todayStr();
+    const records = this.hrms.attendanceRecords();
+    const leaves = this.hrms.leaveRequests();
+
+    const uniqueEmpIds = new Set<string>();
+
+    records.forEach(r => {
+      if (r.date === today) {
+        const isWfhStatus = r.status === 'WFH' || (r.notes && r.notes.toLowerCase().includes('wfh'));
+        if (isWfhStatus) {
+          uniqueEmpIds.add(String(r.employeeId));
+        }
+      }
+    });
+
+    leaves.forEach(l => {
+      const isApproved = l.status === 'APPROVED' || l.status === 'Approved';
+      const isWfhCategory = (l.leaveTypeCode && l.leaveTypeCode.toUpperCase() === 'WFH') ||
+                            (l.leaveType && l.leaveType.toLowerCase().includes('work from home')) ||
+                            (l.leaveTypeName && l.leaveTypeName.toLowerCase().includes('work from home'));
+
+      if (isApproved && isWfhCategory && l.startDate && l.endDate) {
+        const start = l.startDate.split('T')[0];
+        const end = l.endDate.split('T')[0];
+        if (start <= today && today <= end) {
+          if (l.employeeId) {
+            uniqueEmpIds.add(String(l.employeeId));
+          }
+        }
+      }
+    });
+
+    return uniqueEmpIds.size;
   });
 
   daysPresentCount = computed(() => {

@@ -43,6 +43,9 @@ export class LeavesComponent implements OnInit {
     if (this.canApprove()) {
       this.hrms.loadPendingLeaveApprovals();
     }
+    if (this.auth.currentRole() === 'Admin') {
+      this.activeTab = 'pending_approvals';
+    }
   }
 
   canApprove(): boolean {
@@ -94,6 +97,10 @@ export class LeavesComponent implements OnInit {
   }
 
   openApplyModal() {
+    if (this.auth.currentRole() === 'Admin') {
+      alert('Administrators do not submit self-leave applications.');
+      return;
+    }
     const types = this.activeLeaveTypes;
     const firstType = types && types.length > 0 ? types[0] : null;
     this.formData = {
@@ -178,9 +185,21 @@ export class LeavesComponent implements OnInit {
     }
   }
 
+  // Cancel Confirm Modal Signals
+  showCancelConfirmModal = signal<boolean>(false);
+  leaveIdToCancel = signal<string | number | null>(null);
+
   cancelRequest(id: string | number) {
-    if (confirm('Are you sure you want to cancel this leave application?')) {
+    this.leaveIdToCancel.set(id);
+    this.showCancelConfirmModal.set(true);
+  }
+
+  proceedCancelLeave() {
+    const id = this.leaveIdToCancel();
+    if (id !== null) {
       this.hrms.cancelLeave(id).subscribe();
+      this.showCancelConfirmModal.set(false);
+      this.leaveIdToCancel.set(null);
     }
   }
 

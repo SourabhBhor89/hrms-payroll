@@ -36,12 +36,15 @@
           <span class="badge badge-info">{{ unreadNotificationsCount }} new</span>
         </div>
         <div class="notif-list">
-          <div class="notif-item" *ngFor="let n of notifications">
+          <div class="notif-item" *ngFor="let n of notifications()">
             <span class="notif-type-dot" [class]="n.type"></span>
             <div class="notif-content">
               <p class="notif-text">{{ n.message }}</p>
               <span class="notif-time">{{ n.time }}</span>
             </div>
+          </div>
+          <div class="notif-item text-center text-muted" *ngIf="notifications().length === 0" style="padding: 1rem; font-size: 0.8125rem; justify-content: center;">
+            No new notifications
           </div>
         </div>
       </div>

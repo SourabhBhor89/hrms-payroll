@@ -2,6 +2,19 @@ spring:
   application:
     name: hrms-backend
 
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2000ms
+
+  cache:
+    type: redis
+    redis:
+      time-to-live: 86400000ms
+      cache-null-values: false
+
  
   datasource:
     url: jdbc:postgresql://db.xpjtliwteybzoczamafk.supabase.co:5432/postgres

@@ -9,12 +9,16 @@ import java.util.Locale;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
 import com.company.hrms.dto.Google_Calendar.GoogleCalendarEvent;
 import com.company.hrms.dto.Google_Calendar.GoogleCalendarResponse;
 import com.company.hrms.dto.response.HolidayDto;
+
+import com.company.hrms.constants.CacheNames;
 
 @Service
 public class GoogleCalendarService {
@@ -54,7 +58,9 @@ public class GoogleCalendarService {
         }
     }
 
+    @Cacheable(value = CacheNames.HOLIDAYS, key = "'all'")
     public List<HolidayDto> getPublicHolidays() {
+        log.info("Fetching public holidays from external Google Calendar API / fallbacks (Cache Miss)...");
         GoogleCalendarResponse response = getEvents();
         List<HolidayDto> holidays = new ArrayList<>();
 
@@ -158,5 +164,10 @@ public class GoogleCalendarService {
                 .description(desc)
                 .upcoming(upcoming)
                 .build());
+    }
+
+    @CacheEvict(value = CacheNames.HOLIDAYS, allEntries = true)
+    public void clearHolidaysCache() {
+        log.info("Cleared holidays Redis cache.");
     }
 }
