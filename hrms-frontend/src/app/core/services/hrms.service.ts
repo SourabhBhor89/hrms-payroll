@@ -666,6 +666,22 @@ export class HrmsService {
   }
 
   loadPendingLeaveApprovals() {
+    // Restrict this API call to HR and ADMIN roles only
+    const userInfoStr = localStorage.getItem('user_info');
+    if (userInfoStr) {
+      try {
+        const user = JSON.parse(userInfoStr);
+        const role = (user?.role || '').toUpperCase();
+        if (role !== 'ADMIN' && role !== 'HR' && role !== 'HR MANAGER') {
+          return;
+        }
+      } catch (e) {
+        return;
+      }
+    } else {
+      return;
+    }
+
     this.http.get<any[]>('/api/v1/leaves/approvals/pending').pipe(
       catchError(() => of([]))
     ).subscribe(data => {

@@ -37,6 +37,15 @@ export class LeavesComponent implements OnInit {
     reason: ''
   };
 
+  popupMessage = signal<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  showPopup(text: string, type: 'success' | 'error' = 'success') {
+    this.popupMessage.set({ text, type });
+    setTimeout(() => {
+      this.popupMessage.set(null);
+    }, 4000);
+  }
+
   ngOnInit() {
     this.hrms.loadLeaveTypes();
     this.hrms.loadLeaves(); // This loads both leave balances and leave requests
@@ -49,7 +58,8 @@ export class LeavesComponent implements OnInit {
   }
 
   canApprove(): boolean {
-    return this.auth.hasPermission('LEAVE_APPROVE');
+    const role = this.auth.currentRole();
+    return (role === 'Admin' || role === 'HR Manager') && this.auth.hasPermission('LEAVE_APPROVE');
   }
 
   get activeLeaveTypes() {
@@ -147,7 +157,25 @@ export class LeavesComponent implements OnInit {
   }
 
   submitForm() {
-    if (!this.formData.startDate || !this.formData.reason) return;
+    // 1. Validation for required fields
+    const missingFields: string[] = [];
+    if (!this.formData.leaveTypeId || this.formData.leaveTypeId === 0) missingFields.push('Leave Category');
+    if (!this.formData.startDate) missingFields.push('Start Date');
+    if (!this.formData.endDate) missingFields.push('End Date');
+    if (!this.formData.reason || !this.formData.reason.trim()) missingFields.push('Reason / Justification');
+
+    if (missingFields.length > 0) {
+      this.showPopup(`Please fill in all required fields: ${missingFields.join(', ')}`, 'error');
+      return;
+    }
+
+    // 2. Date sequence validation
+    const start = new Date(this.formData.startDate);
+    const end = new Date(this.formData.endDate);
+    if (end < start) {
+      this.showPopup('End Date cannot be earlier than Start Date.', 'error');
+      return;
+    }
 
     let targetLeaveTypeId = Number(this.formData.leaveTypeId);
     if (!targetLeaveTypeId || targetLeaveTypeId === 0) {
@@ -158,7 +186,7 @@ export class LeavesComponent implements OnInit {
     }
 
     if (!targetLeaveTypeId || targetLeaveTypeId === 0) {
-      alert('Leave type not found. Please ensure leave categories are loaded from the backend.');
+      this.showPopup('Leave Category not found. Please select a valid category.', 'error');
       return;
     }
 
@@ -169,8 +197,14 @@ export class LeavesComponent implements OnInit {
         endDate: this.formData.endDate || this.formData.startDate,
         totalDays: Number(this.formData.totalDays),
         reason: this.formData.reason
-      }).subscribe((res) => {
-        if (res) this.showModal.set(false);
+      }).subscribe({
+        next: (res) => {
+          this.showPopup('Leave application updated successfully!', 'success');
+          this.showModal.set(false);
+        },
+        error: (err) => {
+          this.showPopup('Failed to update leave application: ' + (err.error?.message || err.message || 'Error occurred'), 'error');
+        }
       });
     } else {
       this.hrms.applyLeave({
@@ -179,8 +213,14 @@ export class LeavesComponent implements OnInit {
         endDate: this.formData.endDate || this.formData.startDate,
         totalDays: Number(this.formData.totalDays),
         reason: this.formData.reason
-      }).subscribe((res) => {
-        if (res) this.showModal.set(false);
+      }).subscribe({
+        next: (res) => {
+          this.showPopup('Leave application submitted successfully!', 'success');
+          this.showModal.set(false);
+        },
+        error: (err) => {
+          this.showPopup('Failed to submit leave application: ' + (err.error?.message || err.message || 'Error occurred'), 'error');
+        }
       });
     }
   }
