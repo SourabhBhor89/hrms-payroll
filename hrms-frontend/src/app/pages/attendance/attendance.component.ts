@@ -120,10 +120,24 @@ export class AttendanceComponent implements OnInit {
       const dayOfWeek = dateObj.getDay();
       const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
 
-      const attRecord = records.find(r => r.date === dateStr);
-      const regReq = regRequests.find(r => r.date === dateStr && r.status !== 'Cancelled');
+      const currentUser = this.auth.currentUser();
+      const attRecord = records.find(r => {
+        if (r.date !== dateStr) return false;
+        if (!currentUser) return true;
+        return (r.employeeId != null && String(r.employeeId) === String(currentUser.id)) ||
+               (currentUser.employeeId != null && (String(r.employeeId) === String(currentUser.employeeId) || r.employeeCode === currentUser.employeeId)) ||
+               (currentUser.name != null && r.employeeName === currentUser.name);
+      });
+      const regReq = regRequests.find(r => {
+        if (r.date !== dateStr || r.status === 'Cancelled') return false;
+        if (!currentUser) return true;
+        return (r.employeeId != null && String(r.employeeId) === String(currentUser.id)) ||
+               (currentUser.employeeId != null && (String(r.employeeId) === String(currentUser.employeeId) || r.employeeCode === currentUser.employeeId)) ||
+               (currentUser.name != null && r.employeeName === currentUser.name);
+      });
 
-      let status: AttendanceStatus = isWeekend ? 'Week Off' : 'Absent';
+      const isPastOrToday = dateStr <= todayStr;
+      let status: AttendanceStatus = isWeekend ? 'Week Off' : (isPastOrToday ? 'Absent' : ('' as any));
       let checkIn = '--';
       let checkOut = '--';
       let totalHours = '--';
@@ -138,10 +152,19 @@ export class AttendanceComponent implements OnInit {
         isLocked = attRecord.isLocked || false;
       }
 
-      // Check if employee has an approved leave / WFH application for dateStr
+      // Check if logged-in user has an approved leave / WFH application for dateStr
       const matchingLeave = this.hrms.leaveRequests().find(l => {
         const isApproved = l.status === 'APPROVED' || l.status === 'Approved';
         if (!isApproved || !l.startDate || !l.endDate) return false;
+
+        const isMyLeave = !!currentUser && (
+          (l.employeeId != null && String(l.employeeId) === String(currentUser.id)) ||
+          (currentUser.employeeId != null && (String(l.employeeId) === String(currentUser.employeeId) || l.employeeCode === currentUser.employeeId)) ||
+          (currentUser.name != null && l.employeeName === currentUser.name)
+        );
+
+        if (!isMyLeave) return false;
+
         const s = l.startDate.split('T')[0];
         const e = l.endDate.split('T')[0];
         return s <= dateStr && dateStr <= e;
@@ -176,7 +199,6 @@ export class AttendanceComponent implements OnInit {
 
       // Check regularization eligibility rules (Admin cannot self-regularize; WFH & Leave days cannot be regularized)
       const isAdminUser = this.auth.currentRole() === 'Admin';
-      const isPastOrToday = dateStr <= todayStr;
       const canReg = !isAdminUser && isPastOrToday && !isWeekend && !hasApprovedLeaveOrWfh && status !== 'Leave' && status !== 'WFH' && status !== 'Week Off' && status !== 'Holiday' && !isLocked && regStatus !== 'Pending' && regStatus !== 'Approved' && regStatus !== 'Rejected';
 
       cells.push({
