@@ -55,6 +55,10 @@ export class LeavesComponent implements OnInit {
     return this.auth.hasPermission('LEAVE_APPROVE');
   }
 
+  isAdmin(): boolean {
+    return this.auth.currentRole() === 'Admin';
+  }
+
   get activeLeaveTypes() {
     const types = this.hrms.leaveTypes();
     if (types && types.length > 0) {
@@ -82,7 +86,7 @@ export class LeavesComponent implements OnInit {
   }
 
   isWFHLeaveType(leaveTypeCode: string): boolean {
-    return leaveTypeCode === 'WFH';
+    return leaveTypeCode === 'WFH' || leaveTypeCode === 'LOP';
   }
 
   filteredRequests(): LeaveRequest[] {

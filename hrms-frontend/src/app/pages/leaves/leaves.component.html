@@ -6,26 +6,27 @@
       <p class="subtitle">View leave balances, submit leave applications, and manage employee approvals.</p>
     </div>
 
-    <button class="btn btn-primary" (click)="openApplyModal()" *ngIf="auth.currentRole() !== 'Admin'">
+    <button class="btn btn-primary" (click)="openApplyModal()" *ngIf="!isAdmin()">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       Apply for Leave
     </button>
   </div>
 
   <!-- Dynamic Leave Balances Cards -->
-  <div class="balance-grid">
+  <div class="balance-grid" *ngIf="!isAdmin()">
     <div class="balance-card glass-card" *ngFor="let b of displayedBalances">
       <div class="b-header">
         <span>{{ b.leaveTypeName }}</span>
         <span class="b-icon" [ngSwitch]="b.leaveTypeCode">
           <span *ngSwitchCase="'EARNED'">💼</span>
           <span *ngSwitchCase="'WFH'">🏠</span>
+          <span *ngSwitchCase="'LOP'">📉</span>
           <span *ngSwitchCase="'UNPAID'">📅</span>
           <span *ngSwitchDefault>📅</span>
         </span>
       </div>
 
-      <!-- WFH leave type - show used days only -->
+      <!-- WFH/LOP leave type - show used days only -->
       <ng-container *ngIf="isWFHLeaveType(b.leaveTypeCode)">
         <span class="b-count">{{ (b.usedDays || 0) | number }} Days</span>
         <div class="progress-bar">
