@@ -19,6 +19,8 @@ public interface LeaveRepository extends JpaRepository<Leave, Long> {
 
     List<Leave> findByEmployeeIdAndStatus(Long employeeId, Leave.LeaveStatus status);
 
+    long countByStatus(Leave.LeaveStatus status);
+
     Optional<Leave> findByIdAndEmployeeId(Long id, Long employeeId);
 
     @Query("SELECT l FROM Leave l WHERE l.employee = :employee AND l.status = :status " +

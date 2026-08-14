@@ -81,27 +81,27 @@ public class AttendanceController {
                 records = attendanceRepository.findByEmployeeIdAndDateBetween(employeeId, start, end);
             } else if (isAdminOrHr) {
                 records = attendanceRepository.findByDateBetween(start, end);
-                if (records.isEmpty()) {
-                    records = attendanceRepository.findAll();
-                }
             } else if (user != null) {
                 Employee emp = getOrCreateEmployee(user);
                 records = attendanceRepository.findByEmployeeIdAndDateBetween(emp.getId(), start, end);
             } else {
                 records = attendanceRepository.findByDateBetween(start, end);
-                if (records.isEmpty()) {
-                    records = attendanceRepository.findAll();
+            }
+
+            List<Long> attIds = records.stream().map(Attendance::getId).filter(java.util.Objects::nonNull).collect(Collectors.toList());
+            Map<Long, String> regStatusMap = new java.util.HashMap<>();
+            if (!attIds.isEmpty()) {
+                List<AttendanceRegularization> allRegs = regularizationRepository
+                        .findByAttendanceIdInAndStatusIn(attIds, List.of(RegularizationStatus.PENDING, RegularizationStatus.APPROVED, RegularizationStatus.REJECTED));
+                for (AttendanceRegularization reg : allRegs) {
+                    if (reg.getAttendance() != null && !regStatusMap.containsKey(reg.getAttendance().getId())) {
+                        regStatusMap.put(reg.getAttendance().getId(), reg.getStatus().name());
+                    }
                 }
             }
 
             List<AttendanceDto> dtos = records.stream().map(a -> {
-                String regStatus = null;
-                List<AttendanceRegularization> regs = regularizationRepository
-                        .findByAttendanceIdAndStatusIn(a.getId(), List.of(RegularizationStatus.PENDING, RegularizationStatus.APPROVED, RegularizationStatus.REJECTED));
-                if (!regs.isEmpty()) {
-                    regStatus = regs.get(0).getStatus().name();
-                }
-
+                String regStatus = regStatusMap.get(a.getId());
                 Employee emp = a.getEmployee();
                 return AttendanceDto.builder()
                         .id(a.getId())

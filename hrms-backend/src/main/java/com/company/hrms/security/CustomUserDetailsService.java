@@ -4,6 +4,8 @@ import com.company.hrms.entity.User;
 import com.company.hrms.repository.UserRepository;
 import com.company.hrms.service.PermissionService;
 import lombok.RequiredArgsConstructor;
+import com.company.hrms.constants.CacheNames;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;

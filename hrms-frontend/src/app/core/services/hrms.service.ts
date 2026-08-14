@@ -161,10 +161,10 @@ export class HrmsService {
 
   // Computed metrics derived from API data
   pendingLeavesCount = computed(() => {
-    const apiSummary = this.dashboardSummary().pendingLeaves;
-    const myPending = this.leaveRequests().filter(l => l.status === 'Pending' || l.status === 'PENDING').length;
     const approverPending = this.pendingLeaveApprovals().filter(l => l.status === 'Pending' || l.status === 'PENDING').length;
-    return Math.max(apiSummary, myPending, approverPending);
+    const allPending = this.leaveRequests().filter(l => l.status === 'Pending' || l.status === 'PENDING').length;
+    const apiSummary = this.dashboardSummary().pendingLeaves || 0;
+    return Math.max(apiSummary, approverPending, allPending);
   });
 
   pendingTimesheetsCount = computed(() => this.timesheets().filter(t => t.status === 'Submitted').length);
@@ -215,7 +215,6 @@ export class HrmsService {
 
   constructor() {
     this.restoreClockState();
-    this.refreshAllData();
   }
 
   refreshAllData() {
@@ -646,7 +645,8 @@ export class HrmsService {
   }
 
   // Leave API Integration
-  loadLeaveTypes() {
+  loadLeaveTypes(forceReload = false) {
+    if (!forceReload && this.leaveTypes().length > 0) return;
     // Use the new endpoint that filters based on employee tenure
     this.http.get<LeaveTypeItem[]>('/api/v1/leaves/types/available').pipe(
       catchError(() => of([]))
@@ -850,7 +850,8 @@ export class HrmsService {
   }
 
   // Holidays API
-  loadHolidays() {
+  loadHolidays(forceReload = false) {
+    if (!forceReload && this.holidays().length > 0) return;
     this.http.get<any[]>('/api/v1/holidays').pipe(
       catchError(() => of([]))
     ).subscribe(data => {
