@@ -204,6 +204,9 @@ public class LeaveServiceImpl implements LeaveService {
 
         List<EmployeeLeaveBalanceDetail> balanceDetails = new java.util.ArrayList<>();
 
+        // Pre-fetch employee leaves once to avoid N+1 queries inside loop
+        List<Leave> empLeaves = leaveRepository.findByEmployeeId(employee.getId());
+
         for (LeaveType leaveType : allLeaveTypes) {
             // Try to get existing balance
             LeaveBalance balance = leaveBalanceRepository
@@ -212,7 +215,6 @@ public class LeaveServiceImpl implements LeaveService {
 
             BigDecimal usedDaysVal = balance.getUsedDays() != null ? balance.getUsedDays() : BigDecimal.ZERO;
             if ("WFH".equalsIgnoreCase(leaveType.getCode()) || (leaveType.getName() != null && leaveType.getName().toLowerCase().contains("work from home"))) {
-                List<Leave> empLeaves = leaveRepository.findByEmployeeId(employee.getId());
                 double wfhSum = empLeaves.stream()
                         .filter(l -> l.getLeaveType() != null && l.getLeaveType().getId().equals(leaveType.getId()))
                         .filter(l -> l.getStatus() == Leave.LeaveStatus.APPROVED)
@@ -220,8 +222,6 @@ public class LeaveServiceImpl implements LeaveService {
                         .sum();
                 if (wfhSum > 0) {
                     usedDaysVal = BigDecimal.valueOf(wfhSum);
-                    balance.setUsedDays(usedDaysVal);
-                    leaveBalanceRepository.save(balance);
                 }
             }
 
@@ -241,7 +241,7 @@ public class LeaveServiceImpl implements LeaveService {
         }
 
         // Get leaves for the employee (or all leaves if admin/hr)
-        List<Leave> leaves = isAdminOrHr ? leaveRepository.findAll() : leaveRepository.findByEmployeeId(employeeId);
+        List<Leave> leaves = isAdminOrHr ? leaveRepository.findAll() : empLeaves;
         List<LeaveResponse> leaveResponses = leaves.stream()
                 .map(this::mapToLeaveResponse)
                 .collect(Collectors.toList());

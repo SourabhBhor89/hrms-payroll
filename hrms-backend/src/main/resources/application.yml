@@ -22,14 +22,18 @@ spring:
       time-to-live: 86400000ms
       cache-null-values: false
 
- 
   datasource:
     url: jdbc:postgresql://db.xpjtliwteybzoczamafk.supabase.co:5432/postgres
     databse: postgres
     username: postgres
     password: '@Trhhrms@1234'
-    # driver-class-name: com.mysql.cj.jdbc.Driver
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 15
+      minimum-idle: 5
+      idle-timeout: 300000
+      connection-timeout: 20000
+      max-lifetime: 1200000
 
   flyway:
     enabled: true
@@ -50,6 +54,10 @@ spring:
 
 server:
   port: ${SERVER_PORT:8080}
+  compression:
+    enabled: true
+    mime-types: text/html,text/xml,text/plain,text/css,application/json,application/javascript
+    min-response-size: 1024
 
 management:
   endpoints:
@@ -71,7 +79,6 @@ security:
     cookie-same-site: ${COOKIE_SAME_SITE:Lax}
 
 app:
-
   admin:
     email: ${ADMIN_EMAIL:admin@hrms.local}
     password: ${ADMIN_PASSWORD:Admin@12345}
