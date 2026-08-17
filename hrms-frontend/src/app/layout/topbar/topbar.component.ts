@@ -39,6 +39,26 @@ export class TopbarComponent {
     confirmNewPassword: ''
   };
 
+  currentEmployee = computed(() => {
+    const user = this.auth.currentUser();
+    if (!user) return null;
+    const employees = this.hrms.employees();
+    if (!employees || employees.length === 0) return null;
+
+    const userEmail = (user.email || '').toLowerCase().trim();
+    const userName = (user.name || '').toLowerCase().trim();
+    const userCode = (user.employeeId || '').toLowerCase().trim();
+    const userId = String(user.id || '').trim();
+
+    return employees.find(e =>
+      (userEmail && e.email && e.email.toLowerCase().trim() === userEmail) ||
+      (userName && e.name && e.name.toLowerCase().trim() === userName) ||
+      (userId && e.userId && String(e.userId) === userId) ||
+      (userCode && e.employeeId && e.employeeId.toLowerCase().trim() === userCode) ||
+      (userId && String(e.id) === userId)
+    ) || null;
+  });
+
   notifications = computed(() => {
     const list: { message: string; time: string; type: 'info' | 'success' | 'warning' }[] = [];
 
@@ -93,6 +113,7 @@ export class TopbarComponent {
   }
 
   openProfileModal() {
+    this.hrms.loadEmployees();
     const user = this.auth.currentUser();
     this.profileForm = {
       phone: user?.phone || '+91 9876543210',

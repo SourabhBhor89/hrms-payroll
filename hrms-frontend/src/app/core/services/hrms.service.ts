@@ -428,6 +428,7 @@ export class HrmsService {
       this.isLoading.set(false);
       const mapped: Employee[] = data.map((e, idx) => ({
         id: String(e.id || idx + 1),
+        userId: e.userId ? String(e.userId) : undefined,
         employeeId: e.employeeCode || `EMP-00${e.id || idx + 1}`,
         name: `${e.firstName || ''} ${e.lastName || ''}`.trim() || e.email?.split('@')[0] || 'Employee',
         email: e.email || '',
