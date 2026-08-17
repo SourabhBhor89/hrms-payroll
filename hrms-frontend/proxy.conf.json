@@ -1,6 +1,6 @@
 {
   "/api": {
-    "target": "http://localhost:4200",
+    "target": "https://testimonials-surely-ongoing-sunshine.trycloudflare.com",
     "secure": false,
     "changeOrigin": true
   }
