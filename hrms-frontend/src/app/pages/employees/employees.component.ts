@@ -68,13 +68,21 @@ export class EmployeesComponent implements OnInit {
   };
 
   filteredEmployees() {
-    return this.hrms.employees().filter(e => {
+    const list = this.hrms.employees().filter(e => {
       const matchSearch = e.name.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
         e.email.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
         e.designation.toLowerCase().includes(this.searchQuery.toLowerCase());
       const matchDept = this.selectedDept === 'All' || e.department === this.selectedDept;
       const matchRole = this.selectedRoleFilter === 'All' || e.role === this.selectedRoleFilter;
       return matchSearch && matchDept && matchRole;
+    });
+
+    return list.sort((a, b) => {
+      const aTerminated = a.status === 'Terminated';
+      const bTerminated = b.status === 'Terminated';
+      if (aTerminated && !bTerminated) return 1;
+      if (!aTerminated && bTerminated) return -1;
+      return 0;
     });
   }
 

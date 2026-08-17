@@ -95,9 +95,9 @@ export class LeavesComponent implements OnInit {
     let sourceList: LeaveRequest[] = [];
 
     if (this.activeTab === 'pending_approvals') {
-      sourceList = this.hrms.leaveRequests();
+      sourceList = [...this.hrms.leaveRequests()];
       if (sourceList.length === 0) {
-        sourceList = this.hrms.pendingLeaveApprovals();
+        sourceList = [...this.hrms.pendingLeaveApprovals()];
       }
     } else {
       if (isAdminOrHr) {
@@ -106,16 +106,29 @@ export class LeavesComponent implements OnInit {
           currentUserEmail && (r.employeeCode === currentUserEmail || r.employeeName === this.auth.currentUser()?.name)
         );
       } else {
-        sourceList = this.hrms.leaveRequests();
+        sourceList = [...this.hrms.leaveRequests()];
       }
     }
 
-    if (this.filterStatus === 'All') return sourceList;
+    let result = sourceList;
+    if (this.filterStatus !== 'All') {
+      result = sourceList.filter(r => {
+        const s = (r.status || '').toUpperCase();
+        const target = this.filterStatus.toUpperCase();
+        return s === target;
+      });
+    }
 
-    return sourceList.filter(r => {
-      const s = (r.status || '').toUpperCase();
-      const target = this.filterStatus.toUpperCase();
-      return s === target;
+    // Sort requests: Pending status requests on top of other data, then by date descending
+    return [...result].sort((a, b) => {
+      const aIsPending = (a.status || '').toUpperCase() === 'PENDING';
+      const bIsPending = (b.status || '').toUpperCase() === 'PENDING';
+      if (aIsPending && !bIsPending) return -1;
+      if (!aIsPending && bIsPending) return 1;
+
+      const dateA = a.appliedOn || a.startDate || '';
+      const dateB = b.appliedOn || b.startDate || '';
+      return dateB.localeCompare(dateA);
     });
   }
 

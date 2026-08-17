@@ -50,6 +50,16 @@ public class LeaveServiceImpl implements LeaveService {
         Employee employee = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> new IllegalArgumentException("Employee not found with ID: " + employeeId));
 
+        // Check if leave dates are before joining date
+        if (employee.getJoiningDate() != null) {
+            if (request.getStartDate().isBefore(employee.getJoiningDate())) {
+                throw new IllegalArgumentException("Cannot apply for leave before joining date (" + employee.getJoiningDate() + ")");
+            }
+            if (request.getEndDate().isBefore(employee.getJoiningDate())) {
+                throw new IllegalArgumentException("Cannot apply for leave before joining date (" + employee.getJoiningDate() + ")");
+            }
+        }
+
         LeaveType leaveType = leaveTypeRepository.findById(request.getLeaveTypeId())
                 .orElseThrow(() -> new IllegalArgumentException("Leave type not found with ID: " + request.getLeaveTypeId()));
 
@@ -204,6 +214,9 @@ public class LeaveServiceImpl implements LeaveService {
 
         List<EmployeeLeaveBalanceDetail> balanceDetails = new java.util.ArrayList<>();
 
+        // Pre-fetch employee leaves once to avoid N+1 queries inside loop
+        List<Leave> empLeaves = leaveRepository.findByEmployeeId(employee.getId());
+
         for (LeaveType leaveType : allLeaveTypes) {
             // Try to get existing balance
             LeaveBalance balance = leaveBalanceRepository
@@ -212,7 +225,6 @@ public class LeaveServiceImpl implements LeaveService {
 
             BigDecimal usedDaysVal = balance.getUsedDays() != null ? balance.getUsedDays() : BigDecimal.ZERO;
             if ("WFH".equalsIgnoreCase(leaveType.getCode()) || (leaveType.getName() != null && leaveType.getName().toLowerCase().contains("work from home"))) {
-                List<Leave> empLeaves = leaveRepository.findByEmployeeId(employee.getId());
                 double wfhSum = empLeaves.stream()
                         .filter(l -> l.getLeaveType() != null && l.getLeaveType().getId().equals(leaveType.getId()))
                         .filter(l -> l.getStatus() == Leave.LeaveStatus.APPROVED)
@@ -220,8 +232,6 @@ public class LeaveServiceImpl implements LeaveService {
                         .sum();
                 if (wfhSum > 0) {
                     usedDaysVal = BigDecimal.valueOf(wfhSum);
-                    balance.setUsedDays(usedDaysVal);
-                    leaveBalanceRepository.save(balance);
                 }
             }
 
@@ -241,7 +251,7 @@ public class LeaveServiceImpl implements LeaveService {
         }
 
         // Get leaves for the employee (or all leaves if admin/hr)
-        List<Leave> leaves = isAdminOrHr ? leaveRepository.findAll() : leaveRepository.findByEmployeeId(employeeId);
+        List<Leave> leaves = isAdminOrHr ? leaveRepository.findAll() : empLeaves;
         List<LeaveResponse> leaveResponses = leaves.stream()
                 .map(this::mapToLeaveResponse)
                 .collect(Collectors.toList());
@@ -291,6 +301,23 @@ public class LeaveServiceImpl implements LeaveService {
             leave.setEndDate(request.getEndDate());
             newEndDate = request.getEndDate();
             datesChanged = true;
+        }
+
+        // Validate date range if dates changed
+        if (datesChanged) {
+            if (newEndDate.isBefore(newStartDate)) {
+                throw new IllegalArgumentException("End date cannot be before start date");
+            }
+
+            // Check if leave dates are before joining date
+            if (leave.getEmployee().getJoiningDate() != null) {
+                if (newStartDate.isBefore(leave.getEmployee().getJoiningDate())) {
+                    throw new IllegalArgumentException("Cannot apply for leave before joining date (" + leave.getEmployee().getJoiningDate() + ")");
+                }
+                if (newEndDate.isBefore(leave.getEmployee().getJoiningDate())) {
+                    throw new IllegalArgumentException("Cannot apply for leave before joining date (" + leave.getEmployee().getJoiningDate() + ")");
+                }
+            }
         }
 
         // Recalculate totalDays if dates changed but totalDays not provided
@@ -573,6 +600,7 @@ public class LeaveServiceImpl implements LeaveService {
                 .requiresApproval(leaveType.getRequiresApproval())
                 .active(leaveType.getActive())
                 .maxCarryForwardDays(leaveType.getMaxCarryForwardDays())
+                .eligible(true) // Default to eligible, will be overridden in getAvailableLeaveTypesForEmployee if needed
 //                .hasMonthlyLimit(leaveType.getHasMonthlyLimit())
                 .build();
     }

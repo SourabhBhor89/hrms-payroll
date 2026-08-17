@@ -120,10 +120,24 @@ export class AttendanceComponent implements OnInit {
       const dayOfWeek = dateObj.getDay();
       const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
 
-      const attRecord = records.find(r => r.date === dateStr);
-      const regReq = regRequests.find(r => r.date === dateStr && r.status !== 'Cancelled');
+      const currentUser = this.auth.currentUser();
+      const attRecord = records.find(r => {
+        if (r.date !== dateStr) return false;
+        if (!currentUser) return true;
+        return (r.employeeId != null && String(r.employeeId) === String(currentUser.id)) ||
+               (currentUser.employeeId != null && (String(r.employeeId) === String(currentUser.employeeId) || r.employeeCode === currentUser.employeeId)) ||
+               (currentUser.name != null && r.employeeName === currentUser.name);
+      });
+      const regReq = regRequests.find(r => {
+        if (r.date !== dateStr || r.status === 'Cancelled') return false;
+        if (!currentUser) return true;
+        return (r.employeeId != null && String(r.employeeId) === String(currentUser.id)) ||
+               (currentUser.employeeId != null && (String(r.employeeId) === String(currentUser.employeeId) || r.employeeCode === currentUser.employeeId)) ||
+               (currentUser.name != null && r.employeeName === currentUser.name);
+      });
 
-      let status: AttendanceStatus = isWeekend ? 'Week Off' : 'Absent';
+      const isPastOrToday = dateStr <= todayStr;
+      let status: AttendanceStatus = isWeekend ? 'Week Off' : (isPastOrToday ? 'Absent' : ('' as any));
       let checkIn = '--';
       let checkOut = '--';
       let totalHours = '--';
@@ -138,10 +152,19 @@ export class AttendanceComponent implements OnInit {
         isLocked = attRecord.isLocked || false;
       }
 
-      // Check if employee has an approved leave / WFH application for dateStr
+      // Check if logged-in user has an approved leave / WFH application for dateStr
       const matchingLeave = this.hrms.leaveRequests().find(l => {
         const isApproved = l.status === 'APPROVED' || l.status === 'Approved';
         if (!isApproved || !l.startDate || !l.endDate) return false;
+
+        const isMyLeave = !!currentUser && (
+          (l.employeeId != null && String(l.employeeId) === String(currentUser.id)) ||
+          (currentUser.employeeId != null && (String(l.employeeId) === String(currentUser.employeeId) || l.employeeCode === currentUser.employeeId)) ||
+          (currentUser.name != null && l.employeeName === currentUser.name)
+        );
+
+        if (!isMyLeave) return false;
+
         const s = l.startDate.split('T')[0];
         const e = l.endDate.split('T')[0];
         return s <= dateStr && dateStr <= e;
@@ -176,8 +199,9 @@ export class AttendanceComponent implements OnInit {
 
       // Check regularization eligibility rules (Admin cannot self-regularize; WFH & Leave days cannot be regularized)
       const isAdminUser = this.auth.currentRole() === 'Admin';
-      const isPastOrToday = dateStr <= todayStr;
-      const canReg = !isAdminUser && isPastOrToday && !isWeekend && !hasApprovedLeaveOrWfh && status !== 'Leave' && status !== 'WFH' && status !== 'Week Off' && status !== 'Holiday' && !isLocked && regStatus !== 'Pending' && regStatus !== 'Approved' && regStatus !== 'Rejected';
+      const minDate = this.minAllowedRegularizationDate();
+      const isBeforeMinDate = dateStr < minDate;
+      const canReg = !isAdminUser && isPastOrToday && !isWeekend && !hasApprovedLeaveOrWfh && status !== 'Leave' && status !== 'WFH' && status !== 'Week Off' && status !== 'Holiday' && !isLocked && regStatus !== 'Pending' && regStatus !== 'Approved' && regStatus !== 'Rejected' && !isBeforeMinDate;
 
       cells.push({
         dateStr,
@@ -253,6 +277,50 @@ export class AttendanceComponent implements OnInit {
     }
   }
 
+  currentEmployee = computed(() => {
+    const user = this.auth.currentUser();
+    if (!user) return null;
+    const employees = this.hrms.employees();
+    if (!employees || employees.length === 0) return null;
+
+    const userEmail = (user.email || '').toLowerCase().trim();
+    const userName = (user.name || '').toLowerCase().trim();
+    const userCode = (user.employeeId || '').toLowerCase().trim();
+    const userId = String(user.id || '').trim();
+
+    return employees.find(e =>
+      (userEmail && e.email && e.email.toLowerCase().trim() === userEmail) ||
+      (userName && e.name && e.name.toLowerCase().trim() === userName) ||
+      (userId && e.userId && String(e.userId) === userId) ||
+      (userCode && e.employeeId && e.employeeId.toLowerCase().trim() === userCode) ||
+      (userId && String(e.id) === userId)
+    ) || null;
+  });
+
+  minAllowedRegularizationDate = computed(() => {
+    const today = new Date();
+    const prevMonthFirstDay = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    const yyyy = prevMonthFirstDay.getFullYear();
+    const mm = String(prevMonthFirstDay.getMonth() + 1).padStart(2, '0');
+    const firstDayOfPrevMonthStr = `${yyyy}-${mm}-01`;
+
+    const emp = this.currentEmployee();
+    const joiningDateStr = emp?.joinDate;
+
+    if (joiningDateStr && joiningDateStr > firstDayOfPrevMonthStr) {
+      return joiningDateStr;
+    }
+    return firstDayOfPrevMonthStr;
+  });
+
+  maxAllowedRegularizationDate = computed(() => {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  });
+
   // Regularization Modal State
   showRegModal = signal<boolean>(false);
   regForm = {
@@ -273,7 +341,24 @@ export class AttendanceComponent implements OnInit {
       this.notify.showAlert('A regularization request for this date was rejected and cannot be resubmitted.');
       return;
     }
-    const dateToUse = cell?.dateStr || new Date().toISOString().split('T')[0];
+    const minDate = this.minAllowedRegularizationDate();
+    const maxDate = this.maxAllowedRegularizationDate();
+    if (cell?.dateStr) {
+      if (cell.dateStr < minDate) {
+        this.notify.showAlert(`Cannot submit regularization request for a date before ${minDate}.`);
+        return;
+      }
+      if (cell.dateStr > maxDate) {
+        this.notify.showAlert('Cannot submit regularization for future dates.');
+        return;
+      }
+    }
+    let dateToUse = cell?.dateStr || new Date().toISOString().split('T')[0];
+    if (dateToUse < minDate) {
+      dateToUse = minDate;
+    } else if (dateToUse > maxDate) {
+      dateToUse = maxDate;
+    }
     this.regForm = {
       attendanceDate: dateToUse,
       correctionType: 'BOTH',
@@ -292,6 +377,18 @@ export class AttendanceComponent implements OnInit {
     }
     if (!this.regForm.attendanceDate || !this.regForm.requestedClockInTime || !this.regForm.requestedClockOutTime || !this.regForm.reason) {
       this.notify.showAlert('Please fill all mandatory regularization fields (Date, Clock In, Clock Out, and Reason).');
+      return;
+    }
+
+    const minDate = this.minAllowedRegularizationDate();
+    const maxDate = this.maxAllowedRegularizationDate();
+
+    if (this.regForm.attendanceDate < minDate) {
+      this.notify.showAlert(`Cannot submit regularization request for a date before ${minDate}.`);
+      return;
+    }
+    if (this.regForm.attendanceDate > maxDate) {
+      this.notify.showAlert('Cannot submit regularization for future dates.');
       return;
     }
 
@@ -453,22 +550,26 @@ export class AttendanceComponent implements OnInit {
     const todayPresentRecords = records.filter(r => {
       const isTodayRecord = r.date === today;
       const isClockedIn = !!(r.clockIn && r.clockIn !== '--' && r.clockIn !== '');
-      const isPresentStatus = r.status === 'Present' || r.status === 'Half Day' || r.status === 'WFH' || r.regularizationStatus === 'Approved';
-      const isNotAbsentOrLeave = r.status !== 'Absent' && r.status !== 'Leave';
-      return isTodayRecord && (isPresentStatus || isClockedIn) && isNotAbsentOrLeave;
+      const isNotLeaveOrWfh = r.status !== 'Leave' && r.status !== 'WFH';
+      return isTodayRecord && isClockedIn && isNotLeaveOrWfh;
     });
 
-    const uniqueEmpIds = new Set(todayPresentRecords.map(r => String(r.employeeId)));
+    const uniqueEmpKeys = new Set<string>();
+    todayPresentRecords.forEach(r => {
+      const key = r.employeeName ? r.employeeName.toLowerCase() : String(r.employeeId);
+      uniqueEmpKeys.add(key);
+    });
 
     const liveClockState = this.hrms.todayAttendanceState();
     if (liveClockState.isClockedIn || liveClockState.clockIn) {
       const currentUser = this.auth.currentUser();
-      if (currentUser?.id) {
-        uniqueEmpIds.add(String(currentUser.id));
+      if (currentUser) {
+        const userKey = (currentUser.name || '').toLowerCase() || String(currentUser.id || '');
+        if (userKey) uniqueEmpKeys.add(userKey);
       }
     }
 
-    return uniqueEmpIds.size;
+    return uniqueEmpKeys.size;
   });
 
   wfhTodayCount = computed(() => {
@@ -624,19 +725,31 @@ export class AttendanceComponent implements OnInit {
       details: string;
     }> = [];
 
-    const addedEmpIds = new Set<string>();
+    const addedEmpKeys = new Set<string>();
+
+    const isEmpAlreadyAdded = (empId?: string | number, name?: string, code?: string): boolean => {
+      if (empId && addedEmpKeys.has(String(empId))) return true;
+      if (name && addedEmpKeys.has(name.toLowerCase())) return true;
+      if (code && addedEmpKeys.has(code.toLowerCase())) return true;
+      return false;
+    };
+
+    const registerEmpAdded = (empId?: string | number, name?: string, code?: string) => {
+      if (empId) addedEmpKeys.add(String(empId));
+      if (name) addedEmpKeys.add(name.toLowerCase());
+      if (code) addedEmpKeys.add(code.toLowerCase());
+    };
 
     if (category === 'PRESENT') {
       records.forEach(r => {
         if (r.date === today) {
           const isClockedIn = !!(r.clockIn && r.clockIn !== '--' && r.clockIn !== '');
-          const isPresentStatus = r.status === 'Present' || r.status === 'Half Day' || r.status === 'WFH' || r.regularizationStatus === 'Approved';
-          const isNotAbsentOrLeave = r.status !== 'Absent' && r.status !== 'Leave';
+          const isNotLeaveOrWfh = r.status !== 'Leave' && r.status !== 'WFH';
 
-          const isPresent = (isPresentStatus || isClockedIn) && isNotAbsentOrLeave;
+          const isPresent = isClockedIn && isNotLeaveOrWfh;
 
-          if (isPresent && r.employeeId && !addedEmpIds.has(String(r.employeeId))) {
-            addedEmpIds.add(String(r.employeeId));
+          if (isPresent && !isEmpAlreadyAdded(r.employeeId, r.employeeName, r.employeeCode)) {
+            registerEmpAdded(r.employeeId, r.employeeName, r.employeeCode);
             const empInfo = empMap.get(String(r.employeeId));
             const inTime = r.clockIn && r.clockIn !== '--' ? `Clocked in at ${r.clockIn}` : 'Present';
             const outTime = r.clockOut && r.clockOut !== '--' ? ` (Clocked out at ${r.clockOut})` : '';
@@ -647,7 +760,7 @@ export class AttendanceComponent implements OnInit {
               avatar: r.avatar || empInfo?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
               department: empInfo?.department || 'Staff',
               designation: empInfo?.designation || 'Staff Member',
-              status: r.status === 'WFH' ? 'WFH' : (r.status === 'Half Day' ? 'Half Day' : 'Present'),
+              status: r.status === 'Half Day' ? 'Half Day' : 'Present',
               details: `${inTime}${outTime}`
             });
           }
@@ -657,8 +770,8 @@ export class AttendanceComponent implements OnInit {
       const liveClockState = this.hrms.todayAttendanceState();
       if (liveClockState.isClockedIn || liveClockState.clockIn) {
         const currentUser = this.auth.currentUser();
-        if (currentUser?.id && !addedEmpIds.has(String(currentUser.id))) {
-          addedEmpIds.add(String(currentUser.id));
+        if (currentUser && !isEmpAlreadyAdded(currentUser.id, currentUser.name, currentUser.employeeId)) {
+          registerEmpAdded(currentUser.id, currentUser.name, currentUser.employeeId);
           const empInfo = empMap.get(String(currentUser.id));
           const inTime = liveClockState.clockIn ? `Clocked in at ${liveClockState.clockIn}` : 'Present';
           const outTime = liveClockState.clockOut ? ` (Clocked out at ${liveClockState.clockOut})` : '';
@@ -677,8 +790,8 @@ export class AttendanceComponent implements OnInit {
     } else if (category === 'WFH') {
       records.forEach(r => {
         if (r.date === today && (r.status === 'WFH' || (r.notes && r.notes.toLowerCase().includes('wfh')))) {
-          if (r.employeeId && !addedEmpIds.has(String(r.employeeId))) {
-            addedEmpIds.add(String(r.employeeId));
+          if (!isEmpAlreadyAdded(r.employeeId, r.employeeName, r.employeeCode)) {
+            registerEmpAdded(r.employeeId, r.employeeName, r.employeeCode);
             const empInfo = empMap.get(String(r.employeeId));
             resultList.push({
               id: String(r.employeeId),
@@ -703,8 +816,8 @@ export class AttendanceComponent implements OnInit {
         if (isApproved && isWfhCat && l.startDate && l.endDate) {
           const s = l.startDate.split('T')[0];
           const e = l.endDate.split('T')[0];
-          if (s <= today && today <= e && l.employeeId && !addedEmpIds.has(String(l.employeeId))) {
-            addedEmpIds.add(String(l.employeeId));
+          if (s <= today && today <= e && !isEmpAlreadyAdded(l.employeeId, l.employeeName, l.employeeCode)) {
+            registerEmpAdded(l.employeeId, l.employeeName, l.employeeCode);
             const empInfo = empMap.get(String(l.employeeId));
             resultList.push({
               id: String(l.employeeId),
@@ -722,8 +835,8 @@ export class AttendanceComponent implements OnInit {
     } else if (category === 'LEAVE') {
       records.forEach(r => {
         if (r.date === today && r.status === 'Leave') {
-          if (r.employeeId && !addedEmpIds.has(String(r.employeeId))) {
-            addedEmpIds.add(String(r.employeeId));
+          if (!isEmpAlreadyAdded(r.employeeId, r.employeeName, r.employeeCode)) {
+            registerEmpAdded(r.employeeId, r.employeeName, r.employeeCode);
             const empInfo = empMap.get(String(r.employeeId));
             resultList.push({
               id: String(r.employeeId),
@@ -748,8 +861,8 @@ export class AttendanceComponent implements OnInit {
         if (isApproved && !isWfhCat && l.startDate && l.endDate) {
           const s = l.startDate.split('T')[0];
           const e = l.endDate.split('T')[0];
-          if (s <= today && today <= e && l.employeeId && !addedEmpIds.has(String(l.employeeId))) {
-            addedEmpIds.add(String(l.employeeId));
+          if (s <= today && today <= e && !isEmpAlreadyAdded(l.employeeId, l.employeeName, l.employeeCode)) {
+            registerEmpAdded(l.employeeId, l.employeeName, l.employeeCode);
             const empInfo = empMap.get(String(l.employeeId));
             const leaveName = l.leaveTypeName || l.leaveType || 'Leave';
             resultList.push({

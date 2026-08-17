@@ -14,6 +14,8 @@ public interface AttendanceRegularizationRepository extends JpaRepository<Attend
 
     List<AttendanceRegularization> findByAttendanceIdAndStatusIn(Long attendanceId, List<RegularizationStatus> statuses);
 
+    List<AttendanceRegularization> findByAttendanceIdInAndStatusIn(java.util.Collection<Long> attendanceIds, java.util.Collection<RegularizationStatus> statuses);
+
     List<AttendanceRegularization> findAllByOrderBySubmittedAtDesc();
 
     List<AttendanceRegularization> findByStatus(RegularizationStatus status);

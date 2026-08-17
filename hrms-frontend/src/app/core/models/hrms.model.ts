@@ -14,6 +14,7 @@ export interface User {
 
 export interface Employee {
   id: string;
+  userId?: string;
   employeeId: string;
   name: string;
   email: string;
@@ -59,6 +60,7 @@ export type AttendanceStatus = 'Present' | 'Absent' | 'Half Day' | 'WFH' | 'Holi
 export interface AttendanceRecord {
   id: string;
   employeeId: string;
+  employeeCode?: string;
   employeeName: string;
   avatar: string;
   date: string; // YYYY-MM-DD
