@@ -303,6 +303,23 @@ public class LeaveServiceImpl implements LeaveService {
             datesChanged = true;
         }
 
+        // Validate date range if dates changed
+        if (datesChanged) {
+            if (newEndDate.isBefore(newStartDate)) {
+                throw new IllegalArgumentException("End date cannot be before start date");
+            }
+
+            // Check if leave dates are before joining date
+            if (leave.getEmployee().getJoiningDate() != null) {
+                if (newStartDate.isBefore(leave.getEmployee().getJoiningDate())) {
+                    throw new IllegalArgumentException("Cannot apply for leave before joining date (" + leave.getEmployee().getJoiningDate() + ")");
+                }
+                if (newEndDate.isBefore(leave.getEmployee().getJoiningDate())) {
+                    throw new IllegalArgumentException("Cannot apply for leave before joining date (" + leave.getEmployee().getJoiningDate() + ")");
+                }
+            }
+        }
+
         // Recalculate totalDays if dates changed but totalDays not provided
         if (datesChanged && request.getTotalDays() == null) {
             leave.setTotalDays(calculateTotalDays(newStartDate, newEndDate));
@@ -583,6 +600,7 @@ public class LeaveServiceImpl implements LeaveService {
                 .requiresApproval(leaveType.getRequiresApproval())
                 .active(leaveType.getActive())
                 .maxCarryForwardDays(leaveType.getMaxCarryForwardDays())
+                .eligible(true) // Default to eligible, will be overridden in getAvailableLeaveTypesForEmployee if needed
 //                .hasMonthlyLimit(leaveType.getHasMonthlyLimit())
                 .build();
     }
