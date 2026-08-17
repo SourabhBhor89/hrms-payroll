@@ -475,9 +475,8 @@ export class AttendanceComponent implements OnInit {
     const todayPresentRecords = records.filter(r => {
       const isTodayRecord = r.date === today;
       const isClockedIn = !!(r.clockIn && r.clockIn !== '--' && r.clockIn !== '');
-      const isPresentStatus = r.status === 'Present' || r.status === 'Half Day' || r.status === 'WFH' || r.regularizationStatus === 'Approved';
-      const isNotAbsentOrLeave = r.status !== 'Absent' && r.status !== 'Leave';
-      return isTodayRecord && (isPresentStatus || isClockedIn) && isNotAbsentOrLeave;
+      const isNotLeaveOrWfh = r.status !== 'Leave' && r.status !== 'WFH';
+      return isTodayRecord && isClockedIn && isNotLeaveOrWfh;
     });
 
     const uniqueEmpIds = new Set(todayPresentRecords.map(r => String(r.employeeId)));
@@ -652,10 +651,9 @@ export class AttendanceComponent implements OnInit {
       records.forEach(r => {
         if (r.date === today) {
           const isClockedIn = !!(r.clockIn && r.clockIn !== '--' && r.clockIn !== '');
-          const isPresentStatus = r.status === 'Present' || r.status === 'Half Day' || r.status === 'WFH' || r.regularizationStatus === 'Approved';
-          const isNotAbsentOrLeave = r.status !== 'Absent' && r.status !== 'Leave';
+          const isNotLeaveOrWfh = r.status !== 'Leave' && r.status !== 'WFH';
 
-          const isPresent = (isPresentStatus || isClockedIn) && isNotAbsentOrLeave;
+          const isPresent = isClockedIn && isNotLeaveOrWfh;
 
           if (isPresent && r.employeeId && !addedEmpIds.has(String(r.employeeId))) {
             addedEmpIds.add(String(r.employeeId));
@@ -669,7 +667,7 @@ export class AttendanceComponent implements OnInit {
               avatar: r.avatar || empInfo?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
               department: empInfo?.department || 'Staff',
               designation: empInfo?.designation || 'Staff Member',
-              status: r.status === 'WFH' ? 'WFH' : (r.status === 'Half Day' ? 'Half Day' : 'Present'),
+              status: r.status === 'Half Day' ? 'Half Day' : 'Present',
               details: `${inTime}${outTime}`
             });
           }

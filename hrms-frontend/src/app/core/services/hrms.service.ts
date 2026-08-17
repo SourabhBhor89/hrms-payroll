@@ -38,12 +38,31 @@ export class HrmsService {
 
 
 
+  private getCurrentUserInfo(): { id?: string; email?: string; name?: string } {
+    if (typeof localStorage === 'undefined') return {};
+    const raw = localStorage.getItem('user_info');
+    if (!raw) return {};
+    try {
+      const user = JSON.parse(raw);
+      return {
+        id: user?.id ? String(user.id) : undefined,
+        email: user?.email ? String(user.email).toLowerCase() : undefined,
+        name: user?.name ? String(user.name).toLowerCase() : undefined
+      };
+    } catch (_) {
+      return {};
+    }
+  }
+
   private restoreClockState() {
     const today = this.getTodayStr();
-    const storedDate = localStorage.getItem('hrms_today_date');
+    const userInfo = this.getCurrentUserInfo();
+    const userKeySuffix = userInfo.id ? `_${userInfo.id}` : '';
+
+    const storedDate = localStorage.getItem(`hrms_today_date${userKeySuffix}`);
     if (storedDate === today) {
-      const savedIn = localStorage.getItem('hrms_today_clock_in');
-      const savedOut = localStorage.getItem('hrms_today_clock_out');
+      const savedIn = localStorage.getItem(`hrms_today_clock_in${userKeySuffix}`);
+      const savedOut = localStorage.getItem(`hrms_today_clock_out${userKeySuffix}`);
       if (savedIn) {
         this.clockInTime.set(savedIn);
         this.isClockedIn.set(!savedOut);
@@ -52,17 +71,20 @@ export class HrmsService {
         this.clockOutTimeSignal.set(savedOut);
       }
     } else if (storedDate) {
-      localStorage.removeItem('hrms_today_date');
-      localStorage.removeItem('hrms_today_clock_in');
-      localStorage.removeItem('hrms_today_clock_out');
+      localStorage.removeItem(`hrms_today_date${userKeySuffix}`);
+      localStorage.removeItem(`hrms_today_clock_in${userKeySuffix}`);
+      localStorage.removeItem(`hrms_today_clock_out${userKeySuffix}`);
     }
   }
 
   private saveClockState(inTime?: string, outTime?: string) {
     const today = this.getTodayStr();
-    localStorage.setItem('hrms_today_date', today);
-    if (inTime) localStorage.setItem('hrms_today_clock_in', inTime);
-    if (outTime) localStorage.setItem('hrms_today_clock_out', outTime);
+    const userInfo = this.getCurrentUserInfo();
+    const userKeySuffix = userInfo.id ? `_${userInfo.id}` : '';
+
+    localStorage.setItem(`hrms_today_date${userKeySuffix}`, today);
+    if (inTime) localStorage.setItem(`hrms_today_clock_in${userKeySuffix}`, inTime);
+    if (outTime) localStorage.setItem(`hrms_today_clock_out${userKeySuffix}`, outTime);
   }
 
   // State Signals
@@ -102,10 +124,20 @@ export class HrmsService {
     return `${y}-${m}-${d}`;
   }
 
-  // Computed today's attendance record from backend API
+  // Computed today's attendance record from backend API for the CURRENT LOGGED-IN USER ONLY
   todayRecord = computed(() => {
     const today = this.getTodayStr();
-    const matches = this.attendanceRecords().filter(a => a.date === today);
+    const userInfo = this.getCurrentUserInfo();
+
+    const matches = this.attendanceRecords().filter(a => {
+      if (a.date !== today) return false;
+      if (!userInfo.id && !userInfo.email && !userInfo.name) return false;
+
+      const idMatch = userInfo.id && String(a.employeeId) === userInfo.id;
+      const nameMatch = userInfo.name && a.employeeName && a.employeeName.toLowerCase() === userInfo.name;
+      return idMatch || nameMatch;
+    });
+
     if (matches.length === 0) return undefined;
     return matches[matches.length - 1];
   });
@@ -169,7 +201,40 @@ export class HrmsService {
 
   pendingTimesheetsCount = computed(() => this.timesheets().filter(t => t.status === 'Submitted').length);
   totalEmployeesCount = computed(() => Math.max(this.dashboardSummary().totalEmployees, this.employees().length));
-  onLeaveTodayCount = computed(() => this.attendanceRecords().filter(a => a.status === 'Leave').length);
+  onLeaveTodayCount = computed(() => {
+    const today = this.getTodayStr();
+    const records = this.attendanceRecords();
+    const leaves = this.leaveRequests();
+
+    const uniqueEmpIds = new Set<string>();
+
+    records.forEach(r => {
+      if (r.date === today && r.status === 'Leave') {
+        if (r.employeeId) {
+          uniqueEmpIds.add(String(r.employeeId));
+        }
+      }
+    });
+
+    leaves.forEach(l => {
+      const isApproved = l.status === 'APPROVED' || l.status === 'Approved';
+      const isWfhCategory = (l.leaveTypeCode && l.leaveTypeCode.toUpperCase() === 'WFH') ||
+        (l.leaveType && l.leaveType.toLowerCase().includes('work from home')) ||
+        (l.leaveTypeName && l.leaveTypeName.toLowerCase().includes('work from home'));
+
+      if (isApproved && !isWfhCategory && l.startDate && l.endDate) {
+        const start = l.startDate.split('T')[0];
+        const end = l.endDate.split('T')[0];
+        if (start <= today && today <= end) {
+          if (l.employeeId) {
+            uniqueEmpIds.add(String(l.employeeId));
+          }
+        }
+      }
+    });
+
+    return uniqueEmpIds.size;
+  });
 
   presentTodayCount = computed(() => {
     const today = this.getTodayStr();
@@ -178,9 +243,8 @@ export class HrmsService {
     const todayPresentRecords = records.filter(r => {
       const isTodayRecord = r.date === today;
       const isClockedIn = !!(r.clockIn && r.clockIn !== '--' && r.clockIn !== '');
-      const isPresentStatus = r.status === 'Present' || r.status === 'Half Day' || r.status === 'WFH' || r.regularizationStatus === 'Approved';
-      const isNotAbsentOrLeave = r.status !== 'Absent' && r.status !== 'Leave';
-      return isTodayRecord && (isPresentStatus || isClockedIn) && isNotAbsentOrLeave;
+      const isNotLeaveOrWfh = r.status !== 'Leave' && r.status !== 'WFH';
+      return isTodayRecord && isClockedIn && isNotLeaveOrWfh;
     });
 
     const uniqueEmpIds = new Set(todayPresentRecords.map(r => String(r.employeeId)));
@@ -273,6 +337,9 @@ export class HrmsService {
     this.http.get<any>('/api/v1/attendance/today').pipe(
       catchError(() => of(null))
     ).subscribe(res => {
+      const userInfo = this.getCurrentUserInfo();
+      const userKeySuffix = userInfo.id ? `_${userInfo.id}` : '';
+
       if (res && res.hasRecord) {
         const inStr = res.clockInFormatted || '';
         const outStr = res.clockOutFormatted || '';
@@ -291,9 +358,9 @@ export class HrmsService {
         this.isClockedIn.set(inState);
 
         const today = this.getTodayStr();
-        localStorage.setItem('hrms_today_date', today);
-        if (inStr) localStorage.setItem('hrms_today_clock_in', inStr);
-        if (outStr) localStorage.setItem('hrms_today_clock_out', outStr);
+        localStorage.setItem(`hrms_today_date${userKeySuffix}`, today);
+        if (inStr) localStorage.setItem(`hrms_today_clock_in${userKeySuffix}`, inStr);
+        if (outStr) localStorage.setItem(`hrms_today_clock_out${userKeySuffix}`, outStr);
       } else {
         this.todayAttendanceState.set({
           clockIn: '',
@@ -942,8 +1009,16 @@ export class HrmsService {
   isOnLeaveOrWfhToday = computed(() => {
     const today = this.todayStr();
     const leaves = this.leaveRequests();
+    const userInfo = this.getCurrentUserInfo();
 
-    const onLeaveOrWfh = leaves.some(l => {
+    const userLeaves = leaves.filter(l => {
+      if (!userInfo.id && !userInfo.name) return false;
+      const idMatch = userInfo.id && l.employeeId && String(l.employeeId) === userInfo.id;
+      const nameMatch = userInfo.name && l.employeeName && l.employeeName.toLowerCase() === userInfo.name;
+      return idMatch || nameMatch;
+    });
+
+    const onLeaveOrWfh = userLeaves.some(l => {
       const isApproved = l.status === 'APPROVED' || l.status === 'Approved';
       if (!isApproved || !l.startDate || !l.endDate) return false;
       const start = l.startDate.split('T')[0];
