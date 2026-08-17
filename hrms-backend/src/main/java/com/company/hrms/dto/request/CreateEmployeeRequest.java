@@ -30,11 +30,11 @@ public class CreateEmployeeRequest {
     private String password;
     private LocalDate joiningDate;
     private LocalDate dateOfBirth;
-    private LocalDate MarriageDate;
+    private LocalDate marriageDate;
     private String address;
-    private String CurrentAddress;
-    private String PermanentAddress;
-    private String MaritalStatus;
+    private String currentAddress;
+    private String permanentAddress;
+    private String maritalStatus;
     private Boolean isFresher;
     private String totalExperience;
     private String previousCompany;

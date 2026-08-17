@@ -36,7 +36,7 @@ public class DashboardController {
         LocalDate today = LocalDate.now();
         List<Attendance> todayRecords = attendanceRepository.findByDateBetween(today, today);
         long presentCount = todayRecords.stream()
-                .filter(a -> a.getClockIn() != null || a.getStatus() == AttendanceStatus.PRESENT || a.getStatus() == AttendanceStatus.HALF_DAY || a.getStatus() == AttendanceStatus.WFH)
+                .filter(a -> a.getClockIn() != null && a.getStatus() != AttendanceStatus.WFH && a.getStatus() != AttendanceStatus.LEAVE)
                 .map(a -> a.getEmployee() != null ? a.getEmployee().getId() : a.getId())
                 .distinct()
                 .count();

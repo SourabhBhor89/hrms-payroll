@@ -33,14 +33,26 @@ public class AttendanceCalculationService {
      * Determines the AttendanceStatus based on working hours and clock-in time.
      */
     public AttendanceStatus calculateStatus(LocalDateTime clockIn, LocalDateTime clockOut, AttendanceStatus currentStatus) {
-        if (currentStatus == AttendanceStatus.LEAVE || currentStatus == AttendanceStatus.HOLIDAY || currentStatus == AttendanceStatus.WEEKEND) {
+        if (currentStatus == AttendanceStatus.LEAVE || currentStatus == AttendanceStatus.HOLIDAY || currentStatus == AttendanceStatus.WEEKEND || currentStatus == AttendanceStatus.WFH) {
             return currentStatus;
+        }
+
+        if (clockIn == null) {
+            return AttendanceStatus.ABSENT;
+        }
+
+        // Active clock-in (employee has checked in but not yet checked out)
+        if (clockOut == null) {
+            if (clockIn.toLocalTime().isAfter(LATE_THRESHOLD)) {
+                return AttendanceStatus.LATE;
+            }
+            return AttendanceStatus.PRESENT;
         }
 
         double hours = calculateWorkingHours(clockIn, clockOut);
 
         if (hours >= FULL_DAY_HOURS) {
-            if (clockIn != null && clockIn.toLocalTime().isAfter(LATE_THRESHOLD)) {
+            if (clockIn.toLocalTime().isAfter(LATE_THRESHOLD)) {
                 return AttendanceStatus.LATE;
             }
             return AttendanceStatus.PRESENT;
