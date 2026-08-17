@@ -50,6 +50,16 @@ public class LeaveServiceImpl implements LeaveService {
         Employee employee = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> new IllegalArgumentException("Employee not found with ID: " + employeeId));
 
+        // Check if leave dates are before joining date
+        if (employee.getJoiningDate() != null) {
+            if (request.getStartDate().isBefore(employee.getJoiningDate())) {
+                throw new IllegalArgumentException("Cannot apply for leave before joining date (" + employee.getJoiningDate() + ")");
+            }
+            if (request.getEndDate().isBefore(employee.getJoiningDate())) {
+                throw new IllegalArgumentException("Cannot apply for leave before joining date (" + employee.getJoiningDate() + ")");
+            }
+        }
+
         LeaveType leaveType = leaveTypeRepository.findById(request.getLeaveTypeId())
                 .orElseThrow(() -> new IllegalArgumentException("Leave type not found with ID: " + request.getLeaveTypeId()));
 
