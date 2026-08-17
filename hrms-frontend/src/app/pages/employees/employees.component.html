@@ -93,6 +93,7 @@
           <td>
             <div class="table-actions">
               <button class="btn btn-secondary btn-sm" (click)="viewEmployeeDetails(emp)">View</button>
+              <button *ngIf="canManage()" class="btn btn-warning btn-sm" (click)="openEditModal(emp)">Edit</button>
               <button *ngIf="canManage()" class="btn btn-danger btn-sm" (click)="deleteEmp(emp.id)">Delete</button>
             </div>
           </td>
@@ -344,8 +345,232 @@
     </div>
   </div>
 
+  <!-- Edit Employee Modal Dialog -->
+  <div class="modal-backdrop" *ngIf="isEditMode()">
+    <div class="modal-content" style="max-width: 680px; width: 90%;">
+      <h3>Edit Employee Details</h3>
+      <p class="sub-text">Update organization profile and personal details for {{ editEmp.firstName }} {{ editEmp.lastName }}.</p>
+
+      <!-- Modal Tabs Navigation -->
+      <div class="modal-tabs">
+        <button type="button" class="tab-btn" [class.active]="activeTab() === 'basic'" (click)="activeTab.set('basic')">1. Basic Details</button>
+        <button type="button" class="tab-btn" [class.active]="activeTab() === 'experience'" (click)="activeTab.set('experience')">2. Experience & Salary</button>
+        <button type="button" class="tab-btn" [class.active]="activeTab() === 'education'" (click)="activeTab.set('education')">3. Education & Gap</button>
+        <button type="button" class="tab-btn" [class.active]="activeTab() === 'contact'" (click)="activeTab.set('contact')">4. Address & Contacts</button>
+      </div>
+
+      <form (ngSubmit)="saveUpdatedEmployee()" class="mt-2">
+        <!-- TAB 1: BASIC DETAILS -->
+        <div *ngIf="activeTab() === 'basic'">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Employee Code *</label>
+              <input type="text" class="form-input" [(ngModel)]="editEmp.employeeCode" name="editEmployeeCode" required placeholder="e.g. EMP-001" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Joining Date</label>
+              <input type="date" class="form-input" [(ngModel)]="editEmp.joiningDate" name="editJoiningDate" />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">First Name *</label>
+              <input type="text" class="form-input" [(ngModel)]="editEmp.firstName" name="editFirstName" required placeholder="e.g. Jordan" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Last Name</label>
+              <input type="text" class="form-input" [(ngModel)]="editEmp.lastName" name="editLastName" placeholder="e.g. Miller" />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Work Email *</label>
+              <input type="email" class="form-input" [(ngModel)]="editEmp.email" name="editEmail" required placeholder="jordan@company.io" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Phone Number</label>
+              <input type="text" class="form-input" [(ngModel)]="editEmp.phone" name="editPhone" placeholder="+1 (555) 000-1122" />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Date of Birth</label>
+              <input type="date" class="form-input" [(ngModel)]="editEmp.dateOfBirth" name="editDateOfBirth" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Department</label>
+              <select class="form-select" [(ngModel)]="editEmp.department" name="editDepartment">
+                <option value="Engineering">Engineering</option>
+                <option value="Human Resources">Human Resources</option>
+                <option value="Design">Design</option>
+                <option value="Marketing">Marketing</option>
+                <option value="Finance">Finance</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Marital Status</label>
+              <select class="form-select" [(ngModel)]="editEmp.maritalStatus" (change)="onEditMaritalStatusChange()" name="editMaritalStatus">
+                <option value="Single">Single / Non-Married</option>
+                <option value="Married">Married</option>
+              </select>
+            </div>
+
+            <div class="form-group" *ngIf="editEmp.maritalStatus === 'Married'">
+              <label class="form-label">Date of Marriage</label>
+              <input type="date" class="form-input" [(ngModel)]="editEmp.marriageDate" name="editMarriageDate" />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Designation</label>
+              <input type="text" class="form-input" [(ngModel)]="editEmp.designation" name="editDesignation" placeholder="e.g. Senior Backend Engineer" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Role</label>
+              <select class="form-select" [(ngModel)]="editEmp.role" name="editRole">
+                <option value="EMPLOYEE">EMPLOYEE</option>
+                <option value="HR">HR</option>
+                <option value="ADMIN">ADMIN</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Photo URL / Avatar</label>
+            <input type="text" class="form-input" [(ngModel)]="editEmp.photoUrl" name="editPhotoUrl" placeholder="https://images.unsplash.com/..." />
+          </div>
+        </div>
+
+        <!-- TAB 2: EXPERIENCE & SALARY -->
+        <div *ngIf="activeTab() === 'experience'">
+          <div class="form-group mb-3">
+            <label class="checkbox-label">
+              <input type="checkbox" [(ngModel)]="editEmp.isFresher" (change)="onEditFresherToggle()" name="editIsFresher" />
+              <span>Candidate is a Fresher (No Previous Experience)</span>
+            </label>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Total Experience</label>
+              <input type="text" class="form-input" [(ngModel)]="editEmp.totalExperience" name="editTotalExperience" [disabled]="editEmp.isFresher" placeholder="e.g. 3.5 Years" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Tech Stack / Skills</label>
+              <input type="text" class="form-input" [(ngModel)]="editEmp.techStack" name="editTechStack" placeholder="e.g. Java, Spring Boot, Angular" />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Current Salary (LPA / Annual)</label>
+              <input type="text" class="form-input" [(ngModel)]="editEmp.currentSalary" name="editCurrentSalary" placeholder="e.g. 7,50,000" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Previous Salary</label>
+              <input type="text" class="form-input" [(ngModel)]="editEmp.previousSalary" name="editPreviousSalary" [disabled]="editEmp.isFresher" placeholder="e.g. 5,00,000" />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Previous Company</label>
+              <input type="text" class="form-input" [(ngModel)]="editEmp.previousCompany" name="editPreviousCompany" [disabled]="editEmp.isFresher" placeholder="e.g. Acme Corp Tech" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Previous Designation</label>
+              <input type="text" class="form-input" [(ngModel)]="editEmp.previousDesignation" name="editPreviousDesignation" [disabled]="editEmp.isFresher" placeholder="e.g. Junior Developer" />
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 3: EDUCATION & GAP -->
+        <div *ngIf="activeTab() === 'education'">
+          <div class="form-group">
+            <label class="form-label">Highest Education</label>
+            <input type="text" class="form-input" [(ngModel)]="editEmp.education" name="editEducation" placeholder="e.g. B.Tech Computer Science & Eng. (2020)" />
+          </div>
+
+          <div class="form-group mb-3">
+            <label class="checkbox-label">
+              <input type="checkbox" [(ngModel)]="editEmp.hasGap" (change)="onEditGapToggle()" name="editHasGap" />
+              <span>Candidate Has Career Gap</span>
+            </label>
+          </div>
+
+          <div class="form-group" *ngIf="editEmp.hasGap">
+            <label class="form-label">Gap Reason & Details</label>
+            <textarea class="form-input" rows="3" [(ngModel)]="editEmp.gapReason" name="editGapReason" placeholder="Explain the reason for career gap..."></textarea>
+          </div>
+        </div>
+
+        <!-- TAB 4: ADDRESS & CONTACTS -->
+        <div *ngIf="activeTab() === 'contact'">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Current Address</label>
+              <textarea class="form-input" rows="3" [(ngModel)]="editEmp.currentAddress" (input)="onEditSameAddressToggle()" name="editCurrentAddress" placeholder="Present residence flat, street, city, state, pincode..."></textarea>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Permanent Address</label>
+              <textarea class="form-input" rows="3" [(ngModel)]="editEmp.permanentAddress" [disabled]="editEmp.sameAsCurrentAddress" name="editPermanentAddress" placeholder="Permanent residence address..."></textarea>
+            </div>
+          </div>
+
+          <div class="form-group mb-3">
+            <label class="checkbox-label">
+              <input type="checkbox" [(ngModel)]="editEmp.sameAsCurrentAddress" (change)="onEditSameAddressToggle()" name="editSameAsCurrentAddress" />
+              <span>Permanent Address is same as Current Address</span>
+            </label>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Emergency Contact 1 (Name & Phone)</label>
+              <input type="text" class="form-input" [(ngModel)]="editEmp.emergencyContact1" name="editEmergencyContact1" placeholder="e.g. Father: John Miller - 9876543210" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Emergency Contact 2 (Name & Phone)</label>
+              <input type="text" class="form-input" [(ngModel)]="editEmp.emergencyContact2" name="editEmergencyContact2" placeholder="e.g. Spouse: Sarah Miller - 9123456789" />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Professional Reference (if any)</label>
+            <input type="text" class="form-input" [(ngModel)]="editEmp.referenceDetails" name="editReferenceDetails" placeholder="e.g. Dr. Alex Vance (Ex Manager, Acme Corp) - alex@acme.io" />
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" [disabled]="isSaving()" (click)="cancelEdit()">Cancel</button>
+          <button type="submit" class="btn btn-primary" [disabled]="isSaving()">
+            <span *ngIf="isSaving()" class="spinner-loader me-1"></span>
+            <span>{{ isSaving() ? 'Saving...' : 'Save Changes' }}</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Employee Detail Profile Modal -->
-  <div class="modal-backdrop" *ngIf="selectedEmployee()">
+  <div class="modal-backdrop" *ngIf="selectedEmployee() && !isEditMode()">
     <div class="modal-content profile-modal" style="max-width: 650px; width: 90%;">
       <div class="profile-header">
         <img [src]="selectedEmployee()?.avatar" class="large-avatar" />
@@ -440,7 +665,8 @@
       </div>
 
       <div class="modal-actions mt-4">
-        <button class="btn btn-secondary" (click)="selectedEmployee.set(null)">Close</button>
+        <button class="btn btn-secondary" (click)="closeViewModal()">Close</button>
+        <button *ngIf="canManage()" class="btn btn-primary" (click)="switchToEditFromView()">Edit Employee</button>
       </div>
     </div>
   </div>

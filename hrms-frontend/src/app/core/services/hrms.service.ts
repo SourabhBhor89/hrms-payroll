@@ -507,18 +507,42 @@ export class HrmsService {
     );
   }
 
-  updateEmployee(updated: Employee) {
-    this.http.put<any>(`/api/v1/employees/${updated.id}`, {
-      firstName: updated.name.split(' ')[0],
-      lastName: updated.name.split(' ')[1] || '',
-      phone: updated.phone,
-      department: updated.department,
-      designation: updated.designation
+  updateEmployee(id: string, emp: any): Observable<any> {
+    return this.http.put<any>(`/api/v1/employees/${id}`, {
+      employeeCode: emp.employeeCode,
+      firstName: emp.firstName,
+      lastName: emp.lastName,
+      email: emp.email,
+      phone: emp.phone,
+      department: emp.department,
+      designation: emp.designation,
+      role: emp.role,
+      joiningDate: emp.joiningDate,
+      dateOfBirth: emp.dateOfBirth,
+      address: emp.currentAddress || emp.address,
+      currentAddress: emp.currentAddress,
+      permanentAddress: emp.permanentAddress,
+      maritalStatus: emp.maritalStatus,
+      marriageDate: emp.maritalStatus === 'Married' ? emp.marriageDate : null,
+      isFresher: emp.isFresher,
+      totalExperience: emp.isFresher ? '0' : emp.totalExperience,
+      previousCompany: emp.isFresher ? '' : emp.previousCompany,
+      previousDesignation: emp.isFresher ? '' : emp.previousDesignation,
+      previousSalary: emp.isFresher ? '' : emp.previousSalary,
+      currentSalary: emp.currentSalary,
+      techStack: emp.techStack,
+      education: emp.education,
+      emergencyContact1: emp.emergencyContact1,
+      emergencyContact2: emp.emergencyContact2,
+      photoUrl: emp.photoUrl,
+      hasGap: emp.hasGap,
+      gapReason: emp.hasGap ? emp.gapReason : '',
+      referenceDetails: emp.referenceDetails
     }).pipe(
-      catchError(() => of(null))
-    ).subscribe(() => {
-      this.loadEmployees();
-    });
+      tap(() => {
+        this.loadEmployees();
+      })
+    );
   }
 
   deleteEmployee(id: string): Observable<any> {
