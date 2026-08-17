@@ -247,21 +247,26 @@ export class HrmsService {
       return isTodayRecord && isClockedIn && isNotLeaveOrWfh;
     });
 
-    const uniqueEmpIds = new Set(todayPresentRecords.map(r => String(r.employeeId)));
+    const uniqueEmpKeys = new Set<string>();
+    todayPresentRecords.forEach(r => {
+      const key = r.employeeName ? r.employeeName.toLowerCase() : String(r.employeeId);
+      uniqueEmpKeys.add(key);
+    });
 
     const liveClockState = this.todayAttendanceState();
     if (liveClockState.isClockedIn || liveClockState.clockIn) {
-      const userStr = localStorage.getItem('user');
+      const userStr = localStorage.getItem('user_info') || localStorage.getItem('user');
       if (userStr) {
         try {
           const user = JSON.parse(userStr);
-          if (user?.id) uniqueEmpIds.add(String(user.id));
+          const userKey = (user?.name || '').toLowerCase() || (user?.id ? String(user.id) : '');
+          if (userKey) uniqueEmpKeys.add(userKey);
         } catch (_) {}
       }
     }
 
     const apiPresent = this.dashboardSummary().presentToday || 0;
-    return Math.max(apiPresent, uniqueEmpIds.size);
+    return Math.max(apiPresent, uniqueEmpKeys.size);
   });
 
   attendanceRate = computed(() => {
