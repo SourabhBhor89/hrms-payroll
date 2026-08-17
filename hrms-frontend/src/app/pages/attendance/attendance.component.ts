@@ -479,17 +479,22 @@ export class AttendanceComponent implements OnInit {
       return isTodayRecord && isClockedIn && isNotLeaveOrWfh;
     });
 
-    const uniqueEmpIds = new Set(todayPresentRecords.map(r => String(r.employeeId)));
+    const uniqueEmpKeys = new Set<string>();
+    todayPresentRecords.forEach(r => {
+      const key = r.employeeName ? r.employeeName.toLowerCase() : String(r.employeeId);
+      uniqueEmpKeys.add(key);
+    });
 
     const liveClockState = this.hrms.todayAttendanceState();
     if (liveClockState.isClockedIn || liveClockState.clockIn) {
       const currentUser = this.auth.currentUser();
-      if (currentUser?.id) {
-        uniqueEmpIds.add(String(currentUser.id));
+      if (currentUser) {
+        const userKey = (currentUser.name || '').toLowerCase() || String(currentUser.id || '');
+        if (userKey) uniqueEmpKeys.add(userKey);
       }
     }
 
-    return uniqueEmpIds.size;
+    return uniqueEmpKeys.size;
   });
 
   wfhTodayCount = computed(() => {
@@ -645,7 +650,20 @@ export class AttendanceComponent implements OnInit {
       details: string;
     }> = [];
 
-    const addedEmpIds = new Set<string>();
+    const addedEmpKeys = new Set<string>();
+
+    const isEmpAlreadyAdded = (empId?: string | number, name?: string, code?: string): boolean => {
+      if (empId && addedEmpKeys.has(String(empId))) return true;
+      if (name && addedEmpKeys.has(name.toLowerCase())) return true;
+      if (code && addedEmpKeys.has(code.toLowerCase())) return true;
+      return false;
+    };
+
+    const registerEmpAdded = (empId?: string | number, name?: string, code?: string) => {
+      if (empId) addedEmpKeys.add(String(empId));
+      if (name) addedEmpKeys.add(name.toLowerCase());
+      if (code) addedEmpKeys.add(code.toLowerCase());
+    };
 
     if (category === 'PRESENT') {
       records.forEach(r => {
@@ -655,8 +673,8 @@ export class AttendanceComponent implements OnInit {
 
           const isPresent = isClockedIn && isNotLeaveOrWfh;
 
-          if (isPresent && r.employeeId && !addedEmpIds.has(String(r.employeeId))) {
-            addedEmpIds.add(String(r.employeeId));
+          if (isPresent && !isEmpAlreadyAdded(r.employeeId, r.employeeName, r.employeeCode)) {
+            registerEmpAdded(r.employeeId, r.employeeName, r.employeeCode);
             const empInfo = empMap.get(String(r.employeeId));
             const inTime = r.clockIn && r.clockIn !== '--' ? `Clocked in at ${r.clockIn}` : 'Present';
             const outTime = r.clockOut && r.clockOut !== '--' ? ` (Clocked out at ${r.clockOut})` : '';
@@ -677,8 +695,8 @@ export class AttendanceComponent implements OnInit {
       const liveClockState = this.hrms.todayAttendanceState();
       if (liveClockState.isClockedIn || liveClockState.clockIn) {
         const currentUser = this.auth.currentUser();
-        if (currentUser?.id && !addedEmpIds.has(String(currentUser.id))) {
-          addedEmpIds.add(String(currentUser.id));
+        if (currentUser && !isEmpAlreadyAdded(currentUser.id, currentUser.name, currentUser.employeeId)) {
+          registerEmpAdded(currentUser.id, currentUser.name, currentUser.employeeId);
           const empInfo = empMap.get(String(currentUser.id));
           const inTime = liveClockState.clockIn ? `Clocked in at ${liveClockState.clockIn}` : 'Present';
           const outTime = liveClockState.clockOut ? ` (Clocked out at ${liveClockState.clockOut})` : '';
@@ -697,8 +715,8 @@ export class AttendanceComponent implements OnInit {
     } else if (category === 'WFH') {
       records.forEach(r => {
         if (r.date === today && (r.status === 'WFH' || (r.notes && r.notes.toLowerCase().includes('wfh')))) {
-          if (r.employeeId && !addedEmpIds.has(String(r.employeeId))) {
-            addedEmpIds.add(String(r.employeeId));
+          if (!isEmpAlreadyAdded(r.employeeId, r.employeeName, r.employeeCode)) {
+            registerEmpAdded(r.employeeId, r.employeeName, r.employeeCode);
             const empInfo = empMap.get(String(r.employeeId));
             resultList.push({
               id: String(r.employeeId),
@@ -723,8 +741,8 @@ export class AttendanceComponent implements OnInit {
         if (isApproved && isWfhCat && l.startDate && l.endDate) {
           const s = l.startDate.split('T')[0];
           const e = l.endDate.split('T')[0];
-          if (s <= today && today <= e && l.employeeId && !addedEmpIds.has(String(l.employeeId))) {
-            addedEmpIds.add(String(l.employeeId));
+          if (s <= today && today <= e && !isEmpAlreadyAdded(l.employeeId, l.employeeName, l.employeeCode)) {
+            registerEmpAdded(l.employeeId, l.employeeName, l.employeeCode);
             const empInfo = empMap.get(String(l.employeeId));
             resultList.push({
               id: String(l.employeeId),
@@ -742,8 +760,8 @@ export class AttendanceComponent implements OnInit {
     } else if (category === 'LEAVE') {
       records.forEach(r => {
         if (r.date === today && r.status === 'Leave') {
-          if (r.employeeId && !addedEmpIds.has(String(r.employeeId))) {
-            addedEmpIds.add(String(r.employeeId));
+          if (!isEmpAlreadyAdded(r.employeeId, r.employeeName, r.employeeCode)) {
+            registerEmpAdded(r.employeeId, r.employeeName, r.employeeCode);
             const empInfo = empMap.get(String(r.employeeId));
             resultList.push({
               id: String(r.employeeId),
@@ -768,8 +786,8 @@ export class AttendanceComponent implements OnInit {
         if (isApproved && !isWfhCat && l.startDate && l.endDate) {
           const s = l.startDate.split('T')[0];
           const e = l.endDate.split('T')[0];
-          if (s <= today && today <= e && l.employeeId && !addedEmpIds.has(String(l.employeeId))) {
-            addedEmpIds.add(String(l.employeeId));
+          if (s <= today && today <= e && !isEmpAlreadyAdded(l.employeeId, l.employeeName, l.employeeCode)) {
+            registerEmpAdded(l.employeeId, l.employeeName, l.employeeCode);
             const empInfo = empMap.get(String(l.employeeId));
             const leaveName = l.leaveTypeName || l.leaveType || 'Leave';
             resultList.push({

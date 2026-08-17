@@ -49,6 +49,10 @@ public class LeaveBalanceSchedulerServiceImpl implements LeaveBalanceSchedulerSe
         int previousMonth = previousYearMonth.getMonthValue();
 
         List<Employee> allEmployees = employeeRepository.findAll();
+        // Filter out admin users - they should not receive leave credits
+        List<Employee> nonAdminEmployees = allEmployees.stream()
+                .filter(employee -> !isAdmin(employee))
+                .toList();
         List<LeaveType> allLeaveTypes = leaveTypeRepository.findAll().stream()
                 .filter(LeaveType::getActive)
                 .toList();
@@ -56,7 +60,7 @@ public class LeaveBalanceSchedulerServiceImpl implements LeaveBalanceSchedulerSe
         // If it's January, perform year-end reset first
         if (currentMonth == 1) {
             log.info("January detected - performing year-end leave reset");
-            for (Employee employee : allEmployees) {
+            for (Employee employee : nonAdminEmployees) {
                 for (LeaveType leaveType : allLeaveTypes) {
                     processYearEndResetForEmployee(employee, leaveType, previousYear, currentYear);
                 }
@@ -64,7 +68,7 @@ public class LeaveBalanceSchedulerServiceImpl implements LeaveBalanceSchedulerSe
         }
 
         // Process monthly balance update
-        for (Employee employee : allEmployees) {
+        for (Employee employee : nonAdminEmployees) {
             for (LeaveType leaveType : allLeaveTypes) {
                 processEmployeeMonthlyBalance(employee, leaveType, previousYear, previousMonth, currentYear, currentMonth);
             }
@@ -199,5 +203,12 @@ public class LeaveBalanceSchedulerServiceImpl implements LeaveBalanceSchedulerSe
         
         return LocalDate.now().isAfter(sixMonthsAfterJoining) || 
                LocalDate.now().isEqual(sixMonthsAfterJoining);
+    }
+
+    private boolean isAdmin(Employee employee) {
+        if (employee.getUser() == null || employee.getUser().getRole() == null) {
+            return false;
+        }
+        return "ADMIN".equalsIgnoreCase(String.valueOf(employee.getUser().getRole().getName()));
     }
 }
