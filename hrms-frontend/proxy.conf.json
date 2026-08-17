@@ -1,7 +1,8 @@
 {
   "/api": {
-    "target": "https://testimonials-surely-ongoing-sunshine.trycloudflare.com",
+    "target": "http://localhost:8080",
     "secure": false,
     "changeOrigin": true
   }
 }
+

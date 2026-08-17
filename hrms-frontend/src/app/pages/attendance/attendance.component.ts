@@ -19,6 +19,9 @@ export interface CalendarDayCell {
   regularizationStatus?: RegularizationStatus;
   regularizationReason?: string;
   canRegularize?: boolean;
+  holidayTitle?: string;
+  holidayDescription?: string;
+  holidayType?: string;
 }
 
 import { NotificationService } from '../../core/services/notification.service';
@@ -43,6 +46,7 @@ export class AttendanceComponent implements OnInit {
       this.hrms.loadDashboardSummary();
     }
     this.hrms.loadLeaves();
+    this.hrms.loadHolidays();
   }
 
   weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -96,6 +100,7 @@ export class AttendanceComponent implements OnInit {
     const todayStr = new Date().toISOString().split('T')[0];
     const records = this.hrms.attendanceRecords();
     const regRequests = this.hrms.regularizationRequests();
+    const companyHolidays = this.hrms.holidays();
 
     const cells: CalendarDayCell[] = [];
 
@@ -136,8 +141,10 @@ export class AttendanceComponent implements OnInit {
                (currentUser.name != null && r.employeeName === currentUser.name);
       });
 
+      const matchingHoliday = companyHolidays.find(h => h.date === dateStr);
+
       const isPastOrToday = dateStr <= todayStr;
-      let status: AttendanceStatus = isWeekend ? 'Week Off' : (isPastOrToday ? 'Absent' : ('' as any));
+      let status: AttendanceStatus = isWeekend ? 'Week Off' : (matchingHoliday ? 'Holiday' : (isPastOrToday ? 'Absent' : ('' as any)));
       let checkIn = '--';
       let checkOut = '--';
       let totalHours = '--';
@@ -179,6 +186,10 @@ export class AttendanceComponent implements OnInit {
         status = isWfh ? 'WFH' : 'Leave';
       }
 
+      if (matchingHoliday && !isWeekend && (!attRecord || attRecord.status === 'Holiday' || (attRecord.status as string) === 'HOLIDAY' || (!attRecord.clockIn && !hasApprovedLeaveOrWfh))) {
+        status = 'Holiday';
+      }
+
       if (isWeekend) {
         status = 'Week Off';
       }
@@ -215,7 +226,10 @@ export class AttendanceComponent implements OnInit {
         isLocked,
         regularizationStatus: regStatus,
         regularizationReason: regReq?.reason,
-        canRegularize: canReg
+        canRegularize: canReg,
+        holidayTitle: matchingHoliday?.title,
+        holidayDescription: matchingHoliday?.description,
+        holidayType: matchingHoliday?.type
       });
     }
 

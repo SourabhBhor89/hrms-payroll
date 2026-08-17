@@ -110,16 +110,15 @@ public class GoogleCalendarService {
             }
         }
 
-        List<HolidayDto> upcomingHolidays = holidays.stream()
-                .filter(HolidayDto::isUpcoming)
+        List<HolidayDto> sortedHolidays = holidays.stream()
                 .sorted((a, b) -> a.getDate().compareTo(b.getDate()))
                 .toList();
 
-        if (upcomingHolidays.isEmpty()) {
+        if (sortedHolidays.isEmpty()) {
             return getFallbackHolidays();
         }
 
-        return upcomingHolidays;
+        return sortedHolidays;
     }
 
     public List<HolidayDto> getFallbackHolidays() {
@@ -139,7 +138,6 @@ public class GoogleCalendarService {
         addFallback(list, "11", "Christmas Day", "2026-12-25", "Mandatory", "Christmas celebration holiday.", today);
 
         return list.stream()
-                .filter(HolidayDto::isUpcoming)
                 .sorted((a, b) -> a.getDate().compareTo(b.getDate()))
                 .toList();
     }

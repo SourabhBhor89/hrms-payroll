@@ -185,8 +185,9 @@
         </div>
 
         <div *ngIf="cell.status && !cell.otherMonth && (cell.isWeekend || cell.status === 'Holiday' || auth.currentRole() !== 'Admin')" class="day-status-pill"
-          [class]="'pill-' + cell.status.toLowerCase().replace(' ', '-')">
-          {{ cell.status }}
+          [class]="'pill-' + cell.status.toLowerCase().replace(' ', '-')"
+          [title]="(cell.holidayTitle ? cell.holidayTitle + (cell.holidayDescription ? ': ' + cell.holidayDescription : '') : cell.status)">
+          {{ (cell.status === 'Holiday' && cell.holidayTitle) ? cell.holidayTitle : cell.status }}
         </div>
 
         <!-- Inline Regularize Action Button -->
@@ -196,7 +197,14 @@
         </button>
 
         <!-- Hover Tooltip -->
-        <div class="day-tooltip" *ngIf="!cell.otherMonth && (cell.checkIn || cell.checkOut) && auth.currentRole() !== 'Admin'">
+        <div class="day-tooltip" *ngIf="!cell.otherMonth && (cell.checkIn || cell.checkOut || cell.holidayTitle)">
+          <div class="tooltip-row text-purple" *ngIf="cell.holidayTitle" style="font-weight: 700;">
+            <span>🎉 {{ cell.holidayTitle }}</span>
+            <span *ngIf="cell.holidayType" style="font-size: 0.65rem; opacity: 0.85; margin-left: 4px;">({{ cell.holidayType }})</span>
+          </div>
+          <div class="tooltip-row" *ngIf="cell.holidayDescription" style="font-size: 0.65rem; opacity: 0.9; max-width: 200px; white-space: normal;">
+            <span>{{ cell.holidayDescription }}</span>
+          </div>
           <div class="tooltip-row" *ngIf="cell.checkIn && cell.checkIn !== '--'">
             <span>In: {{ cell.checkIn }}</span>
           </div>
