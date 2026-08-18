@@ -412,7 +412,7 @@
         <div class="form-row">
           <div class="form-group">
             <label class="form-label">Date to Regularize *</label>
-            <input type="date" class="form-input" [(ngModel)]="regForm.attendanceDate" name="attendanceDate" required />
+            <input type="date" class="form-input" [(ngModel)]="regForm.attendanceDate" name="attendanceDate" [min]="minAllowedRegularizationDate()" [max]="maxAllowedRegularizationDate()" required />
           </div>
 
           <div class="form-group">
