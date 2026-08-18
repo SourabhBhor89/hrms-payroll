@@ -45,7 +45,7 @@ export class DashboardComponent implements OnInit {
     });
 
     // 3. Registered Employees
-    const employees = this.hrms.employees();
+    const employees = this.hrms.employees().filter(e => e.status !== 'Terminated');
     employees.slice(0, 2).forEach(e => {
       activities.push({
         avatar: e.avatar || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80',

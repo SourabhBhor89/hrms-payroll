@@ -200,7 +200,10 @@ export class HrmsService {
   });
 
   pendingTimesheetsCount = computed(() => this.timesheets().filter(t => t.status === 'Submitted').length);
-  totalEmployeesCount = computed(() => Math.max(this.dashboardSummary().totalEmployees, this.employees().length));
+  totalEmployeesCount = computed(() => {
+    const activeEmployeesCount = this.employees().filter(e => e.status !== 'Terminated').length;
+    return Math.max(this.dashboardSummary().totalEmployees || 0, activeEmployeesCount);
+  });
   onLeaveTodayCount = computed(() => {
     const today = this.getTodayStr();
     const records = this.attendanceRecords();

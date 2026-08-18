@@ -31,7 +31,7 @@ public class DashboardController {
     @GetMapping("/summary")
     @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ADMIN', 'ROLE_HR', 'HR', 'EMPLOYEE_MANAGEMENT_VIEW')")
     public ResponseEntity<DashboardSummaryDto> getSummary() {
-        long totalEmp = employeeRepository.count();
+        long totalEmp = employeeRepository.countByActiveTrue();
 
         LocalDate today = LocalDate.now();
         List<Attendance> todayRecords = attendanceRepository.findByDateBetween(today, today);
