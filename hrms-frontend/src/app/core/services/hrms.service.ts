@@ -984,23 +984,6 @@ export class HrmsService {
           })
           .sort((a, b) => a.date.localeCompare(b.date));
       }
-
-      if (mapped.length === 0) {
-        mapped = [
-          { id: '1', title: 'Republic Day', date: '2026-01-26', day: 'Monday', type: 'Mandatory', description: 'National holiday celebrating the Constitution of India.', isUpcoming: '2026-01-26' >= todayStr },
-          { id: '2', title: 'Holi', date: '2026-03-25', day: 'Wednesday', type: 'Mandatory', description: 'Festival of colors.', isUpcoming: '2026-03-25' >= todayStr },
-          { id: '3', title: 'Good Friday', date: '2026-04-03', day: 'Friday', type: 'Mandatory', description: 'Christian holiday commemorating the crucifixion of Jesus.', isUpcoming: '2026-04-03' >= todayStr },
-          { id: '4', title: 'Dr. Ambedkar Jayanti', date: '2026-04-14', day: 'Tuesday', type: 'Optional', description: 'Commemorating the birth anniversary of Dr. B. R. Ambedkar.', isUpcoming: '2026-04-14' >= todayStr },
-          { id: '5', title: 'May Day', date: '2026-05-01', day: 'Friday', type: 'Mandatory', description: 'International Workers\' Day.', isUpcoming: '2026-05-01' >= todayStr },
-          { id: '6', title: 'Independence Day', date: '2026-08-15', day: 'Saturday', type: 'Mandatory', description: 'National holiday commemorating independence.', isUpcoming: '2026-08-15' >= todayStr },
-          { id: '7', title: 'Ganesh Chaturthi', date: '2026-09-14', day: 'Monday', type: 'Regional', description: 'Festival celebrating Lord Ganesha.', isUpcoming: '2026-09-14' >= todayStr },
-          { id: '8', title: 'Mahatma Gandhi Jayanti', date: '2026-10-02', day: 'Friday', type: 'Mandatory', description: 'National holiday commemorating Mahatma Gandhi.', isUpcoming: '2026-10-02' >= todayStr },
-          { id: '9', title: 'Dussehra', date: '2026-10-20', day: 'Tuesday', type: 'Mandatory', description: 'Vijayadashami festival celebration.', isUpcoming: '2026-10-20' >= todayStr },
-          { id: '10', title: 'Diwali', date: '2026-11-08', day: 'Sunday', type: 'Mandatory', description: 'Festival of Lights company wide holiday.', isUpcoming: '2026-11-08' >= todayStr },
-          { id: '11', title: 'Christmas Day', date: '2026-12-25', day: 'Friday', type: 'Mandatory', description: 'Christmas celebration holiday.', isUpcoming: '2026-12-25' >= todayStr }
-        ];
-      }
-
       this.holidays.set(mapped);
     });
   }

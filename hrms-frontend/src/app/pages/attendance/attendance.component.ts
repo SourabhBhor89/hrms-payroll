@@ -126,20 +126,24 @@ export class AttendanceComponent implements OnInit {
       const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
 
       const currentUser = this.auth.currentUser();
-      const attRecord = records.find(r => {
-        if (r.date !== dateStr) return false;
-        if (!currentUser) return true;
-        return (r.employeeId != null && String(r.employeeId) === String(currentUser.id)) ||
-               (currentUser.employeeId != null && (String(r.employeeId) === String(currentUser.employeeId) || r.employeeCode === currentUser.employeeId)) ||
-               (currentUser.name != null && r.employeeName === currentUser.name);
-      });
-      const regReq = regRequests.find(r => {
-        if (r.date !== dateStr || r.status === 'Cancelled') return false;
-        if (!currentUser) return true;
-        return (r.employeeId != null && String(r.employeeId) === String(currentUser.id)) ||
-               (currentUser.employeeId != null && (String(r.employeeId) === String(currentUser.employeeId) || r.employeeCode === currentUser.employeeId)) ||
-               (currentUser.name != null && r.employeeName === currentUser.name);
-      });
+      const emp = this.currentEmployee();
+
+      const isMatchingRecord = (rEmpId: any, rCode: any, rName: any) => {
+        if (emp) {
+          if (rEmpId != null && (String(rEmpId) === String(emp.id) || String(rEmpId) === String(emp.userId))) return true;
+          if (rCode != null && emp.employeeId != null && String(rCode).toLowerCase() === String(emp.employeeId).toLowerCase()) return true;
+          if (rName != null && emp.name != null && String(rName).toLowerCase().trim() === String(emp.name).toLowerCase().trim()) return true;
+        }
+        if (currentUser) {
+          if (rEmpId != null && String(rEmpId) === String(currentUser.id)) return true;
+          if (currentUser.employeeId != null && (String(rEmpId) === String(currentUser.employeeId) || String(rCode).toLowerCase() === String(currentUser.employeeId).toLowerCase())) return true;
+          if (currentUser.name != null && String(rName).toLowerCase().trim() === String(currentUser.name).toLowerCase().trim()) return true;
+        }
+        return false;
+      };
+
+      const attRecord = records.find(r => r.date === dateStr && isMatchingRecord(r.employeeId, r.employeeCode, r.employeeName));
+      const regReq = regRequests.find(r => r.date === dateStr && r.status !== 'Cancelled' && isMatchingRecord(r.employeeId, r.employeeCode, r.employeeName));
 
       const matchingHoliday = companyHolidays.find(h => h.date === dateStr);
 
@@ -159,17 +163,41 @@ export class AttendanceComponent implements OnInit {
         isLocked = attRecord.isLocked || false;
       }
 
+      // Merge live today clock state if applicable
+      const liveState = this.hrms.todayAttendanceState();
+      if (dateStr === todayStr && (liveState.isClockedIn || liveState.clockIn)) {
+        if (!attRecord || status === 'Absent' || status === 'Holiday' || status === 'Week Off') {
+          status = 'Present';
+        }
+        if (checkIn === '--' && liveState.clockIn) {
+          checkIn = liveState.clockIn;
+        }
+        if (checkOut === '--' && liveState.clockOut) {
+          checkOut = liveState.clockOut;
+        }
+        if (totalHours === '--') {
+          totalHours = this.getWorkDuration();
+        }
+      }
+
+      // Fallback hours calculation from checkIn and checkOut if totalHours is missing
+      if (totalHours === '--' && checkIn !== '--' && checkOut !== '--') {
+        const todayTmp = new Date().toISOString().split('T')[0];
+        const inDate = new Date(`${todayTmp} ${checkIn}`);
+        const outDate = new Date(`${todayTmp} ${checkOut}`);
+        const diff = outDate.getTime() - inDate.getTime();
+        if (!isNaN(diff) && diff > 0) {
+          const hoursNum = diff / 3600000;
+          totalHours = `${hoursNum.toFixed(1)} hrs`;
+        }
+      }
+
       // Check if logged-in user has an approved leave / WFH application for dateStr
       const matchingLeave = this.hrms.leaveRequests().find(l => {
         const isApproved = l.status === 'APPROVED' || l.status === 'Approved';
         if (!isApproved || !l.startDate || !l.endDate) return false;
 
-        const isMyLeave = !!currentUser && (
-          (l.employeeId != null && String(l.employeeId) === String(currentUser.id)) ||
-          (currentUser.employeeId != null && (String(l.employeeId) === String(currentUser.employeeId) || l.employeeCode === currentUser.employeeId)) ||
-          (currentUser.name != null && l.employeeName === currentUser.name)
-        );
-
+        const isMyLeave = isMatchingRecord(l.employeeId, l.employeeCode, l.employeeName);
         if (!isMyLeave) return false;
 
         const s = l.startDate.split('T')[0];
@@ -412,6 +440,26 @@ export class AttendanceComponent implements OnInit {
       return;
     }
 
+    // Validate requested duration (Max 9 hours)
+    const [inH, inM] = this.regForm.requestedClockInTime.split(':').map(Number);
+    const [outH, outM] = this.regForm.requestedClockOutTime.split(':').map(Number);
+    const inMinutes = inH * 60 + (inM || 0);
+    const outMinutes = outH * 60 + (outM || 0);
+    const durationMinutes = outMinutes - inMinutes;
+
+    if (isNaN(durationMinutes) || durationMinutes <= 0) {
+      this.notify.showAlert('Requested Clock Out time must be after Clock In time on the same day.');
+      return;
+    }
+
+    if (durationMinutes > 9 * 60) {
+      const requestedHrs = (durationMinutes / 60).toFixed(1);
+      const inFormatted = this.formatTime12h(this.regForm.requestedClockInTime);
+      const outFormatted = this.formatTime12h(this.regForm.requestedClockOutTime);
+      this.notify.showAlert(`Regularization duration cannot exceed 9 hours per day. Requested duration: ${requestedHrs} hours (${inFormatted} to ${outFormatted}).`);
+      return;
+    }
+
     const payload = {
       attendanceDate: this.regForm.attendanceDate,
       correctionType: this.regForm.correctionType,
@@ -427,6 +475,17 @@ export class AttendanceComponent implements OnInit {
         this.hrms.refreshAllData();
       }
     });
+  }
+
+  formatTime12h(time24: string): string {
+    if (!time24 || !time24.includes(':')) return time24;
+    const [hStr, mStr] = time24.split(':');
+    let h = parseInt(hStr, 10);
+    const m = (mStr || '00').padStart(2, '0');
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12;
+    if (h === 0) h = 12;
+    return `${String(h).padStart(2, '0')}:${m} ${ampm}`;
   }
 
   // Cancel Modal State
@@ -669,14 +728,49 @@ export class AttendanceComponent implements OnInit {
     ).length;
   });
 
+  calculateCellHours(cell: CalendarDayCell): number {
+    if (!cell || cell.otherMonth) return 0;
+
+    if (cell.totalHours && cell.totalHours !== '--') {
+      const str = cell.totalHours.trim();
+      if (str.includes('h') && str.includes('m')) {
+        const hMatch = str.match(/(\d+)\s*h/);
+        const mMatch = str.match(/(\d+)\s*m/);
+        const h = hMatch ? parseInt(hMatch[1], 10) : 0;
+        const m = mMatch ? parseInt(mMatch[1], 10) : 0;
+        return h + (m / 60);
+      }
+      const val = parseFloat(str.replace(/[^\d.]/g, ''));
+      if (!isNaN(val) && val > 0 && val < 24) {
+        return val;
+      }
+    }
+
+    if (cell.checkIn && cell.checkIn !== '--') {
+      const todayStr = new Date().toISOString().split('T')[0];
+      const inTime = new Date(`${todayStr} ${cell.checkIn}`);
+      let outTime: Date;
+      if (cell.checkOut && cell.checkOut !== '--') {
+        outTime = new Date(`${todayStr} ${cell.checkOut}`);
+      } else if (cell.isToday) {
+        outTime = new Date();
+      } else {
+        return 0;
+      }
+      const diffMs = outTime.getTime() - inTime.getTime();
+      if (!isNaN(diffMs) && diffMs > 0) {
+        return diffMs / (1000 * 60 * 60);
+      }
+    }
+
+    return 0;
+  }
+
   totalHoursWorked = computed(() => {
     let total = 0;
     this.calendarGrid().forEach(cell => {
-      if (!cell.otherMonth && cell.totalHours && cell.totalHours !== '--') {
-        const val = parseFloat(cell.totalHours.replace(/[^\d.]/g, ''));
-        if (!isNaN(val) && (cell.status === 'Present' || cell.status === 'Half Day' || cell.status === 'WFH' || cell.regularizationStatus === 'Approved')) {
-          total += val;
-        }
+      if (!cell.otherMonth && (cell.status === 'Present' || cell.status === 'Half Day' || cell.status === 'WFH' || cell.regularizationStatus === 'Approved')) {
+        total += this.calculateCellHours(cell);
       }
     });
     return total.toFixed(1);

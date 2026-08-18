@@ -1,24 +1,30 @@
 package com.company.hrms.service.Google_Calendar_Service;
 
+import java.net.URI;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.context.event.EventListener;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
+import com.company.hrms.constants.CacheNames;
 import com.company.hrms.dto.Google_Calendar.GoogleCalendarEvent;
 import com.company.hrms.dto.Google_Calendar.GoogleCalendarResponse;
 import com.company.hrms.dto.response.HolidayDto;
-
-import com.company.hrms.constants.CacheNames;
 
 @Service
 public class GoogleCalendarService {
@@ -26,120 +32,218 @@ public class GoogleCalendarService {
     private static final Logger log = LoggerFactory.getLogger(GoogleCalendarService.class);
 
     private final RestClient restClient;
+    private final AtomicReference<List<HolidayDto>> inMemoryCache = new AtomicReference<>(null);
+    private volatile long lastFetchTimestamp = 0;
+    private static final long CACHE_TTL_MS = 6 * 3600 * 1000L; // 6 hours
 
     public GoogleCalendarService(RestClient.Builder builder) {
         this.restClient = builder.build();
     }
 
-    @Value("${google.calendar.api-key}")
+    @Value("${google.calendar.api-key:}")
     private String apiKey;
 
-    @Value("${google.calendar.calendar-id}")
+    @Value("${google.calendar.calendar-id:en.indian#holiday@group.v.calendar.google.com}")
     private String calendarId;
 
-    public GoogleCalendarResponse getEvents() {
+    private String getEncodedCalendarId() {
+        if (calendarId == null || calendarId.isBlank()) {
+            return "en.indian%23holiday@group.v.calendar.google.com";
+        }
+        return calendarId.replace("#", "%23");
+    }
+
+    @EventListener(ApplicationReadyEvent.class)
+    public void warmupCacheOnStartup() {
+        log.info("Warming up Google Calendar holidays cache in background on application startup...");
+        refreshHolidaysCache();
+    }
+
+    @Scheduled(cron = "0 0 */6 * * *")
+    public void scheduledCacheRefresh() {
+        log.info("Running scheduled refresh of Google Calendar holidays cache...");
+        refreshHolidaysCache();
+    }
+
+    public synchronized List<HolidayDto> refreshHolidaysCache() {
+        int currentYear = LocalDate.now().getYear();
+        List<HolidayDto> holidays = new ArrayList<>();
         try {
+            log.info("Fetching Indian holidays from Google Calendar public iCal feed...");
+            holidays = fetchFromICalFeed(currentYear);
+            if (!holidays.isEmpty()) {
+                inMemoryCache.set(holidays);
+                lastFetchTimestamp = System.currentTimeMillis();
+                log.info("Successfully cached {} holidays in memory.", holidays.size());
+            }
+        } catch (Exception e) {
+            log.warn("Failed to refresh holidays cache: {}", e.getMessage());
+        }
+        return holidays;
+    }
+
+    public GoogleCalendarResponse getEvents() {
+        return getEventsFromApi(LocalDate.now().getYear());
+    }
+
+    public GoogleCalendarResponse getEventsFromApi(int year) {
+        if (apiKey == null || apiKey.isBlank() || "xyz_Api_Key".equalsIgnoreCase(apiKey)) {
+            log.info("Google Calendar API key not set or invalid placeholder. Skipping REST API call.");
+            return null;
+        }
+
+        try {
+            String encodedCalendarId = getEncodedCalendarId().replace("@", "%40");
+            String timeMin = year + "-01-01T00:00:00Z";
+            String timeMax = year + "-12-31T23:59:59Z";
+            String apiUrl = "https://www.googleapis.com/calendar/v3/calendars/" + encodedCalendarId
+                    + "/events?key=" + apiKey + "&singleEvents=true&orderBy=startTime&timeMin=" + timeMin + "&timeMax=" + timeMax;
+
             return restClient.get()
-                    .uri(uriBuilder -> uriBuilder
-                            .scheme("https")
-                            .host("www.googleapis.com")
-                            .path("/calendar/v3/calendars/{calendarId}/events")
-                            .queryParam("key", apiKey)
-                            .queryParam("singleEvents", true)
-                            .queryParam("orderBy", "startTime")
-                            .queryParam("timeMin", "2026-01-01T00:00:00Z")
-                            .queryParam("timeMax", "2026-12-31T23:59:59Z")
-                            .build(calendarId))
+                    .uri(URI.create(apiUrl))
                     .retrieve()
                     .body(GoogleCalendarResponse.class);
         } catch (Exception e) {
-            log.warn("Failed to fetch Google Calendar events from API: {}", e.getMessage());
+            log.warn("Failed to fetch Google Calendar events from REST API: {}", e.getMessage());
             return null;
         }
     }
 
     @Cacheable(value = CacheNames.HOLIDAYS, key = "'all'")
     public List<HolidayDto> getPublicHolidays() {
-        log.info("Fetching public holidays from external Google Calendar API / fallbacks (Cache Miss)...");
-        GoogleCalendarResponse response = getEvents();
+        List<HolidayDto> allHolidays = inMemoryCache.get();
+        boolean isExpired = (System.currentTimeMillis() - lastFetchTimestamp) > CACHE_TTL_MS;
+
+        if (allHolidays == null || allHolidays.isEmpty() || isExpired) {
+            log.info("In-memory holidays cache miss or expired. Fetching fresh data...");
+            allHolidays = refreshHolidaysCache();
+        }
+
+        if (allHolidays == null || allHolidays.isEmpty()) {
+            return List.of();
+        }
+
+        return allHolidays.stream()
+                .filter(HolidayDto::isUpcoming)
+                .sorted(Comparator.comparing(HolidayDto::getDate))
+                .toList();
+    }
+
+    public List<HolidayDto> fetchFromICalFeed(int year) {
+        String calId = getEncodedCalendarId().replace("@", "%40");
+        String iCalUrl = "https://calendar.google.com/calendar/ical/" + calId + "/public/basic.ics";
+
+        String icalContent = restClient.get()
+                .uri(URI.create(iCalUrl))
+                .retrieve()
+                .body(String.class);
+
+        if (icalContent == null || icalContent.isBlank()) {
+            return List.of();
+        }
+
+        return parseICalContent(icalContent, year);
+    }
+
+    public List<HolidayDto> parseICalContent(String icalContent, int targetYear) {
         List<HolidayDto> holidays = new ArrayList<>();
+        String[] events = icalContent.split("BEGIN:VEVENT");
 
-        if (response != null && response.getItems() != null && !response.getItems().isEmpty()) {
-            int idCounter = 1;
-            for (GoogleCalendarEvent event : response.getItems()) {
-                if (event.getSummary() == null || event.getStart() == null) {
+        int idCounter = 1;
+        LocalDate today = LocalDate.now();
+
+        for (int i = 1; i < events.length; i++) {
+            String block = events[i];
+            if (!block.contains("END:VEVENT")) {
+                continue;
+            }
+
+            String dtStart = extractICalField(block, "DTSTART");
+            String summary = extractICalField(block, "SUMMARY");
+            String description = extractICalField(block, "DESCRIPTION");
+
+            if (dtStart == null || summary == null) {
+                continue;
+            }
+
+            // Extract YYYYMMDD from DTSTART string (e.g., DTSTART;VALUE=DATE:20260126 or DTSTART:20260126T000000Z)
+            String rawDate = dtStart.replaceAll("^.*:", "").trim();
+            if (rawDate.length() < 8) {
+                continue;
+            }
+            String yyyymmdd = rawDate.substring(0, 8);
+
+            try {
+                LocalDate date = LocalDate.parse(yyyymmdd, DateTimeFormatter.ofPattern("yyyyMMdd"));
+                if (date.getYear() != targetYear) {
                     continue;
                 }
 
-                String dateStr = event.getStart().getDate();
-                if (dateStr == null && event.getStart().getDateTime() != null) {
-                    dateStr = event.getStart().getDateTime().split("T")[0];
-                }
+                String dateStr = date.toString();
+                String dayName = date.getDayOfWeek().getDisplayName(TextStyle.FULL, Locale.ENGLISH);
+                boolean upcoming = !date.isBefore(today);
 
-                if (dateStr == null) {
-                    continue;
-                }
+                String cleanSummary = unescapeICal(summary);
+                String cleanDesc = cleanDescription(description);
 
-                String dayName = "Monday";
-                boolean upcoming = true;
-                try {
-                    LocalDate ld = LocalDate.parse(dateStr);
-                    dayName = ld.getDayOfWeek().getDisplayName(TextStyle.FULL, Locale.ENGLISH);
-                    upcoming = !ld.isBefore(LocalDate.now());
-                } catch (Exception ignored) {
-                }
-
-                String desc = event.getDescription() != null && !event.getDescription().isBlank()
-                        ? event.getDescription()
-                        : "Public holiday";
-
-                String type = desc.toLowerCase().contains("observance") || desc.toLowerCase().contains("optional")
+                String type = cleanDesc.toLowerCase().contains("observance") || cleanDesc.toLowerCase().contains("optional")
                         ? "Optional"
                         : "Mandatory";
 
                 holidays.add(HolidayDto.builder()
                         .id(String.valueOf(idCounter++))
-                        .name(event.getSummary())
-                        .title(event.getSummary())
+                        .name(cleanSummary)
+                        .title(cleanSummary)
                         .date(dateStr)
                         .day(dayName)
                         .type(type)
-                        .description(desc)
+                        .description(cleanDesc)
                         .upcoming(upcoming)
                         .build());
+            } catch (Exception ignored) {
             }
         }
 
-        List<HolidayDto> sortedHolidays = holidays.stream()
-                .sorted((a, b) -> a.getDate().compareTo(b.getDate()))
+        return holidays.stream()
+                .sorted(Comparator.comparing(HolidayDto::getDate))
                 .toList();
-
-        if (sortedHolidays.isEmpty()) {
-            return getFallbackHolidays();
-        }
-
-        return sortedHolidays;
     }
 
-    public List<HolidayDto> getFallbackHolidays() {
-        LocalDate today = LocalDate.now();
-        List<HolidayDto> list = new ArrayList<>();
+    private String cleanDescription(String description) {
+        if (description == null || description.isBlank()) {
+            return "Public holiday";
+        }
+        String desc = unescapeICal(description);
+        int idx = desc.toLowerCase().indexOf("to hide observances");
+        if (idx != -1) {
+            desc = desc.substring(0, idx).trim();
+        }
+        if (desc.isBlank()) {
+            return "Observance";
+        }
+        return desc;
+    }
 
-        addFallback(list, "1", "Republic Day", "2026-01-26", "Mandatory", "National holiday celebrating the Constitution of India.", today);
-        addFallback(list, "2", "Holi", "2026-03-25", "Mandatory", "Festival of colors.", today);
-        addFallback(list, "3", "Good Friday", "2026-04-03", "Mandatory", "Christian holiday commemorating the crucifixion of Jesus.", today);
-        addFallback(list, "4", "Dr. Ambedkar Jayanti", "2026-04-14", "Optional", "Commemorating the birth anniversary of Dr. B. R. Ambedkar.", today);
-        addFallback(list, "5", "May Day", "2026-05-01", "Mandatory", "International Workers' Day.", today);
-        addFallback(list, "6", "Independence Day", "2026-08-15", "Mandatory", "National holiday commemorating independence.", today);
-        addFallback(list, "7", "Ganesh Chaturthi", "2026-09-14", "Regional", "Festival celebrating Lord Ganesha.", today);
-        addFallback(list, "8", "Mahatma Gandhi Jayanti", "2026-10-02", "Mandatory", "National holiday commemorating Mahatma Gandhi.", today);
-        addFallback(list, "9", "Dussehra", "2026-10-20", "Mandatory", "Vijayadashami festival celebration.", today);
-        addFallback(list, "10", "Diwali", "2026-11-08", "Mandatory", "Festival of Lights company wide holiday.", today);
-        addFallback(list, "11", "Christmas Day", "2026-12-25", "Mandatory", "Christmas celebration holiday.", today);
+    private String extractICalField(String block, String fieldName) {
+        for (String line : block.split("\r?\n")) {
+            if (line.startsWith(fieldName + ":") || line.startsWith(fieldName + ";")) {
+                int colonIdx = line.indexOf(':');
+                if (colonIdx != -1 && colonIdx < line.length() - 1) {
+                    return line.substring(colonIdx + 1).trim();
+                }
+            }
+        }
+        return null;
+    }
 
-        return list.stream()
-                .sorted((a, b) -> a.getDate().compareTo(b.getDate()))
-                .toList();
+    private String unescapeICal(String str) {
+        if (str == null) return "";
+        return str.replace("\\,", ",")
+                .replace("\\;", ";")
+                .replace("\\n", " ")
+                .replace("\\N", " ")
+                .replace("\\\\", "\\")
+                .trim();
     }
 
     private void addFallback(List<HolidayDto> list, String id, String title, String dateStr, String type, String desc, LocalDate today) {
@@ -169,3 +273,4 @@ public class GoogleCalendarService {
         log.info("Cleared holidays Redis cache.");
     }
 }
+
