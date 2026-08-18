@@ -117,7 +117,7 @@
             </div>
             <div>
               <h4 style="margin: 0; font-size: 1.15rem; font-weight: 600;">{{ auth.currentUser()?.name }}</h4>
-              <p style="margin: 2px 0 0 0; font-size: 0.875rem; color: var(--text-muted);">{{ auth.currentUser()?.designation || 'Staff Member' }} • {{ auth.currentUser()?.department || 'Operations' }}</p>
+              <p style="margin: 2px 0 0 0; font-size: 0.875rem; color: var(--text-muted);">{{ currentEmployee()?.designation || auth.currentUser()?.designation || 'Staff Member' }} • {{ currentEmployee()?.department || auth.currentUser()?.department || 'Operations' }}</p>
               <span class="badge badge-info" style="margin-top: 6px; display: inline-block;">{{ auth.currentRole() }}</span>
             </div>
           </div>
@@ -125,7 +125,7 @@
           <div class="profile-details-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.875rem; margin-bottom: 1rem;">
             <div class="detail-box" style="background: var(--bg-hover, #f0f9ff); padding: 0.75rem; border-radius: 8px; display: flex; flex-direction: column;">
               <span class="label" style="font-size: 0.75rem; color: var(--text-muted);">Employee ID</span>
-              <span class="val" style="font-size: 0.875rem; font-weight: 700;">{{ auth.currentUser()?.employeeId }}</span>
+              <span class="val" style="font-size: 0.875rem; font-weight: 700;">{{ currentEmployee()?.employeeId || auth.currentUser()?.employeeId }}</span>
             </div>
             <div class="detail-box" style="background: var(--bg-hover, #f0f9ff); padding: 0.75rem; border-radius: 8px; display: flex; flex-direction: column;">
               <span class="label" style="font-size: 0.75rem; color: var(--text-muted);">Email Address</span>
@@ -137,7 +137,15 @@
             </div>
             <div class="detail-box" style="background: var(--bg-hover, #f0f9ff); padding: 0.75rem; border-radius: 8px; display: flex; flex-direction: column;">
               <span class="label" style="font-size: 0.75rem; color: var(--text-muted);">Department</span>
-              <span class="val" style="font-size: 0.875rem; font-weight: 700;">{{ auth.currentUser()?.department || 'Operations' }}</span>
+              <span class="val" style="font-size: 0.875rem; font-weight: 700;">{{ currentEmployee()?.department || auth.currentUser()?.department || 'Operations' }}</span>
+            </div>
+            <div class="detail-box" style="background: var(--bg-hover, #f0f9ff); padding: 0.75rem; border-radius: 8px; display: flex; flex-direction: column;">
+              <span class="label" style="font-size: 0.75rem; color: var(--text-muted);">Position / Designation</span>
+              <span class="val" style="font-size: 0.875rem; font-weight: 700;">{{ currentEmployee()?.designation || auth.currentUser()?.designation || 'Staff Member' }}</span>
+            </div>
+            <div class="detail-box" style="background: var(--bg-hover, #f0f9ff); padding: 0.75rem; border-radius: 8px; display: flex; flex-direction: column;">
+              <span class="label" style="font-size: 0.75rem; color: var(--text-muted);">Date of Joining</span>
+              <span class="val" style="font-size: 0.875rem; font-weight: 700;">{{ currentEmployee()?.joinDate || 'N/A' }}</span>
             </div>
           </div>
 

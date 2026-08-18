@@ -199,7 +199,9 @@ export class AttendanceComponent implements OnInit {
 
       // Check regularization eligibility rules (Admin cannot self-regularize; WFH & Leave days cannot be regularized)
       const isAdminUser = this.auth.currentRole() === 'Admin';
-      const canReg = !isAdminUser && isPastOrToday && !isWeekend && !hasApprovedLeaveOrWfh && status !== 'Leave' && status !== 'WFH' && status !== 'Week Off' && status !== 'Holiday' && !isLocked && regStatus !== 'Pending' && regStatus !== 'Approved' && regStatus !== 'Rejected';
+      const minDate = this.minAllowedRegularizationDate();
+      const isBeforeMinDate = dateStr < minDate;
+      const canReg = !isAdminUser && isPastOrToday && !isWeekend && !hasApprovedLeaveOrWfh && status !== 'Leave' && status !== 'WFH' && status !== 'Week Off' && status !== 'Holiday' && !isLocked && regStatus !== 'Pending' && regStatus !== 'Approved' && regStatus !== 'Rejected' && !isBeforeMinDate;
 
       cells.push({
         dateStr,
@@ -275,6 +277,50 @@ export class AttendanceComponent implements OnInit {
     }
   }
 
+  currentEmployee = computed(() => {
+    const user = this.auth.currentUser();
+    if (!user) return null;
+    const employees = this.hrms.employees();
+    if (!employees || employees.length === 0) return null;
+
+    const userEmail = (user.email || '').toLowerCase().trim();
+    const userName = (user.name || '').toLowerCase().trim();
+    const userCode = (user.employeeId || '').toLowerCase().trim();
+    const userId = String(user.id || '').trim();
+
+    return employees.find(e =>
+      (userEmail && e.email && e.email.toLowerCase().trim() === userEmail) ||
+      (userName && e.name && e.name.toLowerCase().trim() === userName) ||
+      (userId && e.userId && String(e.userId) === userId) ||
+      (userCode && e.employeeId && e.employeeId.toLowerCase().trim() === userCode) ||
+      (userId && String(e.id) === userId)
+    ) || null;
+  });
+
+  minAllowedRegularizationDate = computed(() => {
+    const today = new Date();
+    const prevMonthFirstDay = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    const yyyy = prevMonthFirstDay.getFullYear();
+    const mm = String(prevMonthFirstDay.getMonth() + 1).padStart(2, '0');
+    const firstDayOfPrevMonthStr = `${yyyy}-${mm}-01`;
+
+    const emp = this.currentEmployee();
+    const joiningDateStr = emp?.joinDate;
+
+    if (joiningDateStr && joiningDateStr > firstDayOfPrevMonthStr) {
+      return joiningDateStr;
+    }
+    return firstDayOfPrevMonthStr;
+  });
+
+  maxAllowedRegularizationDate = computed(() => {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  });
+
   // Regularization Modal State
   showRegModal = signal<boolean>(false);
   regForm = {
@@ -295,7 +341,24 @@ export class AttendanceComponent implements OnInit {
       this.notify.showAlert('A regularization request for this date was rejected and cannot be resubmitted.');
       return;
     }
-    const dateToUse = cell?.dateStr || new Date().toISOString().split('T')[0];
+    const minDate = this.minAllowedRegularizationDate();
+    const maxDate = this.maxAllowedRegularizationDate();
+    if (cell?.dateStr) {
+      if (cell.dateStr < minDate) {
+        this.notify.showAlert(`Cannot submit regularization request for a date before ${minDate}.`);
+        return;
+      }
+      if (cell.dateStr > maxDate) {
+        this.notify.showAlert('Cannot submit regularization for future dates.');
+        return;
+      }
+    }
+    let dateToUse = cell?.dateStr || new Date().toISOString().split('T')[0];
+    if (dateToUse < minDate) {
+      dateToUse = minDate;
+    } else if (dateToUse > maxDate) {
+      dateToUse = maxDate;
+    }
     this.regForm = {
       attendanceDate: dateToUse,
       correctionType: 'BOTH',
@@ -314,6 +377,18 @@ export class AttendanceComponent implements OnInit {
     }
     if (!this.regForm.attendanceDate || !this.regForm.requestedClockInTime || !this.regForm.requestedClockOutTime || !this.regForm.reason) {
       this.notify.showAlert('Please fill all mandatory regularization fields (Date, Clock In, Clock Out, and Reason).');
+      return;
+    }
+
+    const minDate = this.minAllowedRegularizationDate();
+    const maxDate = this.maxAllowedRegularizationDate();
+
+    if (this.regForm.attendanceDate < minDate) {
+      this.notify.showAlert(`Cannot submit regularization request for a date before ${minDate}.`);
+      return;
+    }
+    if (this.regForm.attendanceDate > maxDate) {
+      this.notify.showAlert('Cannot submit regularization for future dates.');
       return;
     }
 

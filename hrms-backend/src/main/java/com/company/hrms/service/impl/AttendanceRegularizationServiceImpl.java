@@ -55,6 +55,15 @@ public class AttendanceRegularizationServiceImpl implements AttendanceRegulariza
             throw new IllegalArgumentException("Cannot submit regularization for future dates.");
         }
 
+        if (employee.getJoiningDate() != null && date.isBefore(employee.getJoiningDate())) {
+            throw new IllegalArgumentException("Cannot submit regularization request for a date before date of joining (" + employee.getJoiningDate() + ").");
+        }
+
+        LocalDate firstDayOfPreviousMonth = now.minusMonths(1).withDayOfMonth(1);
+        if (date.isBefore(firstDayOfPreviousMonth)) {
+            throw new IllegalArgumentException("Cannot submit regularization request for a date before the 1st of previous month (" + firstDayOfPreviousMonth + ").");
+        }
+
         // 2. Fetch or create base attendance record for date
         Attendance attendance = attendanceRepository.findByEmployeeIdAndDate(employee.getId(), date)
                 .orElseGet(() -> {
