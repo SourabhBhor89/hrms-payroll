@@ -127,6 +127,38 @@ public class EmployeeServiceImpl implements EmployeeService {
         Employee employee = employeeRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Employee not found with ID: " + id));
 
+        if (request.getEmployeeCode() != null && !request.getEmployeeCode().isBlank()) {
+            if (!request.getEmployeeCode().equalsIgnoreCase(employee.getEmployeeCode()) &&
+                    employeeRepository.existsByEmployeeCode(request.getEmployeeCode())) {
+                throw new IllegalArgumentException("Employee code already exists: " + request.getEmployeeCode());
+            }
+            employee.setEmployeeCode(request.getEmployeeCode());
+        }
+
+        if (request.getEmail() != null && !request.getEmail().isBlank() && employee.getUser() != null) {
+            if (!request.getEmail().equalsIgnoreCase(employee.getUser().getEmail())) {
+                if (userRepository.existsByEmail(request.getEmail())) {
+                    throw new IllegalArgumentException("Email address already exists: " + request.getEmail());
+                }
+                employee.getUser().setEmail(request.getEmail());
+                userRepository.save(employee.getUser());
+            }
+        }
+
+        if (request.getRole() != null && !request.getRole().isBlank() && employee.getUser() != null) {
+            RoleName roleName = RoleName.EMPLOYEE;
+            if (request.getRole().equalsIgnoreCase("HR") || request.getRole().equalsIgnoreCase("HR Manager")) {
+                roleName = RoleName.HR;
+            } else if (request.getRole().equalsIgnoreCase("ADMIN") || request.getRole().equalsIgnoreCase("Admin")) {
+                roleName = RoleName.ADMIN;
+            }
+            Role role = roleRepository.findByName(roleName).orElse(null);
+            if (role != null) {
+                employee.getUser().setRole(role);
+                userRepository.save(employee.getUser());
+            }
+        }
+
         employee.setFirstName(request.getFirstName());
         employee.setLastName(request.getLastName());
         employee.setPhone(request.getPhone());
@@ -155,9 +187,16 @@ public class EmployeeServiceImpl implements EmployeeService {
         if (request.getReferenceDetails() != null) employee.setReferenceDetails(request.getReferenceDetails());
         if (request.getCurrentAddress() != null) employee.setCurrentAddress(request.getCurrentAddress());
         if (request.getPermanentAddress() != null) employee.setPermanentAddress(request.getPermanentAddress());
-        if (request.getMaritalStatus() != null) employee.setMaritalStatus(request.getMaritalStatus());
-        if (request.getMarriageDate() != null) employee.setMarriageDate(request.getMarriageDate());
+        if (request.getMaritalStatus() != null) {
+            employee.setMaritalStatus(request.getMaritalStatus());
+            if (!"Married".equalsIgnoreCase(request.getMaritalStatus())) {
+                employee.setMarriageDate(null);
+            } else if (request.getMarriageDate() != null) {
+                employee.setMarriageDate(request.getMarriageDate());
+            }
+        }
 
+        employee.setUpdatedBy("ADMIN/ HR");
         employeeRepository.save(employee);
 
         return mapToDto(employee);

@@ -1,24 +1,44 @@
 import { HttpInterceptorFn, HttpRequest, HttpHandlerFn, HttpErrorResponse } from '@angular/common/http';
-import { inject } from '@angular/core';
+import { inject, isDevMode } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 import { BehaviorSubject, Observable, throwError } from 'rxjs';
 import { catchError, filter, switchMap, take } from 'rxjs/operators';
+import { RuntimeConfigService } from '../services/runtime-config.service';
 
 let isRefreshing = false;
 let refreshTokenSubject: BehaviorSubject<string | null> = new BehaviorSubject<string | null>(null);
 
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const authService = inject(AuthService);
+  const runtimeConfig = inject(RuntimeConfigService);
   const router = inject(Router);
+
+  // Bypass interceptor for runtime configuration endpoint itself
+  if (req.url.includes('/api/config')) {
+    return next(req);
+  }
+
+  let targetUrl = req.url;
+  if (!isDevMode() && targetUrl.startsWith('/api')) {
+    const backendUrl = runtimeConfig.getBackendUrl();
+    if (backendUrl) {
+      targetUrl = `${backendUrl}${targetUrl}`;
+    }
+  }
 
   const token = localStorage.getItem('access_token');
   let authReq = req;
 
-  // Add Bearer token to /api/ endpoints
-  if (token && req.url.includes('/api/')) {
+  // Add Bearer token to /api/ endpoints and ensure targetUrl is applied
+  if (token && (req.url.includes('/api/') || targetUrl.includes('/api/'))) {
     authReq = req.clone({
+      url: targetUrl,
       headers: req.headers.set('Authorization', `Bearer ${token}`)
+    });
+  } else if (targetUrl !== req.url) {
+    authReq = req.clone({
+      url: targetUrl
     });
   }
 
@@ -26,8 +46,8 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
     catchError((error) => {
       if (error instanceof HttpErrorResponse && error.status === 401) {
         // Exclude auth login and refresh calls from triggering refresh loop
-        if (req.url.includes('/auth/login') || req.url.includes('/auth/refresh')) {
-          if (req.url.includes('/auth/refresh')) {
+        if (targetUrl.includes('/auth/login') || targetUrl.includes('/auth/refresh')) {
+          if (targetUrl.includes('/auth/refresh')) {
             authService.clearLocalSession();
             router.navigate(['/auth/login']);
           }

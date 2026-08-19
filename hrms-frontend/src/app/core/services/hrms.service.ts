@@ -200,7 +200,10 @@ export class HrmsService {
   });
 
   pendingTimesheetsCount = computed(() => this.timesheets().filter(t => t.status === 'Submitted').length);
-  totalEmployeesCount = computed(() => Math.max(this.dashboardSummary().totalEmployees, this.employees().length));
+  totalEmployeesCount = computed(() => {
+    const activeEmployeesCount = this.employees().filter(e => e.status !== 'Terminated').length;
+    return Math.max(this.dashboardSummary().totalEmployees || 0, activeEmployeesCount);
+  });
   onLeaveTodayCount = computed(() => {
     const today = this.getTodayStr();
     const records = this.attendanceRecords();
@@ -507,18 +510,42 @@ export class HrmsService {
     );
   }
 
-  updateEmployee(updated: Employee) {
-    this.http.put<any>(`/api/v1/employees/${updated.id}`, {
-      firstName: updated.name.split(' ')[0],
-      lastName: updated.name.split(' ')[1] || '',
-      phone: updated.phone,
-      department: updated.department,
-      designation: updated.designation
+  updateEmployee(id: string, emp: any): Observable<any> {
+    return this.http.put<any>(`/api/v1/employees/${id}`, {
+      employeeCode: emp.employeeCode,
+      firstName: emp.firstName,
+      lastName: emp.lastName,
+      email: emp.email,
+      phone: emp.phone,
+      department: emp.department,
+      designation: emp.designation,
+      role: emp.role,
+      joiningDate: emp.joiningDate,
+      dateOfBirth: emp.dateOfBirth,
+      address: emp.currentAddress || emp.address,
+      currentAddress: emp.currentAddress,
+      permanentAddress: emp.permanentAddress,
+      maritalStatus: emp.maritalStatus,
+      marriageDate: emp.maritalStatus === 'Married' ? emp.marriageDate : null,
+      isFresher: emp.isFresher,
+      totalExperience: emp.isFresher ? '0' : emp.totalExperience,
+      previousCompany: emp.isFresher ? '' : emp.previousCompany,
+      previousDesignation: emp.isFresher ? '' : emp.previousDesignation,
+      previousSalary: emp.isFresher ? '' : emp.previousSalary,
+      currentSalary: emp.currentSalary,
+      techStack: emp.techStack,
+      education: emp.education,
+      emergencyContact1: emp.emergencyContact1,
+      emergencyContact2: emp.emergencyContact2,
+      photoUrl: emp.photoUrl,
+      hasGap: emp.hasGap,
+      gapReason: emp.hasGap ? emp.gapReason : '',
+      referenceDetails: emp.referenceDetails
     }).pipe(
-      catchError(() => of(null))
-    ).subscribe(() => {
-      this.loadEmployees();
-    });
+      tap(() => {
+        this.loadEmployees();
+      })
+    );
   }
 
   deleteEmployee(id: string): Observable<any> {
@@ -925,12 +952,13 @@ export class HrmsService {
   // Holidays API
   loadHolidays(forceReload = false) {
     if (!forceReload && this.holidays().length > 0) return;
+    const todayStr = new Date().toISOString().split('T')[0];
     this.http.get<any[]>('/api/v1/holidays').pipe(
       catchError(() => of([]))
     ).subscribe(data => {
+      let mapped: Holiday[] = [];
       if (data && data.length > 0) {
-        const todayStr = new Date().toISOString().split('T')[0];
-        const mapped: Holiday[] = data
+        mapped = data
           .map((h, i) => {
             const rawName = h.title || h.name || h.summary || 'Holiday';
             const rawDate = h.date || h.start?.date || (h.start?.dateTime ? h.start.dateTime.split('T')[0] : '2026-09-01');
@@ -957,13 +985,9 @@ export class HrmsService {
               isUpcoming: isUpcoming
             };
           })
-          .filter(h => h.date >= todayStr)
           .sort((a, b) => a.date.localeCompare(b.date));
-
-        this.holidays.set(mapped);
-      } else {
-        this.holidays.set([]);
       }
+      this.holidays.set(mapped);
     });
   }
 

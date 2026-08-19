@@ -442,3 +442,13 @@
     transform: rotate(360deg);
   }
 }
+
+.btn-warning {
+  background-color: #f59e0b !important;
+  color: #ffffff !important;
+  border: none !important;
+}
+
+.btn-warning:hover {
+  background-color: #d97706 !important;
+}

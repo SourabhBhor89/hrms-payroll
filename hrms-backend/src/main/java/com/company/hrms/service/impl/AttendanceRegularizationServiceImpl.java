@@ -113,6 +113,17 @@ public class AttendanceRegularizationServiceImpl implements AttendanceRegulariza
             }
         }
 
+        if (request.getRequestedClockIn() != null && request.getRequestedClockOut() != null) {
+            if (!request.getRequestedClockOut().isAfter(request.getRequestedClockIn())) {
+                throw new IllegalArgumentException("Requested Clock Out time must be after Clock In time.");
+            }
+            long durationMinutes = java.time.Duration.between(request.getRequestedClockIn(), request.getRequestedClockOut()).toMinutes();
+            if (durationMinutes > 9 * 60) {
+                double requestedHours = Math.round((durationMinutes / 60.0) * 10.0) / 10.0;
+                throw new IllegalArgumentException("Regularization duration cannot exceed 9 hours. (Requested duration: " + requestedHours + " hours).");
+            }
+        }
+
         double requestedHours = calculationService.calculateWorkingHours(request.getRequestedClockIn(), request.getRequestedClockOut());
 
         AttendanceRegularization reg = new AttendanceRegularization();
