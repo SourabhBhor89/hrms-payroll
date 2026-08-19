@@ -185,9 +185,9 @@ public class PermissionServiceImpl implements PermissionService {
             throw new AccessDeniedException("ADMIN permissions cannot be modified via permission management APIs");
         }
 
-        if (actorRole == RoleName.HR) {
-            if (targetRole == RoleName.HR || targetRole == RoleName.ADMIN) {
-                throw new AccessDeniedException("HR users can only manage EMPLOYEE permissions, not HR or ADMIN permissions");
+        if (actorRole == RoleName.HR || actorRole == RoleName.MANAGER) {
+            if (targetRole == RoleName.HR || targetRole == RoleName.MANAGER || targetRole == RoleName.ADMIN) {
+                throw new AccessDeniedException("HR and MANAGER users can only manage EMPLOYEE and COORDINATOR permissions, not HR, MANAGER, or ADMIN permissions");
             }
         }
     }

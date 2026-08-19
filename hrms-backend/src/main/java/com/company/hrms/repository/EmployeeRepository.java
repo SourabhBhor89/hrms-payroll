@@ -1,6 +1,8 @@
 package com.company.hrms.repository;
 
 import com.company.hrms.entity.Employee;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
@@ -14,4 +16,6 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
     boolean existsByEmployeeCode(String employeeCode);
 
     long countByActiveTrue();
+
+    Page<Employee> findAllByOrderByActiveDesc(Pageable pageable);
 }

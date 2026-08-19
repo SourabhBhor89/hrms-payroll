@@ -9,6 +9,7 @@ import { AttendanceComponent } from './pages/attendance/attendance.component';
 import { LeavesComponent } from './pages/leaves/leaves.component';
 import { HolidaysComponent } from './pages/holidays/holidays.component';
 import { TimesheetsComponent } from './pages/timesheets/timesheets.component';
+import { ProfileChangesComponent } from './pages/profile-changes/profile-changes.component';
 import { authGuard } from './core/guards/auth.guard';
 
 export const routes: Routes = [
@@ -29,7 +30,8 @@ export const routes: Routes = [
       { path: 'attendance', component: AttendanceComponent },
       { path: 'leaves', component: LeavesComponent },
       { path: 'holidays', component: HolidaysComponent },
-      { path: 'timesheets', component: TimesheetsComponent }
+      { path: 'timesheets', component: TimesheetsComponent },
+      { path: 'profile-changes', component: ProfileChangesComponent } // Keep route for dashboard access
     ]
   },
 

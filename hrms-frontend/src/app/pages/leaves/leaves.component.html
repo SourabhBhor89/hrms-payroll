@@ -60,8 +60,8 @@
           </span>
         </button>
       </div>
-      <h3 *ngIf="isAdmin()">Approvals Pending</h3>
       <h3 *ngIf="!canApprove()">My Leave Applications</h3>
+      <h3 *ngIf="isAdmin()">Approvals Pending</h3>
 
       <div class="filter-pills">
         <button class="pill-btn" [class.active]="filterStatus === 'All'" (click)="filterStatus = 'All'">All</button>
@@ -81,6 +81,7 @@
           <th>Duration</th>
           <th>Reason</th>
           <th>Applied On</th>
+          <th *ngIf="activeTab === 'pending_approvals' || isAdmin()">Reviewed By</th>
           <th>Status</th>
           <th>Actions</th>
         </tr>
@@ -109,6 +110,11 @@
             </div>
           </td>
           <td>{{ req.appliedOn || 'N/A' }}</td>
+          <td *ngIf="activeTab === 'pending_approvals' || isAdmin()">
+            <span *ngIf="req.approvedByName">{{ req.approvedByName }}</span>
+            <span *ngIf="!req.approvedByName && (req.status === 'PENDING' || req.status === 'Pending')" class="text-muted">-</span>
+            <span *ngIf="!req.approvedByName && req.status !== 'PENDING' && req.status !== 'Pending'" class="text-muted">Unknown</span>
+          </td>
           <td>
             <span class="badge" [ngClass]="getStatusBadgeClass(req.status)">
               {{ getStatusDisplay(req.status) }}
@@ -118,8 +124,8 @@
             <!-- Approval Actions for Managers -->
             <div class="action-buttons" *ngIf="activeTab === 'pending_approvals'">
               <ng-container *ngIf="req.status === 'PENDING' || req.status === 'Pending'">
-                <button class="btn btn-success btn-sm" (click)="approve(req.id)">Approve</button>
-                <button class="btn btn-danger btn-sm" (click)="promptReject(req.id)">Reject</button>
+                <button class="btn btn-success btn-sm" (click)="approve(req.id)" [disabled]="isReadOnly()">Approve</button>
+                <button class="btn btn-danger btn-sm" (click)="promptReject(req.id)" [disabled]="isReadOnly()">Reject</button>
               </ng-container>
               <span *ngIf="req.status !== 'PENDING' && req.status !== 'Pending'" class="action-done">
                 {{ getStatusDisplay(req.status) }}
@@ -139,7 +145,7 @@
           </td>
         </tr>
         <tr *ngIf="filteredRequests().length === 0">
-          <td colspan="8" class="text-center py-4 text-muted">
+          <td [attr.colspan]="(activeTab === 'pending_approvals' || isAdmin()) ? 9 : 8" class="text-center py-4 text-muted">
             No leave requests found for selected filter.
           </td>
         </tr>

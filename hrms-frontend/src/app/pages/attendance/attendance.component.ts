@@ -42,7 +42,7 @@ export class AttendanceComponent implements OnInit {
     this.hrms.loadTodayAttendance();
     this.hrms.loadAttendance();
     this.hrms.loadRegularizations();
-    if (this.auth.currentRole() === 'Admin' || this.auth.currentRole() === 'HR Manager') {
+    if (this.auth.currentRole() === 'Admin' || this.auth.currentRole() === 'HR Manager' || this.auth.currentRole() === 'Manager') {
       this.hrms.loadDashboardSummary();
     }
     this.hrms.loadLeaves();
@@ -548,7 +548,27 @@ export class AttendanceComponent implements OnInit {
   }
 
   canApproveRequests(): boolean {
-    return this.auth.hasPermission('ATTENDANCE_REGULARIZATION_APPROVE') || this.auth.hasPermission('ATTENDANCE_UPDATE') || this.auth.currentRole() === 'Admin' || this.auth.currentRole() === 'HR Manager';
+    const isCoordinator = this.auth.currentRole() === 'Coordinator';
+    const hasReadOnly = this.auth.hasPermission('ATTENDANCE_READ_ONLY');
+    
+    // Coordinators with read-only permission cannot approve requests
+    if (isCoordinator && hasReadOnly) return false;
+    
+    // Admins, HR Managers, and Managers can approve requests
+    if (this.auth.currentRole() === 'Admin' || 
+        this.auth.currentRole() === 'HR Manager' || 
+        this.auth.currentRole() === 'Manager') {
+      return true;
+    }
+    
+    // Users with specific permissions can approve requests
+    return this.auth.hasPermission('ATTENDANCE_REGULARIZATION_APPROVE') || 
+           this.auth.hasPermission('ATTENDANCE_REGULARIZATION_VIEW_ALL') || 
+           this.auth.hasPermission('ATTENDANCE_UPDATE');
+  }
+
+  isReadOnly(): boolean {
+    return this.auth.hasPermission('ATTENDANCE_READ_ONLY');
   }
 
   // Filters for Admin / HR Panel
@@ -664,15 +684,15 @@ export class AttendanceComponent implements OnInit {
     if (!user) return [];
 
     if (isEmployeeView) {
-      return all;
+      return all.filter(r =>
+        r.employeeId === user.id ||
+        r.employeeCode === user.employeeId ||
+        r.employeeId === user.employeeId ||
+        (r.employeeName && user.name && r.employeeName.toLowerCase().includes(user.name.toLowerCase()))
+      );
     }
 
-    return all.filter(r =>
-      r.employeeId === user.id ||
-      r.employeeCode === user.employeeId ||
-      r.employeeId === user.employeeId ||
-      (r.employeeName && user.name && r.employeeName.toLowerCase().includes(user.name.toLowerCase()))
-    );
+    return all;
   });
 
   pendingApprovals = computed(() => {
@@ -853,7 +873,7 @@ export class AttendanceComponent implements OnInit {
   statDetailTitle = signal<string>('');
 
   openStatDetailModal(category: 'PRESENT' | 'WFH' | 'LEAVE') {
-    if (this.auth.currentRole() !== 'Admin' && this.auth.currentRole() !== 'HR Manager') {
+    if (this.auth.currentRole() !== 'Admin' && this.auth.currentRole() !== 'HR Manager' && this.auth.currentRole() !== 'Manager') {
       return;
     }
     this.statDetailCategory.set(category);

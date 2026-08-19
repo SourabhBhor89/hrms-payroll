@@ -1,4 +1,4 @@
-export type UserRole = 'Admin' | 'HR Manager' | 'Team Lead' | 'Employee';
+export type UserRole = 'Admin' | 'HR Manager' | 'Team Lead' | 'Employee' | 'Manager' | 'Coordinator';
 
 export interface User {
   id: string;
@@ -37,6 +37,10 @@ export interface Employee {
   currentSalary?: string;
   techStack?: string;
   education?: string;
+  tenthQualification?: string;
+  twelfthQualification?: string;
+  bachelorQualification?: string;
+  highestQualification?: string;
   emergencyContact1?: string;
   emergencyContact2?: string;
   photoUrl?: string;

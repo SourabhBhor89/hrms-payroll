@@ -87,13 +87,26 @@ export class LeavesComponent implements OnInit {
     if (this.canApprove()) {
       this.hrms.loadPendingLeaveApprovals();
     }
-    if (this.auth.currentRole() === 'Admin') {
+    // Admin users always see pending_approvals tab
+    if (this.isAdmin()) {
       this.activeTab = 'pending_approvals';
     }
+    
+    // Debug: log leave requests after loading
+    setTimeout(() => {
+      console.log('Leave requests after load:', this.hrms.leaveRequests());
+      console.log('Current user:', this.auth.currentUser());
+      console.log('Active tab:', this.activeTab);
+      console.log('Filtered requests:', this.filteredRequests());
+    }, 1000);
   }
 
   canApprove(): boolean {
-    return this.auth.hasPermission('LEAVE_APPROVE');
+    return this.auth.hasPermission('LEAVE_APPROVE') || this.auth.hasPermission('LEAVE_VIEW_ALL');
+  }
+
+  isReadOnly(): boolean {
+    return this.auth.hasPermission('LEAVE_READ_ONLY') && !this.isAdmin();
   }
 
   isAdmin(): boolean {
@@ -131,24 +144,60 @@ export class LeavesComponent implements OnInit {
   }
 
   filteredRequests(): LeaveRequest[] {
-    const isAdminOrHr = this.auth.currentRole() === 'Admin' || this.auth.currentRole() === 'HR Manager';
+    const isAdminOrHr = this.auth.currentRole() === 'Admin' || this.auth.currentRole() === 'HR Manager' || this.auth.currentRole() === 'Manager' || this.auth.currentRole() === 'Coordinator';
 
     let sourceList: LeaveRequest[] = [];
 
-    if (this.activeTab === 'pending_approvals') {
+    // For admin users, show all leave requests (approvals pending view)
+    if (this.isAdmin()) {
       sourceList = [...this.hrms.leaveRequests()];
-      if (sourceList.length === 0) {
+    } else if (this.activeTab === 'pending_approvals') {
+      // For coordinators, show all leaves (not just pending) like HR/Admin/Manager
+      if (isAdminOrHr) {
+        sourceList = [...this.hrms.leaveRequests()];
+      } else {
         sourceList = [...this.hrms.pendingLeaveApprovals()];
       }
     } else {
-      if (isAdminOrHr) {
-        const currentUserEmail = this.auth.currentUser()?.email;
-        sourceList = this.hrms.leaveRequests().filter(r =>
-          currentUserEmail && (r.employeeCode === currentUserEmail || r.employeeName === this.auth.currentUser()?.name)
-        );
-      } else {
-        sourceList = [...this.hrms.leaveRequests()];
-      }
+      const currentUserEmail = this.auth.currentUser()?.email;
+      const currentUserName = this.auth.currentUser()?.name?.trim();
+      
+      console.log('Filtering for current user:', { currentUserEmail, currentUserName });
+      console.log('Available leave requests:', this.hrms.leaveRequests());
+      
+      // Get current user's employee record for better matching
+      const currentUserEmployee = this.hrms.employees().find(e => 
+        e.email === currentUserEmail || e.name === currentUserName
+      );
+      
+      sourceList = this.hrms.leaveRequests().filter(r => {
+        const requestName = r.employeeName?.trim() || '';
+        const requestCode = r.employeeCode?.trim() || '';
+        
+        // Match by employee ID if we have the current user's employee record
+        const idMatch = currentUserEmployee && r.employeeId && String(r.employeeId) === currentUserEmployee.id;
+        
+        // Match by email (employeeCode might contain email in some systems)
+        const emailMatch = currentUserEmail && requestCode === currentUserEmail;
+        
+        // Match by name (with trimming and case-insensitive comparison)
+        const nameMatch = currentUserName && requestName.toLowerCase() === currentUserName.toLowerCase();
+        
+        // Match by employee code if we have the current user's employee record
+        const codeMatch = currentUserEmployee && requestCode === currentUserEmployee.employeeId;
+        
+        console.log('Request filtering check:', { 
+          request: r.employeeName, 
+          requestCode,
+          idMatch, 
+          emailMatch, 
+          nameMatch,
+          codeMatch,
+          currentUserEmployeeId: currentUserEmployee?.id
+        });
+        
+        return idMatch || emailMatch || nameMatch || codeMatch;
+      });
     }
 
     let result = sourceList;

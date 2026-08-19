@@ -99,6 +99,14 @@
 .action-buttons { display: flex; gap: 0.5rem; }
 .action-done { font-size: 0.75rem; color: var(--text-muted); font-style: italic; }
 
+.action-buttons button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: #6b7280;
+  border-color: #6b7280;
+  color: #9ca3af;
+}
+
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem; }
 

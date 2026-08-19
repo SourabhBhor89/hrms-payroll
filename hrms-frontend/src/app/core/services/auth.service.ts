@@ -32,7 +32,9 @@ export class AuthService {
     const r = (this.currentUser()?.role || '') as string;
     if (r === 'ADMIN' || r === 'Admin') return 'Admin';
     if (r === 'HR' || r === 'HR Manager') return 'HR Manager';
+    if (r === 'MANAGER' || r === 'Manager') return 'Manager';
     if (r === 'TEAM_LEAD' || r === 'Team Lead') return 'Team Lead';
+    if (r === 'COORDINATOR' || r === 'Coordinator') return 'Coordinator';
     return 'Employee';
   });
 
@@ -204,7 +206,9 @@ export class AuthService {
     const r = roleStr.toUpperCase();
     if (r === 'ADMIN') return 'Admin';
     if (r === 'HR') return 'HR Manager';
+    if (r === 'MANAGER') return 'Manager';
     if (r === 'TEAM_LEAD') return 'Team Lead';
+    if (r === 'COORDINATOR') return 'Coordinator';
     return 'Employee';
   }
 

@@ -15,11 +15,11 @@ import com.company.hrms.constants.CacheNames;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -32,11 +32,9 @@ public class EmployeeServiceImpl implements EmployeeService {
 
     @Override
     @Transactional(readOnly = true)
-    @Cacheable(value = CacheNames.EMPLOYEES, key = "'all'")
-    public List<EmployeeDto> getAllEmployees() {
-        return employeeRepository.findAll().stream()
-                .map(this::mapToDto)
-                .toList();
+    public Page<EmployeeDto> getAllEmployees(Pageable pageable) {
+        Page<Employee> employees = employeeRepository.findAllByOrderByActiveDesc(pageable);
+        return employees.map(this::mapToDto);
     }
 
     @Override
@@ -99,6 +97,10 @@ public class EmployeeServiceImpl implements EmployeeService {
         employee.setCurrentSalary(request.getCurrentSalary());
         employee.setTechStack(request.getTechStack());
         employee.setEducation(request.getEducation());
+        employee.setTenthQualification(request.getTenthQualification());
+        employee.setTwelfthQualification(request.getTwelfthQualification());
+        employee.setBachelorQualification(request.getBachelorQualification());
+        employee.setHighestQualification(request.getHighestQualification());
         employee.setEmergencyContact1(request.getEmergencyContact1());
         employee.setEmergencyContact2(request.getEmergencyContact2());
         employee.setPhotoUrl(request.getPhotoUrl());
@@ -179,6 +181,10 @@ public class EmployeeServiceImpl implements EmployeeService {
         if (request.getCurrentSalary() != null) employee.setCurrentSalary(request.getCurrentSalary());
         if (request.getTechStack() != null) employee.setTechStack(request.getTechStack());
         if (request.getEducation() != null) employee.setEducation(request.getEducation());
+        if (request.getTenthQualification() != null) employee.setTenthQualification(request.getTenthQualification());
+        if (request.getTwelfthQualification() != null) employee.setTwelfthQualification(request.getTwelfthQualification());
+        if (request.getBachelorQualification() != null) employee.setBachelorQualification(request.getBachelorQualification());
+        if (request.getHighestQualification() != null) employee.setHighestQualification(request.getHighestQualification());
         if (request.getEmergencyContact1() != null) employee.setEmergencyContact1(request.getEmergencyContact1());
         if (request.getEmergencyContact2() != null) employee.setEmergencyContact2(request.getEmergencyContact2());
         if (request.getPhotoUrl() != null) employee.setPhotoUrl(request.getPhotoUrl());
@@ -240,6 +246,10 @@ public class EmployeeServiceImpl implements EmployeeService {
                 .currentSalary(emp.getCurrentSalary())
                 .techStack(emp.getTechStack())
                 .education(emp.getEducation())
+                .tenthQualification(emp.getTenthQualification())
+                .twelfthQualification(emp.getTwelfthQualification())
+                .bachelorQualification(emp.getBachelorQualification())
+                .highestQualification(emp.getHighestQualification())
                 .emergencyContact1(emp.getEmergencyContact1())
                 .emergencyContact2(emp.getEmergencyContact2())
                 .photoUrl(emp.getPhotoUrl())

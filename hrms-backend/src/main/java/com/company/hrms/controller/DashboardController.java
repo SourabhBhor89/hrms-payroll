@@ -29,7 +29,7 @@ public class DashboardController {
     private final LeaveRepository leaveRepository;
 
     @GetMapping("/summary")
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ADMIN', 'ROLE_HR', 'HR', 'EMPLOYEE_MANAGEMENT_VIEW')")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ADMIN', 'ROLE_HR', 'HR', 'ROLE_MANAGER', 'MANAGER', 'EMPLOYEE_MANAGEMENT_VIEW')")
     public ResponseEntity<DashboardSummaryDto> getSummary() {
         long totalEmp = employeeRepository.countByActiveTrue();
 

@@ -79,6 +79,18 @@ public class Employee extends BaseEntity {
     @Column(length = 255)
     private String education;
 
+    @Column(name = "tenth_qualification", length = 255)
+    private String tenthQualification;
+
+    @Column(name = "twelfth_qualification", length = 255)
+    private String twelfthQualification;
+
+    @Column(name = "bachelor_qualification", length = 255)
+    private String bachelorQualification;
+
+    @Column(name = "highest_qualification", length = 255)
+    private String highestQualification;
+
     @Column(name = "emergency_contact_1", length = 100)
     private String emergencyContact1;
 

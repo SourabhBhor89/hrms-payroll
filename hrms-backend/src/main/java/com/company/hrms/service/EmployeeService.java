@@ -2,12 +2,14 @@ package com.company.hrms.service;
 
 import com.company.hrms.dto.request.CreateEmployeeRequest;
 import com.company.hrms.dto.response.EmployeeDto;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 
 public interface EmployeeService {
 
-    List<EmployeeDto> getAllEmployees();
+    Page<EmployeeDto> getAllEmployees(Pageable pageable);
 
     EmployeeDto getEmployeeById(Long id);
 

@@ -3,6 +3,8 @@ package com.company.hrms.repository;
 import com.company.hrms.entity.Employee;
 import com.company.hrms.entity.Leave;
 import com.company.hrms.entity.LeaveType;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -17,7 +19,11 @@ public interface LeaveRepository extends JpaRepository<Leave, Long> {
 
     List<Leave> findByEmployeeId(Long employeeId);
 
+    Page<Leave> findByEmployeeId(Long employeeId, Pageable pageable);
+
     List<Leave> findByEmployeeIdAndStatus(Long employeeId, Leave.LeaveStatus status);
+
+    Page<Leave> findByEmployeeIdAndStatus(Long employeeId, Leave.LeaveStatus status, Pageable pageable);
 
     long countByStatus(Leave.LeaveStatus status);
 
@@ -34,6 +40,9 @@ public interface LeaveRepository extends JpaRepository<Leave, Long> {
 
     @Query("SELECT l FROM Leave l WHERE l.status IN :statuses")
     List<Leave> findByStatusIn(@Param("statuses") List<Leave.LeaveStatus> statuses);
+
+    @Query("SELECT l FROM Leave l WHERE l.status IN :statuses")
+    Page<Leave> findByStatusIn(@Param("statuses") List<Leave.LeaveStatus> statuses, Pageable pageable);
 
     List<Leave> findByApprovedById(Long approvedById);
 

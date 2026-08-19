@@ -23,6 +23,7 @@ import com.company.hrms.constants.CacheNames;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -450,6 +451,8 @@ public class LeaveServiceImpl implements LeaveService {
         } else {
             leave.setStatus(Leave.LeaveStatus.REJECTED);
             leave.setRejectionReason(request.getRejectionReason());
+            leave.setApprovedBy(approver);
+            leave.setApprovedAt(LocalDateTime.now());
 
             // Restore pending days (only for limited leave types)
             if (leave.getLeaveType().getDefaultDaysPerYear() > 0) {
@@ -469,6 +472,16 @@ public class LeaveServiceImpl implements LeaveService {
         List<Leave.LeaveStatus> statuses = List.of(Leave.LeaveStatus.PENDING);
         List<Leave> leaves = leaveRepository.findByStatusIn(statuses);
         return leaves.stream().map(this::mapToLeaveResponse).collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<LeaveResponse> getPendingApprovals(Long approverId, Pageable pageable) {
+        List<Leave.LeaveStatus> statuses = List.of(Leave.LeaveStatus.PENDING);
+        return leaveRepository.findByStatusIn(statuses, pageable)
+                .stream()
+                .map(this::mapToLeaveResponse)
+                .collect(Collectors.toList());
     }
 
     @Override

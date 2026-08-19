@@ -97,6 +97,16 @@ export class HrmsService {
   holidays = signal<Holiday[]>([]);
   timesheets = signal<Timesheet[]>([]);
   regularizationRequests = signal<RegularizationRequest[]>([]);
+  profileChangeRequests = signal<any[]>([]);
+  pendingProfileChangeRequests = signal<any[]>([]);
+  
+  // Pagination state
+  employeePagination = signal<{ totalElements: number; totalPages: number; currentPage: number; pageSize: number }>({
+    totalElements: 0,
+    totalPages: 0,
+    currentPage: 0,
+    pageSize: 10
+  });
   dashboardSummary = signal<DashboardSummary>({
     totalEmployees: 0,
     presentToday: 0,
@@ -292,7 +302,7 @@ export class HrmsService {
   refreshAllData() {
     this.loadDashboardSummary();
     if (this.isAdminOrHrUser()) {
-      this.loadEmployees();
+      this.loadEmployees(0, 10, 'id', 'asc');
     }
     this.loadTodayAttendance();
     this.loadAttendance();
@@ -301,6 +311,10 @@ export class HrmsService {
     this.loadPendingLeaveApprovals();
     this.loadHolidays();
     this.loadRegularizations();
+    this.loadMyProfileChangeRequests();
+    if (this.isAdminOrHrUser()) {
+      this.loadPendingProfileChangeRequests();
+    }
   }
 
   clearState() {
@@ -390,7 +404,7 @@ export class HrmsService {
     try {
       const user = JSON.parse(raw);
       const role = user?.role;
-      return role === 'Admin' || role === 'ADMIN' || role === 'HR Manager' || role === 'HR';
+      return role === 'Admin' || role === 'ADMIN' || role === 'HR Manager' || role === 'HR' || role === 'Manager' || role === 'MANAGER';
     } catch {
       return false;
     }
@@ -423,21 +437,24 @@ export class HrmsService {
   }
 
   // Employees API
-  loadEmployees() {
+  loadEmployees(page: number = 0, size: number = 10, sortBy: string = 'id', sortDir: string = 'asc') {
     this.isLoading.set(true);
-    this.http.get<any[]>('/api/v1/employees').pipe(
-      catchError(() => of([]))
+    const params = { page, size, sortBy, sortDir };
+    
+    this.http.get<any>('/api/v1/employees', { params }).pipe(
+      catchError(() => of({ content: [], totalElements: 0, totalPages: 0, number: 0, size: 10 }))
     ).subscribe(data => {
       this.isLoading.set(false);
-      const mapped: Employee[] = data.map((e, idx) => ({
+      const content = data.content || [];
+      const mapped: Employee[] = content.map((e: any, idx: number) => ({
         id: String(e.id || idx + 1),
         userId: e.userId ? String(e.userId) : undefined,
         employeeId: e.employeeCode || `EMP-00${e.id || idx + 1}`,
         name: `${e.firstName || ''} ${e.lastName || ''}`.trim() || e.email?.split('@')[0] || 'Employee',
         email: e.email || '',
         phone: e.phone || '+1 (555) 000-0000',
-        role: e.role === 'ADMIN' ? 'Admin' : (e.role === 'HR' ? 'HR Manager' : 'Employee'),
-        department: e.department || (e.role === 'HR' ? 'Human Resources' : 'Engineering'),
+        role: e.role === 'ADMIN' ? 'Admin' : (e.role === 'HR' ? 'HR Manager' : (e.role === 'MANAGER' ? 'Manager' : (e.role === 'COORDINATOR' ? 'Coordinator' : 'Employee'))),
+        department: e.department || (e.role === 'HR' ? 'Human Resources' : (e.role === 'MANAGER' ? 'Management' : 'Engineering')),
         designation: e.designation || (e.role === 'ADMIN' ? 'Administrator' : 'Software Engineer'),
         joinDate: e.joiningDate || '2023-01-15',
         dateOfBirth: e.dateOfBirth,
@@ -454,6 +471,10 @@ export class HrmsService {
         currentSalary: e.currentSalary,
         techStack: e.techStack,
         education: e.education,
+        tenthQualification: e.tenthQualification,
+        twelfthQualification: e.twelfthQualification,
+        bachelorQualification: e.bachelorQualification,
+        highestQualification: e.highestQualification,
         emergencyContact1: e.emergencyContact1,
         emergencyContact2: e.emergencyContact2,
         photoUrl: e.photoUrl,
@@ -468,6 +489,12 @@ export class HrmsService {
       }));
 
       this.employees.set(mapped);
+      this.employeePagination.set({
+        totalElements: data.totalElements || 0,
+        totalPages: data.totalPages || 0,
+        currentPage: data.number || 0,
+        pageSize: data.size || 10
+      });
     });
   }
 
@@ -505,7 +532,7 @@ export class HrmsService {
       referenceDetails: newEmp.referenceDetails
     }).pipe(
       tap(() => {
-        this.loadEmployees();
+        this.loadEmployees(0, 10, 'id', 'asc');
       })
     );
   }
@@ -543,7 +570,7 @@ export class HrmsService {
       referenceDetails: emp.referenceDetails
     }).pipe(
       tap(() => {
-        this.loadEmployees();
+        this.loadEmployees(0, 10, 'id', 'asc');
       })
     );
   }
@@ -551,7 +578,7 @@ export class HrmsService {
   deleteEmployee(id: string): Observable<any> {
     return this.http.delete(`/api/v1/employees/${id}`).pipe(
       tap(() => {
-        this.loadEmployees();
+        this.loadEmployees(0, 10, 'id', 'asc');
       })
     );
   }
@@ -765,9 +792,11 @@ export class HrmsService {
     this.http.get<any>('/api/v1/leaves', { params }).pipe(
       catchError(() => of(null))
     ).subscribe(res => {
-      if (res && res.leaves) {
-        if (res.leaveBalances) {
-          // Convert BigDecimal values to numbers for proper display
+      console.log('Leave API Response:', res);
+      
+      if (res) {
+        // Process leave balances
+        if (res.leaveBalances && Array.isArray(res.leaveBalances)) {
           const mappedBalances: EmployeeLeaveBalanceDetail[] = res.leaveBalances.map((b: any) => ({
             leaveTypeId: b.leaveTypeId,
             leaveTypeCode: b.leaveTypeCode,
@@ -787,31 +816,42 @@ export class HrmsService {
             this.initializeLeaveBalances();
           }
         }
-        const mapped: LeaveRequest[] = res.leaves.map((l: any, idx: number) => ({
-          id: l.id || idx + 1,
-          employeeId: l.employeeId,
-          employeeName: l.employeeName || res.employeeName || 'Employee',
-          employeeCode: l.employeeCode || res.employeeCode || '',
-          employeeAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-          department: res.department || 'Engineering',
-          leaveTypeId: l.leaveTypeId,
-          leaveType: l.leaveTypeName || 'Leave',
-          leaveTypeName: l.leaveTypeName,
-          leaveTypeCode: l.leaveTypeCode,
-          startDate: l.startDate,
-          endDate: l.endDate,
-          totalDays: l.totalDays || 1,
-          reason: l.reason || '',
-          status: l.status || 'PENDING',
-          approvedBy: l.approvedBy,
-          approvedByName: l.approvedByName,
-          approvedAt: l.approvedAt,
-          rejectionReason: l.rejectionReason,
-          appliedOn: l.createdAt ? String(l.createdAt).split('T')[0] : '',
-          createdAt: l.createdAt,
-          updatedAt: l.updatedAt
-        }));
-        this.leaveRequests.set(mapped);
+        
+        // Process leave requests
+        if (res.leaves && Array.isArray(res.leaves)) {
+          const mapped: LeaveRequest[] = res.leaves.map((l: any, idx: number) => ({
+            id: l.id || idx + 1,
+            employeeId: l.employeeId,
+            employeeName: (l.employeeName || res.employeeName || 'Employee').trim(),
+            employeeCode: l.employeeCode || res.employeeCode || '',
+            employeeAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+            department: res.department || 'Engineering',
+            leaveTypeId: l.leaveTypeId,
+            leaveType: l.leaveTypeName || 'Leave',
+            leaveTypeName: l.leaveTypeName,
+            leaveTypeCode: l.leaveTypeCode,
+            startDate: l.startDate,
+            endDate: l.endDate,
+            totalDays: l.totalDays || 1,
+            reason: l.reason || '',
+            status: l.status || 'PENDING',
+            approvedBy: l.approvedBy,
+            approvedByName: l.approvedByName,
+            approvedAt: l.approvedAt,
+            rejectionReason: l.rejectionReason,
+            appliedOn: l.createdAt ? String(l.createdAt).split('T')[0] : '',
+            createdAt: l.createdAt,
+            updatedAt: l.updatedAt
+          }));
+          this.leaveRequests.set(mapped);
+          console.log('Processed leave requests:', mapped);
+        } else {
+          console.log('No leaves array in response');
+          this.leaveRequests.set([]);
+        }
+      } else {
+        console.log('Response is null or undefined');
+        this.leaveRequests.set([]);
       }
     });
   }
@@ -838,6 +878,57 @@ export class HrmsService {
     }
     return 0;
   }
+
+  // Profile Change Request API
+  createProfileChangeRequest(request: { fieldType: string; newValue: string; reason: string }): Observable<any> {
+    return this.http.post<any>('/api/v1/profile-changes', request).pipe(
+      tap(() => {
+        this.loadMyProfileChangeRequests();
+      })
+    );
+  }
+
+  loadMyProfileChangeRequests() {
+    this.http.get<any[]>('/api/v1/profile-changes/my-requests').pipe(
+      catchError(() => of([]))
+    ).subscribe(data => {
+      this.profileChangeRequests.set(data || []);
+    });
+  }
+
+  loadPendingProfileChangeRequests() {
+    this.http.get<any>('/api/v1/profile-changes/pending', { params: { page: 0, size: 10 } }).pipe(
+      catchError(() => of({ content: [] }))
+    ).subscribe(data => {
+      this.pendingProfileChangeRequests.set(data?.content || []);
+    });
+  }
+
+  approveProfileChangeRequest(id: number, remarks?: string): Observable<any> {
+    return this.http.post<any>(`/api/v1/profile-changes/${id}/approve`, remarks).pipe(
+      tap(() => {
+        this.loadPendingProfileChangeRequests();
+      })
+    );
+  }
+
+  rejectProfileChangeRequest(id: number, remarks?: string): Observable<any> {
+    return this.http.post<any>(`/api/v1/profile-changes/${id}/reject`, remarks).pipe(
+      tap(() => {
+        this.loadPendingProfileChangeRequests();
+      })
+    );
+  }
+
+  cancelProfileChangeRequest(id: number): Observable<any> {
+    return this.http.post<any>(`/api/v1/profile-changes/${id}/cancel`, {}).pipe(
+      tap(() => {
+        this.loadMyProfileChangeRequests();
+      })
+    );
+  }
+
+  pendingProfileChangeRequestsCount = computed(() => this.pendingProfileChangeRequests().length);
 
   loadPendingLeaveApprovals() {
     this.http.get<any[]>('/api/v1/leaves/approvals/pending').pipe(

@@ -30,6 +30,9 @@ export class TopbarComponent {
 
   profileForm = {
     phone: '',
+    address: '',
+    currentAddress: '',
+    permanentAddress: '',
     avatar: ''
   };
 
@@ -115,9 +118,13 @@ export class TopbarComponent {
   openProfileModal() {
     this.hrms.loadEmployees();
     const user = this.auth.currentUser();
+    const employee = this.currentEmployee();
     this.profileForm = {
-      phone: user?.phone || '+91 9876543210',
-      avatar: user?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'
+      phone: user?.phone || employee?.phone || '+91 9876543210',
+      address: employee?.address || '',
+      currentAddress: employee?.currentAddress || employee?.address || '',
+      permanentAddress: employee?.permanentAddress || employee?.address || '',
+      avatar: user?.avatar || employee?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'
     };
     this.activeProfileTab.set('details');
     this.showProfileModal.set(true);
@@ -137,24 +144,86 @@ export class TopbarComponent {
   }
 
   submitProfileUpdate() {
-    if (!this.profileForm.phone) {
+    // Validate reason is provided
+    if (!this.profileForm.address || !this.profileForm.address.trim()) {
+      this.showPopup('Please provide a reason for the change.', 'error');
+      return;
+    }
+    
+    // Check if any fields have changed
+    const employee = this.currentEmployee();
+    const phoneChanged = this.profileForm.phone !== (employee?.phone || '');
+    const currentAddressChanged = this.profileForm.currentAddress !== (employee?.currentAddress || employee?.address || '');
+    const permanentAddressChanged = this.profileForm.permanentAddress !== (employee?.permanentAddress || employee?.address || '');
+    
+    // Validate that at least one field has changed
+    if (!phoneChanged && !currentAddressChanged && !permanentAddressChanged) {
+      this.showPopup('Please make at least one change to submit a profile update request.', 'error');
+      return;
+    }
+    
+    // Validate phone number if it's being changed
+    if (phoneChanged && !this.profileForm.phone.trim()) {
       this.showPopup('Phone number cannot be empty.', 'error');
       return;
     }
+    
     this.isUpdatingProfile.set(true);
-    this.auth.updateProfile({
-      phone: this.profileForm.phone,
-      avatar: this.profileForm.avatar
-    }).subscribe({
-      next: () => {
-        this.isUpdatingProfile.set(false);
-        this.showPopup('Profile details updated successfully!', 'success');
-      },
-      error: () => {
-        // Fallback for local update
-        this.isUpdatingProfile.set(false);
-        this.showPopup('Profile details updated successfully!', 'success');
-      }
+    
+    // Create change requests for each changed field
+    const requests = [];
+    const reason = this.profileForm.address;
+    
+    if (phoneChanged) {
+      requests.push({
+        fieldType: 'PHONE',
+        newValue: this.profileForm.phone,
+        reason: reason
+      });
+    }
+    
+    if (currentAddressChanged) {
+      requests.push({
+        fieldType: 'CURRENT_ADDRESS',
+        newValue: this.profileForm.currentAddress,
+        reason: reason
+      });
+    }
+    
+    if (permanentAddressChanged) {
+      requests.push({
+        fieldType: 'PERMANENT_ADDRESS',
+        newValue: this.profileForm.permanentAddress,
+        reason: reason
+      });
+    }
+    
+    // Submit each request
+    let completedRequests = 0;
+    let hasError = false;
+    
+    requests.forEach(req => {
+      this.hrms.createProfileChangeRequest(req).subscribe({
+        next: () => {
+          completedRequests++;
+          if (completedRequests === requests.length) {
+            this.isUpdatingProfile.set(false);
+            if (!hasError) {
+              this.showPopup('Profile change request submitted for approval!', 'success');
+              setTimeout(() => this.showProfileModal.set(false), 1500);
+            }
+          }
+        },
+        error: (err: any) => {
+          hasError = true;
+          completedRequests++;
+          if (completedRequests === requests.length) {
+            this.isUpdatingProfile.set(false);
+            const msg = err?.error?.message || 'Failed to submit profile change request.';
+            this.showPopup(msg, 'error');
+          }
+        }
+      });
     });
   }
 

@@ -17,59 +17,67 @@ export class EmployeesComponent implements OnInit {
   auth = inject(AuthService);
 
   ngOnInit() {
-    this.hrms.loadEmployees();
+    this.loadEmployeesPage();
   }
 
   viewMode = signal<'grid' | 'table'>('grid');
   
-  currentPage = signal<number>(1);
+  currentPage = signal<number>(0);
   pageSize = 10;
+  sortBy = signal<string>('id');
+  sortDir = signal<string>('asc');
 
   private _searchQuery = '';
   get searchQuery() { return this._searchQuery; }
   set searchQuery(val: string) {
     this._searchQuery = val;
-    this.currentPage.set(1);
+    this.currentPage.set(0);
+    this.loadEmployeesPage();
   }
 
   private _selectedDept = 'All';
   get selectedDept() { return this._selectedDept; }
   set selectedDept(val: string) {
     this._selectedDept = val;
-    this.currentPage.set(1);
+    this.currentPage.set(0);
+    this.loadEmployeesPage();
   }
 
   private _selectedRoleFilter = 'All';
   get selectedRoleFilter() { return this._selectedRoleFilter; }
   set selectedRoleFilter(val: string) {
     this._selectedRoleFilter = val;
-    this.currentPage.set(1);
+    this.currentPage.set(0);
+    this.loadEmployeesPage();
   }
 
   paginatedEmployees() {
-    const list = this.filteredEmployees();
-    const start = (this.currentPage() - 1) * this.pageSize;
-    return list.slice(start, start + this.pageSize);
+    return this.hrms.employees();
+  }
+
+  loadEmployeesPage() {
+    this.hrms.loadEmployees(this.currentPage(), this.pageSize, this.sortBy(), this.sortDir());
   }
 
   getEmployeePages(): number[] {
-    const total = this.filteredEmployees().length;
-    const totalPages = Math.ceil(total / this.pageSize);
+    const pagination = this.hrms.employeePagination();
+    const totalPages = pagination.totalPages;
     const pages: number[] = [];
-    for (let i = 1; i <= totalPages; i++) {
+    for (let i = 0; i < totalPages; i++) {
       pages.push(i);
     }
     return pages;
   }
 
   getTotalEmployeePages(): number {
-    return Math.ceil(this.filteredEmployees().length / this.pageSize);
+    return this.hrms.employeePagination().totalPages;
   }
 
   goToEmployeePage(page: number) {
     const totalPages = this.getTotalEmployeePages();
-    if (page >= 1 && page <= totalPages) {
+    if (page >= 0 && page < totalPages) {
       this.currentPage.set(page);
+      this.loadEmployeesPage();
     }
   }
 
@@ -109,6 +117,11 @@ export class EmployeesComponent implements OnInit {
     currentSalary: '',
     techStack: '',
     education: '',
+    tenthQualification: '',
+    twelfthQualification: '',
+    bachelorQualification: '',
+    hasHighestQualification: false,
+    highestQualification: '',
     emergencyContact1: '',
     emergencyContact2: '',
     photoUrl: '',
@@ -151,22 +164,9 @@ export class EmployeesComponent implements OnInit {
   };
 
   filteredEmployees() {
-    const list = this.hrms.employees().filter(e => {
-      const matchSearch = e.name.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
-        e.email.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
-        e.designation.toLowerCase().includes(this.searchQuery.toLowerCase());
-      const matchDept = this.selectedDept === 'All' || e.department === this.selectedDept;
-      const matchRole = this.selectedRoleFilter === 'All' || e.role === this.selectedRoleFilter;
-      return matchSearch && matchDept && matchRole;
-    });
-
-    return list.sort((a, b) => {
-      const aTerminated = a.status === 'Terminated';
-      const bTerminated = b.status === 'Terminated';
-      if (aTerminated && !bTerminated) return 1;
-      if (!aTerminated && bTerminated) return -1;
-      return 0;
-    });
+    // With server-side pagination, we return the current page data
+    // Client-side filtering is disabled for now since backend handles pagination
+    return this.hrms.employees();
   }
 
   canManage(): boolean {
@@ -201,6 +201,12 @@ export class EmployeesComponent implements OnInit {
   onSameAddressToggle() {
     if (this.newEmp.sameAsCurrentAddress) {
       this.newEmp.permanentAddress = this.newEmp.currentAddress;
+    }
+  }
+
+  onHighestQualificationToggle() {
+    if (!this.newEmp.hasHighestQualification) {
+      this.newEmp.highestQualification = '';
     }
   }
 
@@ -276,6 +282,11 @@ export class EmployeesComponent implements OnInit {
       currentSalary: '',
       techStack: '',
       education: '',
+      tenthQualification: '',
+      twelfthQualification: '',
+      bachelorQualification: '',
+      hasHighestQualification: false,
+      highestQualification: '',
       emergencyContact1: '',
       emergencyContact2: '',
       photoUrl: '',

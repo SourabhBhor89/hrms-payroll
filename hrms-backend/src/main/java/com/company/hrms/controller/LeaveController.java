@@ -13,6 +13,10 @@ import com.company.hrms.service.LeaveBalanceSchedulerService;
 import com.company.hrms.service.LeaveService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -52,7 +56,10 @@ public class LeaveController {
         boolean isAdminOrHr = authentication != null && authentication.getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ADMIN") ||
                         a.getAuthority().equals("ROLE_HR") || a.getAuthority().equals("HR") ||
-                        a.getAuthority().equals("LEAVE_APPROVE"));
+                        a.getAuthority().equals("ROLE_MANAGER") || a.getAuthority().equals("MANAGER") ||
+                        a.getAuthority().equals("ROLE_COORDINATOR") || a.getAuthority().equals("COORDINATOR") ||
+                        a.getAuthority().equals("LEAVE_APPROVE") ||
+                        a.getAuthority().equals("LEAVE_VIEW_ALL"));
 
         if (year == null) {
             year = java.time.Year.now().getValue();
@@ -101,10 +108,18 @@ public class LeaveController {
     }
 
     @GetMapping("/approvals/pending")
-    @PreAuthorize("hasAuthority('LEAVE_APPROVE')")
-    public ResponseEntity<List<LeaveResponse>> getPendingApprovals(Authentication authentication) {
+    @PreAuthorize("hasAnyAuthority('LEAVE_APPROVE', 'LEAVE_VIEW_ALL')")
+    public ResponseEntity<List<LeaveResponse>> getPendingApprovals(
+            Authentication authentication,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "startDate") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir
+    ) {
         Long approverId = getEmployeeIdFromAuthentication(authentication);
-        List<LeaveResponse> leaves = leaveService.getPendingApprovals(approverId);
+        Sort sort = sortDir.equalsIgnoreCase("desc") ? Sort.by(sortBy).descending() : Sort.by(sortBy).ascending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+        List<LeaveResponse> leaves = leaveService.getPendingApprovals(approverId, pageable);
         return ResponseEntity.ok(leaves);
     }
 

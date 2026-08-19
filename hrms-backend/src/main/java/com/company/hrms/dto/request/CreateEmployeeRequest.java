@@ -43,6 +43,14 @@ public class CreateEmployeeRequest {
     private String currentSalary;
     private String techStack;
     private String education;
+    @NotBlank(message = "10th qualification is required")
+    private String tenthQualification;
+    @NotBlank(message = "12th qualification is required")
+    private String twelfthQualification;
+    @NotBlank(message = "Bachelor's qualification is required")
+    private String bachelorQualification;
+    private String highestQualification;
+    private Boolean hasHighestQualification;
     private String emergencyContact1;
     private String emergencyContact2;
     private String photoUrl;
