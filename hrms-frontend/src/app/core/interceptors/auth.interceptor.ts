@@ -4,18 +4,27 @@ import { Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 import { BehaviorSubject, Observable, throwError } from 'rxjs';
 import { catchError, filter, switchMap, take } from 'rxjs/operators';
-import { PROD_API_BASE_URL } from '../config/api.config';
+import { RuntimeConfigService } from '../services/runtime-config.service';
 
 let isRefreshing = false;
 let refreshTokenSubject: BehaviorSubject<string | null> = new BehaviorSubject<string | null>(null);
 
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const authService = inject(AuthService);
+  const runtimeConfig = inject(RuntimeConfigService);
   const router = inject(Router);
+
+  // Bypass interceptor for runtime configuration endpoint itself
+  if (req.url.includes('/api/config')) {
+    return next(req);
+  }
 
   let targetUrl = req.url;
   if (!isDevMode() && targetUrl.startsWith('/api')) {
-    targetUrl = `${PROD_API_BASE_URL}${targetUrl}`;
+    const backendUrl = runtimeConfig.getBackendUrl();
+    if (backendUrl) {
+      targetUrl = `${backendUrl}${targetUrl}`;
+    }
   }
 
   const token = localStorage.getItem('access_token');
