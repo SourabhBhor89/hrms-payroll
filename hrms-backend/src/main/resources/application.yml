@@ -23,10 +23,9 @@ spring:
       cache-null-values: false
 
   datasource:
-    url: jdbc:postgresql://db.xpjtliwteybzoczamafk.supabase.co:5432/postgres
-    databse: postgres
+    url: jdbc:postgresql://localhost:5432/hrms_db
     username: postgres
-    password: '@Trhhrms@1234'
+    password: root
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 15
