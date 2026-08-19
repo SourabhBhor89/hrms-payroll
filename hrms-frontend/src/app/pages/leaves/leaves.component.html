@@ -86,7 +86,7 @@
         </tr>
       </thead>
       <tbody>
-        <tr *ngFor="let req of filteredRequests()">
+        <tr *ngFor="let req of paginatedRequests()">
           <td>
             <div class="user-cell">
               <img [src]="req.employeeAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'" class="table-avatar" />
@@ -145,6 +145,32 @@
         </tr>
       </tbody>
     </table>
+
+    <!-- Pagination Controls -->
+    <div class="pagination-bar" *ngIf="getTotalLeavePages() > 1">
+      <div class="pagination-info">
+        Showing <strong>{{ (currentPage() - 1) * pageSize + 1 }}</strong> to <strong>{{ currentPage() * pageSize < filteredRequests().length ? currentPage() * pageSize : filteredRequests().length }}</strong> of <strong>{{ filteredRequests().length }}</strong> entries
+      </div>
+      <div class="pagination-buttons">
+        <button class="btn btn-pagination btn-icon" [disabled]="currentPage() === 1" (click)="goToLeavePage(1)" title="First Page">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg>
+        </button>
+        <button class="btn btn-pagination btn-icon" [disabled]="currentPage() === 1" (click)="goToLeavePage(currentPage() - 1)" title="Previous Page">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        
+        <button *ngFor="let page of getLeavePages()" class="btn btn-pagination page-num" [class.active]="currentPage() === page" (click)="goToLeavePage(page)">
+          {{ page }}
+        </button>
+
+        <button class="btn btn-pagination btn-icon" [disabled]="currentPage() === getTotalLeavePages()" (click)="goToLeavePage(currentPage() + 1)" title="Next Page">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+        <button class="btn btn-pagination btn-icon" [disabled]="currentPage() === getTotalLeavePages()" (click)="goToLeavePage(getTotalLeavePages())" title="Last Page">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>
+        </button>
+      </div>
+    </div>
   </div>
 
   <!-- Apply / Edit Leave Modal Form -->

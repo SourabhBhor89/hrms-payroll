@@ -67,7 +67,7 @@
         </tr>
       </thead>
       <tbody>
-        <tr *ngFor="let emp of filteredEmployees()">
+        <tr *ngFor="let emp of paginatedEmployees()">
           <td>
             <div class="user-cell">
               <img [src]="emp.avatar" [alt]="emp.name" class="table-avatar" />
@@ -100,6 +100,32 @@
         </tr>
       </tbody>
     </table>
+
+    <!-- Pagination Controls -->
+    <div class="pagination-bar" *ngIf="getTotalEmployeePages() > 1">
+      <div class="pagination-info">
+        Showing <strong>{{ (currentPage() - 1) * pageSize + 1 }}</strong> to <strong>{{ currentPage() * pageSize < filteredEmployees().length ? currentPage() * pageSize : filteredEmployees().length }}</strong> of <strong>{{ filteredEmployees().length }}</strong> employees
+      </div>
+      <div class="pagination-buttons">
+        <button class="btn btn-pagination btn-icon" [disabled]="currentPage() === 1" (click)="goToEmployeePage(1)" title="First Page">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg>
+        </button>
+        <button class="btn btn-pagination btn-icon" [disabled]="currentPage() === 1" (click)="goToEmployeePage(currentPage() - 1)" title="Previous Page">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        
+        <button *ngFor="let page of getEmployeePages()" class="btn btn-pagination page-num" [class.active]="currentPage() === page" (click)="goToEmployeePage(page)">
+          {{ page }}
+        </button>
+
+        <button class="btn btn-pagination btn-icon" [disabled]="currentPage() === getTotalEmployeePages()" (click)="goToEmployeePage(currentPage() + 1)" title="Next Page">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+        <button class="btn btn-pagination btn-icon" [disabled]="currentPage() === getTotalEmployeePages()" (click)="goToEmployeePage(getTotalEmployeePages())" title="Last Page">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>
+        </button>
+      </div>
+    </div>
   </div>
 
   <!-- Add Employee Modal Dialog -->

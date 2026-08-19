@@ -1,4 +1,4 @@
-import { Component, inject, signal, computed, OnInit } from '@angular/core';
+import { Component, inject, signal, computed, OnInit, effect, untracked } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HrmsService } from '../../core/services/hrms.service';
@@ -555,6 +555,77 @@ export class AttendanceComponent implements OnInit {
   activePanelTab = signal<'Pending' | 'Rejected'>('Pending');
   filterDepartment = signal<string>('All');
   searchQuery = signal<string>('');
+
+  panelCurrentPage = signal<number>(1);
+  pageSize = 10;
+
+  paginatedPanelRegularizations = computed(() => {
+    const list = this.filteredRegularizations();
+    const start = (this.panelCurrentPage() - 1) * this.pageSize;
+    return list.slice(start, start + this.pageSize);
+  });
+
+  getPanelPages = computed(() => {
+    const total = this.filteredRegularizations().length;
+    const totalPages = Math.ceil(total / this.pageSize);
+    const pages: number[] = [];
+    for (let i = 1; i <= totalPages; i++) {
+      pages.push(i);
+    }
+    return pages;
+  });
+
+  totalPanelPages = computed(() => {
+    return Math.ceil(this.filteredRegularizations().length / this.pageSize);
+  });
+
+  goToPanelPage(page: number) {
+    const total = this.totalPanelPages();
+    if (page >= 1 && page <= total) {
+      this.panelCurrentPage.set(page);
+    }
+  }
+
+  // History pagination
+  historyCurrentPage = signal<number>(1);
+
+  paginatedMyRegularizations = computed(() => {
+    const list = this.myRegularizations();
+    const start = (this.historyCurrentPage() - 1) * this.pageSize;
+    return list.slice(start, start + this.pageSize);
+  });
+
+  getHistoryPages = computed(() => {
+    const total = this.myRegularizations().length;
+    const totalPages = Math.ceil(total / this.pageSize);
+    const pages: number[] = [];
+    for (let i = 1; i <= totalPages; i++) {
+      pages.push(i);
+    }
+    return pages;
+  });
+
+  totalHistoryPages = computed(() => {
+    return Math.ceil(this.myRegularizations().length / this.pageSize);
+  });
+
+  goToHistoryPage(page: number) {
+    const total = this.totalHistoryPages();
+    if (page >= 1 && page <= total) {
+      this.historyCurrentPage.set(page);
+    }
+  }
+
+  constructor() {
+    effect(() => {
+      this.activePanelTab();
+      this.filterDepartment();
+      this.searchQuery();
+      untracked(() => {
+        this.panelCurrentPage.set(1);
+      });
+    });
+  }
 
   pendingRegularizationsCount = computed(() => {
     return this.hrms.regularizationRequests().filter(r => r.status === 'Pending').length;

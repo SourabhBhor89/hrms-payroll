@@ -19,8 +19,49 @@ export class LeavesComponent implements OnInit {
   auth = inject(AuthService);
   notify = inject(NotificationService);
 
-  activeTab: 'my_leaves' | 'pending_approvals' = 'my_leaves';
-  filterStatus: string = 'All';
+  currentPage = signal<number>(1);
+  pageSize = 10;
+
+  private _activeTab: 'my_leaves' | 'pending_approvals' = 'my_leaves';
+  get activeTab() { return this._activeTab; }
+  set activeTab(val: 'my_leaves' | 'pending_approvals') {
+    this._activeTab = val;
+    this.currentPage.set(1);
+  }
+
+  private _filterStatus: string = 'All';
+  get filterStatus() { return this._filterStatus; }
+  set filterStatus(val: string) {
+    this._filterStatus = val;
+    this.currentPage.set(1);
+  }
+
+  paginatedRequests(): LeaveRequest[] {
+    const list = this.filteredRequests();
+    const start = (this.currentPage() - 1) * this.pageSize;
+    return list.slice(start, start + this.pageSize);
+  }
+
+  getLeavePages(): number[] {
+    const total = this.filteredRequests().length;
+    const totalPages = Math.ceil(total / this.pageSize);
+    const pages: number[] = [];
+    for (let i = 1; i <= totalPages; i++) {
+      pages.push(i);
+    }
+    return pages;
+  }
+
+  getTotalLeavePages(): number {
+    return Math.ceil(this.filteredRequests().length / this.pageSize);
+  }
+
+  goToLeavePage(page: number) {
+    const totalPages = this.getTotalLeavePages();
+    if (page >= 1 && page <= totalPages) {
+      this.currentPage.set(page);
+    }
+  }
 
   // Modal Signals
   showModal = signal<boolean>(false);

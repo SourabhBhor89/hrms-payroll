@@ -21,9 +21,57 @@ export class EmployeesComponent implements OnInit {
   }
 
   viewMode = signal<'grid' | 'table'>('grid');
-  searchQuery = '';
-  selectedDept = 'All';
-  selectedRoleFilter = 'All';
+  
+  currentPage = signal<number>(1);
+  pageSize = 10;
+
+  private _searchQuery = '';
+  get searchQuery() { return this._searchQuery; }
+  set searchQuery(val: string) {
+    this._searchQuery = val;
+    this.currentPage.set(1);
+  }
+
+  private _selectedDept = 'All';
+  get selectedDept() { return this._selectedDept; }
+  set selectedDept(val: string) {
+    this._selectedDept = val;
+    this.currentPage.set(1);
+  }
+
+  private _selectedRoleFilter = 'All';
+  get selectedRoleFilter() { return this._selectedRoleFilter; }
+  set selectedRoleFilter(val: string) {
+    this._selectedRoleFilter = val;
+    this.currentPage.set(1);
+  }
+
+  paginatedEmployees() {
+    const list = this.filteredEmployees();
+    const start = (this.currentPage() - 1) * this.pageSize;
+    return list.slice(start, start + this.pageSize);
+  }
+
+  getEmployeePages(): number[] {
+    const total = this.filteredEmployees().length;
+    const totalPages = Math.ceil(total / this.pageSize);
+    const pages: number[] = [];
+    for (let i = 1; i <= totalPages; i++) {
+      pages.push(i);
+    }
+    return pages;
+  }
+
+  getTotalEmployeePages(): number {
+    return Math.ceil(this.filteredEmployees().length / this.pageSize);
+  }
+
+  goToEmployeePage(page: number) {
+    const totalPages = this.getTotalEmployeePages();
+    if (page >= 1 && page <= totalPages) {
+      this.currentPage.set(page);
+    }
+  }
 
   showAddModal = signal<boolean>(false);
   isEditMode = signal<boolean>(false);

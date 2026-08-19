@@ -289,7 +289,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let req of filteredRegularizations()">
+          <tr *ngFor="let req of paginatedPanelRegularizations()">
             <td>
               <div class="user-cell">
                 <img [src]="req.employeeAvatar" [alt]="req.employeeName" class="table-avatar" />
@@ -344,6 +344,32 @@
           </tr>
         </tbody>
       </table>
+
+      <!-- Pagination Controls -->
+      <div class="pagination-bar" *ngIf="totalPanelPages() > 1">
+        <div class="pagination-info">
+          Showing <strong>{{ (panelCurrentPage() - 1) * pageSize + 1 }}</strong> to <strong>{{ panelCurrentPage() * pageSize < filteredRegularizations().length ? panelCurrentPage() * pageSize : filteredRegularizations().length }}</strong> of <strong>{{ filteredRegularizations().length }}</strong> requests
+        </div>
+        <div class="pagination-buttons">
+          <button type="button" class="btn btn-pagination btn-icon" [disabled]="panelCurrentPage() === 1" (click)="goToPanelPage(1)" title="First Page">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg>
+          </button>
+          <button type="button" class="btn btn-pagination btn-icon" [disabled]="panelCurrentPage() === 1" (click)="goToPanelPage(panelCurrentPage() - 1)" title="Previous Page">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          
+          <button type="button" *ngFor="let page of getPanelPages()" class="btn btn-pagination page-num" [class.active]="panelCurrentPage() === page" (click)="goToPanelPage(page)">
+            {{ page }}
+          </button>
+
+          <button type="button" class="btn btn-pagination btn-icon" [disabled]="panelCurrentPage() === totalPanelPages()" (click)="goToPanelPage(panelCurrentPage() + 1)" title="Next Page">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+          <button type="button" class="btn btn-pagination btn-icon" [disabled]="panelCurrentPage() === totalPanelPages()" (click)="goToPanelPage(totalPanelPages())" title="Last Page">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>
+          </button>
+        </div>
+      </div>
     </div>
     <div class="no-records-box" *ngIf="filteredRegularizations().length > 0 === false">
       No {{ activePanelTab() === 'Pending' ? 'pending' : 'rejected' }} regularization requests match the selected filters.
@@ -370,7 +396,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let req of myRegularizations()">
+          <tr *ngFor="let req of paginatedMyRegularizations()">
             <td><code>{{ req.date }}</code></td>
             <td>
               <div class="time-badges-container">
@@ -396,7 +422,7 @@
             </td>
             <td><span class="remarks-text">{{ (req.status === 'Approved' || req.status === 'Rejected') ? (req.reviewRemarks || '--') : '' }}</span></td>
             <td>
-              <button class="btn btn-secondary btn-sm" *ngIf="req.status === 'Pending'" (click)="openCancelModal(req)">
+              <button type="button" class="btn btn-secondary btn-sm" *ngIf="req.status === 'Pending'" (click)="openCancelModal(req)">
                 Cancel
               </button>
               <span class="sub-text" *ngIf="req.status !== 'Pending'">--</span>
@@ -404,6 +430,32 @@
           </tr>
         </tbody>
       </table>
+
+      <!-- Pagination Controls -->
+      <div class="pagination-bar" *ngIf="totalHistoryPages() > 1">
+        <div class="pagination-info">
+          Showing <strong>{{ (historyCurrentPage() - 1) * pageSize + 1 }}</strong> to <strong>{{ historyCurrentPage() * pageSize < myRegularizations().length ? historyCurrentPage() * pageSize : myRegularizations().length }}</strong> of <strong>{{ myRegularizations().length }}</strong> entries
+        </div>
+        <div class="pagination-buttons">
+          <button type="button" class="btn btn-pagination btn-icon" [disabled]="historyCurrentPage() === 1" (click)="goToHistoryPage(1)" title="First Page">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg>
+          </button>
+          <button type="button" class="btn btn-pagination btn-icon" [disabled]="historyCurrentPage() === 1" (click)="goToHistoryPage(historyCurrentPage() - 1)" title="Previous Page">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          
+          <button type="button" *ngFor="let page of getHistoryPages()" class="btn btn-pagination page-num" [class.active]="historyCurrentPage() === page" (click)="goToHistoryPage(page)">
+            {{ page }}
+          </button>
+
+          <button type="button" class="btn btn-pagination btn-icon" [disabled]="historyCurrentPage() === totalHistoryPages()" (click)="goToHistoryPage(historyCurrentPage() + 1)" title="Next Page">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+          <button type="button" class="btn btn-pagination btn-icon" [disabled]="historyCurrentPage() === totalHistoryPages()" (click)="goToHistoryPage(totalHistoryPages())" title="Last Page">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>
+          </button>
+        </div>
+      </div>
     </div>
     <div class="no-records-box" *ngIf="myRegularizations().length === 0">
       No regularization requests submitted yet.
