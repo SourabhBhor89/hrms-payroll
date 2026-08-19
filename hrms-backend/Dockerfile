@@ -20,5 +20,9 @@ RUN ./mvnw clean package -DskipTests
 # Expose application port
 EXPOSE 8080
 
+# Production environment variables for Cross-Site Cookie Policy
+ENV COOKIE_SECURE=true
+ENV COOKIE_SAME_SITE=None
+
 # Run the Spring Boot application
-CMD ["java", "-Xms128m", "-Xmx256m", "-XX:MaxMetaspaceSize=128m", "-jar", "target/hrms-backend-0.0.1-SNAPSHOT.jar"]
+CMD ["java", "-jar", "target/hrms-backend-0.0.1-SNAPSHOT.jar"]

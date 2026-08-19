@@ -26,6 +26,8 @@ export class EmployeesComponent implements OnInit {
   selectedRoleFilter = 'All';
 
   showAddModal = signal<boolean>(false);
+  isEditMode = signal<boolean>(false);
+  editingEmployeeId = signal<string | null>(null);
   showPassword = signal<boolean>(false);
   activeTab = signal<'basic' | 'experience' | 'education' | 'contact'>('basic');
   selectedEmployee = signal<Employee | null>(null);
@@ -44,6 +46,39 @@ export class EmployeesComponent implements OnInit {
     role: 'EMPLOYEE',
     password: '',
     joiningDate: new Date().toISOString().split('T')[0],
+    dateOfBirth: '',
+    address: '',
+    currentAddress: '',
+    permanentAddress: '',
+    sameAsCurrentAddress: false,
+    maritalStatus: 'Single',
+    marriageDate: '',
+    isFresher: false,
+    totalExperience: '',
+    previousCompany: '',
+    previousDesignation: '',
+    previousSalary: '',
+    currentSalary: '',
+    techStack: '',
+    education: '',
+    emergencyContact1: '',
+    emergencyContact2: '',
+    photoUrl: '',
+    hasGap: false,
+    gapReason: '',
+    referenceDetails: ''
+  };
+
+  editEmp: any = {
+    employeeCode: '',
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    department: 'Engineering',
+    designation: '',
+    role: 'EMPLOYEE',
+    joiningDate: '',
     dateOfBirth: '',
     address: '',
     currentAddress: '',
@@ -121,6 +156,33 @@ export class EmployeesComponent implements OnInit {
     }
   }
 
+  onEditFresherToggle() {
+    if (this.editEmp.isFresher) {
+      this.editEmp.totalExperience = '0';
+      this.editEmp.previousCompany = '';
+      this.editEmp.previousDesignation = '';
+      this.editEmp.previousSalary = '';
+    }
+  }
+
+  onEditGapToggle() {
+    if (!this.editEmp.hasGap) {
+      this.editEmp.gapReason = '';
+    }
+  }
+
+  onEditMaritalStatusChange() {
+    if (this.editEmp.maritalStatus !== 'Married') {
+      this.editEmp.marriageDate = '';
+    }
+  }
+
+  onEditSameAddressToggle() {
+    if (this.editEmp.sameAsCurrentAddress) {
+      this.editEmp.permanentAddress = this.editEmp.currentAddress;
+    }
+  }
+
   generateNextEmployeeCode(): string {
     const list = this.hrms.employees();
     let maxNum = list.length;
@@ -194,6 +256,105 @@ export class EmployeesComponent implements OnInit {
     }
   }
 
+  openEditModal(emp: Employee) {
+    this.editingEmployeeId.set(emp.id);
+    const nameParts = (emp.name || '').trim().split(' ');
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.slice(1).join(' ') || '';
+
+    let roleCode = 'EMPLOYEE';
+    if (emp.role === 'Admin') roleCode = 'ADMIN';
+    else if (emp.role === 'HR Manager') roleCode = 'HR';
+    else if (typeof emp.role === 'string') roleCode = emp.role.toUpperCase();
+
+    this.editEmp = {
+      employeeCode: emp.employeeId || '',
+      firstName,
+      lastName,
+      email: emp.email || '',
+      phone: emp.phone || '',
+      department: emp.department || 'Engineering',
+      designation: emp.designation || '',
+      role: roleCode,
+      joiningDate: emp.joinDate || '',
+      dateOfBirth: emp.dateOfBirth || '',
+      address: emp.address || '',
+      currentAddress: emp.currentAddress || emp.address || '',
+      permanentAddress: emp.permanentAddress || emp.address || '',
+      sameAsCurrentAddress: !!(emp.currentAddress && emp.currentAddress === emp.permanentAddress),
+      maritalStatus: emp.maritalStatus || 'Single',
+      marriageDate: emp.marriageDate || '',
+      isFresher: emp.isFresher || false,
+      totalExperience: emp.totalExperience || '',
+      previousCompany: emp.previousCompany || '',
+      previousDesignation: emp.previousDesignation || '',
+      previousSalary: emp.previousSalary || '',
+      currentSalary: emp.currentSalary || '',
+      techStack: emp.techStack || '',
+      education: emp.education || '',
+      emergencyContact1: emp.emergencyContact1 || '',
+      emergencyContact2: emp.emergencyContact2 || '',
+      photoUrl: emp.photoUrl || emp.avatar || '',
+      hasGap: emp.hasGap || false,
+      gapReason: emp.gapReason || '',
+      referenceDetails: emp.referenceDetails || ''
+    };
+
+    this.activeTab.set('basic');
+    this.isEditMode.set(true);
+  }
+
+  switchToEditFromView() {
+    const emp = this.selectedEmployee();
+    if (emp) {
+      this.openEditModal(emp);
+    }
+  }
+
+  saveUpdatedEmployee() {
+    const id = this.editingEmployeeId();
+    if (!id) return;
+    if (this.editEmp.firstName && this.editEmp.email && this.editEmp.employeeCode) {
+      this.isSaving.set(true);
+      this.hrms.updateEmployee(id, { ...this.editEmp }).subscribe({
+        next: () => {
+          this.isSaving.set(false);
+          this.isEditMode.set(false);
+          this.editingEmployeeId.set(null);
+          
+          // Update selectedEmployee signal if viewing
+          const updatedInList = this.hrms.employees().find(e => e.id === id);
+          if (updatedInList) {
+            this.selectedEmployee.set(updatedInList);
+          } else {
+            this.selectedEmployee.set(null);
+          }
+
+          this.showPopup('Employee updated successfully!', 'success');
+        },
+        error: (err) => {
+          this.isSaving.set(false);
+          const errorMsg = err?.error?.message || 'Failed to update employee. Please try again.';
+          this.showPopup(errorMsg, 'error');
+        }
+      });
+    }
+  }
+
+  cancelEdit() {
+    this.isEditMode.set(false);
+    this.editingEmployeeId.set(null);
+    if (!this.selectedEmployee()) {
+      this.activeTab.set('basic');
+    }
+  }
+
+  closeViewModal() {
+    this.selectedEmployee.set(null);
+    this.isEditMode.set(false);
+    this.editingEmployeeId.set(null);
+  }
+
   showPopup(text: string, type: 'success' | 'error') {
     this.popupMessage.set({ text, type });
     setTimeout(() => {
@@ -228,5 +389,6 @@ export class EmployeesComponent implements OnInit {
 
   viewEmployeeDetails(emp: Employee) {
     this.selectedEmployee.set(emp);
+    this.isEditMode.set(false);
   }
 }

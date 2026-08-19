@@ -77,44 +77,6 @@ public class LeaveBalanceSchedulerServiceImpl implements LeaveBalanceSchedulerSe
         log.info("Completed monthly leave balance update");
     }
 
-//    /**
-//     * Runs daily to check for new employees and initialize their leave balances
-//     */
-//    @Override
-//    @Scheduled(cron = "0 0 1 * * ?")
-//    @Transactional
-//    public void initializeMonthlyBalancesForNewEmployees() {
-//        log.info("Checking for new employees to initialize leave balances");
-//
-//        LocalDate currentDate = LocalDate.now();
-//        int currentYear = currentDate.getYear();
-//        int currentMonth = currentDate.getMonthValue();
-//
-//        List<Employee> allEmployees = employeeRepository.findAll();
-//        List<LeaveType> allLeaveTypes = leaveTypeRepository.findAll().stream()
-//                .filter(LeaveType::getActive)
-//                .toList();
-//
-//        for (Employee employee : allEmployees) {
-//            for (LeaveType leaveType : allLeaveTypes) {
-//                // Check if balance exists for current month
-//                leaveBalanceRepository
-//                        .findByEmployeeAndLeaveTypeAndYearAndMonth(employee, leaveType, currentYear, currentMonth)
-//                        .ifPresentOrElse(
-//                                existingBalance -> {
-//                                    // Balance exists, no action needed
-//                                },
-//                                () -> {
-//                                    // Create new balance for current month
-//                                    createMonthlyBalance(employee, leaveType, currentYear, currentMonth);
-//                                }
-//                        );
-//            }
-//        }
-//
-//        log.info("Completed initialization of leave balances for new employees");
-//    }
-
     private void processEmployeeMonthlyBalance(Employee employee, LeaveType leaveType, 
                                                int previousYear, int previousMonth, 
                                                int currentYear, int currentMonth) {
