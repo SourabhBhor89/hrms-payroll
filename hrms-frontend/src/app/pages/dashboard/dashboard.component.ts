@@ -21,6 +21,21 @@ export class DashboardComponent implements OnInit {
   rejectingRequestId: number | null = null;
   rejectionReasonInput: string = '';
 
+  // Modal Signals for Profile Change Approval
+  showApproveModal = signal<boolean>(false);
+  approvingRequestId: number | null = null;
+
+  // Modal Signals for Profile Change Cancellation
+  showCancelModal = signal<boolean>(false);
+  cancellingRequestId: number | null = null;
+
+  // Tab State for Profile Update Requests
+  activeProfileTab = signal<'my-requests' | 'approvals'>('approvals');
+
+  // Pagination State for Profile Change Requests
+  profileChangeCurrentPage = signal<number>(0);
+  profileChangePageSize = 10;
+
   ngOnInit() {
     this.hrms.refreshAllData();
     // Load profile change requests for activity feed
@@ -28,7 +43,11 @@ export class DashboardComponent implements OnInit {
         this.auth.currentRole() === 'Admin' || 
         this.auth.currentRole() === 'HR Manager' || 
         this.auth.currentRole() === 'Manager') {
-      this.hrms.loadPendingProfileChangeRequests();
+      this.hrms.loadPendingProfileChangeRequests(); // Load all pending for approval tab
+      this.hrms.loadMyProfileChangeRequests(); // Load own requests for my-requests tab
+    } else {
+      // Load own requests for regular employees and coordinators
+      this.hrms.loadMyProfileChangeRequests();
     }
   }
 
@@ -105,6 +124,7 @@ export class DashboardComponent implements OnInit {
 
   canApproveProfileChanges(): boolean {
     return this.auth.hasPermission('EMPLOYEE_MANAGEMENT_UPDATE') ||
+           this.auth.hasPermission('LEAVE_APPROVE') ||
            this.auth.currentRole() === 'Admin' ||
            this.auth.currentRole() === 'HR Manager' ||
            this.auth.currentRole() === 'Manager';
@@ -160,24 +180,286 @@ export class DashboardComponent implements OnInit {
     }
   }
 
+  getProfileRequestStatusClass(status: string): string {
+    const s = (status || '').toUpperCase();
+    if (s === 'APPROVED') return 'badge-success';
+    if (s === 'REJECTED') return 'badge-danger';
+    if (s === 'CANCELLED') return 'badge-secondary';
+    return 'badge-warning';
+  }
+
+  setProfileTab(tab: 'my-requests' | 'approvals') {
+    this.activeProfileTab.set(tab);
+    this.profileChangeCurrentPage.set(0); // Reset to first page when switching tabs
+  }
+
+  getProfileChangeTotalPages(): number {
+    // For employees/coordinators (no tabs)
+    if (this.auth.currentRole() === 'Employee' || this.auth.currentRole() === 'Coordinator') {
+      return Math.ceil(this.getEmployeePendingRequestsTotal() / this.profileChangePageSize);
+    }
+    // For HR/Manager/Admin (with tabs)
+    const total = this.activeProfileTab() === 'approvals'
+      ? this.getOtherEmployeesPendingRequestsTotal()
+      : this.getMyPendingRequestsTotal();
+    return Math.ceil(total / this.profileChangePageSize);
+  }
+
+  getProfileChangePages(): number[] {
+    const totalPages = this.getProfileChangeTotalPages();
+    const pages: number[] = [];
+    for (let i = 0; i < totalPages; i++) {
+      pages.push(i);
+    }
+    return pages;
+  }
+
+  goToProfileChangePage(page: number) {
+    const totalPages = this.getProfileChangeTotalPages();
+    if (page >= 0 && page < totalPages) {
+      this.profileChangeCurrentPage.set(page);
+    }
+  }
+
+  getMyPendingRequests(): any[] {
+    const allMyRequests = this.hrms.profileChangeRequests();
+    const currentUser = this.auth.currentUser();
+
+    console.log('All my requests from service:', allMyRequests);
+    console.log('Current user:', currentUser);
+
+    const filtered = allMyRequests.filter(req => {
+      const isMyRequest = req.employeeName === currentUser?.name ||
+                          req.employeeId === currentUser?.id;
+
+      // Strict pending status filtering
+      const status = (req.status || '').toUpperCase().trim();
+      const isPending = status === 'PENDING';
+
+      console.log(`Request ${req.id}: Employee=${req.employeeName}, Status="${req.status}" (normalized="${status}"), IsMy=${isMyRequest}, IsPending=${isPending}`);
+
+      return isMyRequest && isPending;
+    });
+
+    console.log('Filtered my pending requests:', filtered);
+
+    // Apply pagination
+    const start = this.profileChangeCurrentPage() * this.profileChangePageSize;
+    return filtered.slice(start, start + this.profileChangePageSize);
+  }
+
+  getMyPendingRequestsTotal(): number {
+    const allMyRequests = this.hrms.profileChangeRequests();
+    const currentUser = this.auth.currentUser();
+
+    const filtered = allMyRequests.filter(req => {
+      const isMyRequest = req.employeeName === currentUser?.name ||
+                          req.employeeId === currentUser?.id;
+      const status = (req.status || '').toUpperCase().trim();
+      const isPending = status === 'PENDING';
+      return isMyRequest && isPending;
+    });
+
+    return filtered.length;
+  }
+
+  getEmployeePendingRequests(): any[] {
+    const allMyRequests = this.hrms.profileChangeRequests();
+    const currentUser = this.auth.currentUser();
+
+    console.log('=== Employee Pending Requests Debug ===');
+    console.log('All requests from service:', allMyRequests);
+    console.log('Current user:', currentUser);
+    console.log('Current user name:', currentUser?.name);
+    console.log('Current user name trimmed:', currentUser?.name?.trim());
+    console.log('Current user id:', currentUser?.id);
+    console.log('Current user employeeId:', currentUser?.employeeId);
+
+    if (!allMyRequests || allMyRequests.length === 0) {
+      console.log('No requests found in service');
+      return [];
+    }
+
+    const filtered = allMyRequests.filter(req => {
+      // Try multiple matching strategies with trimmed values
+      const userName = currentUser?.name?.trim();
+      const reqName = req.employeeName?.trim();
+      const nameMatch = reqName === userName;
+
+      const userId = String(currentUser?.id || '');
+      const reqEmployeeId = String(req.employeeId || '');
+      const idMatch = reqEmployeeId === userId;
+
+      const userEmployeeId = String(currentUser?.employeeId || '');
+      const employeeIdMatch = reqEmployeeId === userEmployeeId;
+
+      const isMyRequest = nameMatch || idMatch || employeeIdMatch;
+
+      // Less strict pending status filtering
+      const status = (req.status || '').toUpperCase().trim();
+      const isPending = status === 'PENDING' || status === 'Pending';
+
+      console.log(`Request ${req.id}:`, {
+        employeeName: req.employeeName,
+        employeeNameTrimmed: reqName,
+        employeeId: req.employeeId,
+        status: req.status,
+        normalizedStatus: status,
+        userName,
+        userId,
+        userEmployeeId,
+        nameMatch,
+        idMatch,
+        employeeIdMatch,
+        isMyRequest,
+        isPending
+      });
+
+      return isMyRequest && isPending;
+    });
+
+    console.log('Filtered employee pending requests:', filtered);
+    console.log('=== End Debug ===');
+
+    // Apply pagination
+    const start = this.profileChangeCurrentPage() * this.profileChangePageSize;
+    return filtered.slice(start, start + this.profileChangePageSize);
+  }
+
+  getEmployeePendingRequestsTotal(): number {
+    const allMyRequests = this.hrms.profileChangeRequests();
+    const currentUser = this.auth.currentUser();
+
+    if (!allMyRequests || allMyRequests.length === 0) {
+      return 0;
+    }
+
+    const filtered = allMyRequests.filter(req => {
+      const userName = currentUser?.name?.trim();
+      const reqName = req.employeeName?.trim();
+      const nameMatch = reqName === userName;
+
+      const userId = String(currentUser?.id || '');
+      const reqEmployeeId = String(req.employeeId || '');
+      const idMatch = reqEmployeeId === userId;
+
+      const userEmployeeId = String(currentUser?.employeeId || '');
+      const employeeIdMatch = reqEmployeeId === userEmployeeId;
+
+      const isMyRequest = nameMatch || idMatch || employeeIdMatch;
+
+      const status = (req.status || '').toUpperCase().trim();
+      const isPending = status === 'PENDING' || status === 'Pending';
+
+      return isMyRequest && isPending;
+    });
+
+    return filtered.length;
+  }
+
+  getOtherEmployeesPendingRequests(): any[] {
+    const allRequests = this.hrms.pendingProfileChangeRequests();
+    const currentUser = this.auth.currentUser();
+
+    console.log('All requests from pendingProfileChangeRequests:', allRequests);
+    console.log('Current user:', currentUser);
+
+    const filtered = allRequests.filter(req => {
+      // Show ALL pending requests (both own and other employees') for HR/Manager
+      // Strict pending status filtering
+      const status = (req.status || '').toUpperCase().trim();
+      const isPending = status === 'PENDING';
+
+      console.log(`Request ${req.id}: Employee=${req.employeeName}, Status="${req.status}" (normalized="${status}"), IsPending=${isPending}`);
+
+      return isPending;
+    });
+
+    console.log('Filtered all pending requests for HR/Manager:', filtered);
+
+    // Apply pagination
+    const start = this.profileChangeCurrentPage() * this.profileChangePageSize;
+    return filtered.slice(start, start + this.profileChangePageSize);
+  }
+
+  getOtherEmployeesPendingRequestsTotal(): number {
+    const allRequests = this.hrms.pendingProfileChangeRequests();
+
+    const filtered = allRequests.filter(req => {
+      const status = (req.status || '').toUpperCase().trim();
+      const isPending = status === 'PENDING';
+      return isPending;
+    });
+
+    return filtered.length;
+  }
+
   quickApproveProfileChange(id: number) {
-    if (confirm('Are you sure you want to approve this profile change request?')) {
-      this.hrms.approveProfileChangeRequest(id, 'Quick approved from dashboard').subscribe({
+    this.approvingRequestId = id;
+    this.showApproveModal.set(true);
+  }
+
+  confirmApproveProfileChange() {
+    if (this.approvingRequestId) {
+      this.hrms.approveProfileChangeRequest(this.approvingRequestId, 'Quick approved from dashboard').subscribe({
         next: () => {
           this.hrms.loadPendingProfileChangeRequests();
+          this.hrms.loadMyProfileChangeRequests();
+          this.showApproveModal.set(false);
+          this.approvingRequestId = null;
+          // Reset to first page after approval
+          this.profileChangeCurrentPage.set(0);
         },
         error: (err) => {
           console.error('Error approving profile change:', err);
           alert('Failed to approve profile change request');
+          this.showApproveModal.set(false);
+          this.approvingRequestId = null;
         }
       });
     }
+  }
+
+  cancelApproveModal() {
+    this.showApproveModal.set(false);
+    this.approvingRequestId = null;
   }
 
   promptRejectProfileChange(id: number) {
     this.rejectingRequestId = id;
     this.rejectionReasonInput = '';
     this.showRejectModal.set(true);
+  }
+
+  cancelProfileChangeRequest(requestId: number) {
+    this.cancellingRequestId = requestId;
+    this.showCancelModal.set(true);
+  }
+
+  confirmCancelProfileChange() {
+    if (this.cancellingRequestId) {
+      this.hrms.cancelProfileChangeRequest(this.cancellingRequestId).subscribe({
+        next: () => {
+          this.hrms.loadMyProfileChangeRequests();
+          this.hrms.loadPendingProfileChangeRequests();
+          this.showCancelModal.set(false);
+          this.cancellingRequestId = null;
+          // Reset to first page after cancellation
+          this.profileChangeCurrentPage.set(0);
+        },
+        error: (err) => {
+          console.error('Failed to cancel profile change request:', err);
+          alert('Failed to cancel profile change request');
+          this.showCancelModal.set(false);
+          this.cancellingRequestId = null;
+        }
+      });
+    }
+  }
+
+  cancelCancelModal() {
+    this.showCancelModal.set(false);
+    this.cancellingRequestId = null;
   }
 
   confirmRejectProfileChange() {
@@ -188,6 +470,9 @@ export class DashboardComponent implements OnInit {
           this.rejectingRequestId = null;
           this.rejectionReasonInput = '';
           this.hrms.loadPendingProfileChangeRequests();
+          this.hrms.loadMyProfileChangeRequests();
+          // Reset to first page after rejection
+          this.profileChangeCurrentPage.set(0);
         },
         error: (err) => {
           console.error('Error rejecting profile change:', err);

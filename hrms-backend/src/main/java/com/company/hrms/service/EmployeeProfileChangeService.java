@@ -22,5 +22,7 @@ public interface EmployeeProfileChangeService {
 
     Page<ProfileChangeRequestResponse> getPendingProfileChangeRequests(Pageable pageable);
 
+    Page<ProfileChangeRequestResponse> getAllProfileChangeRequests(Pageable pageable);
+
     ProfileChangeRequestResponse getProfileChangeRequestById(Long requestId);
 }

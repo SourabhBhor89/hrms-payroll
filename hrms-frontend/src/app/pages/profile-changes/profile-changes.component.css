@@ -82,6 +82,69 @@
   margin-left: 0.5rem;
 }
 
+.filter-section {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
+  background: var(--bg-hover, #f8fafc);
+}
+
+.filter-buttons {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.filter-section .filter-btn {
+  padding: 0.375rem 0.875rem;
+  background: var(--bg-hover, #f1f5f9);
+  border: none;
+  border-radius: 9999px;
+  color: var(--text-muted, #64748b);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.filter-section .filter-btn:hover {
+  background: var(--bg-active, #e2e8f0);
+  color: var(--text-main, #1e293b);
+}
+
+.filter-section .filter-btn.active {
+  background: var(--primary, #0ea5e9);
+  color: white;
+}
+
+/* Match leaves component filter pills styling */
+.filter-pills {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.pill-btn {
+  padding: 0.375rem 0.875rem;
+  background: var(--bg-hover, #f1f5f9);
+  border: none;
+  border-radius: 9999px;
+  color: var(--text-muted, #64748b);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pill-btn:hover {
+  background: var(--bg-active, #e2e8f0);
+  color: var(--text-main, #1e293b);
+}
+
+.pill-btn.active {
+  background: var(--primary, #0ea5e9);
+  color: white;
+}
+
 .filter-pills {
   display: flex;
   gap: 0.5rem;

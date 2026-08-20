@@ -74,6 +74,15 @@ public class LeaveServiceImpl implements LeaveService {
             throw new IllegalArgumentException("End date cannot be before start date");
         }
 
+        // Validate that leave dates do not include weekends
+        LocalDate current = request.getStartDate();
+        while (!current.isAfter(request.getEndDate())) {
+            if (current.getDayOfWeek().getValue() > 5) {
+                throw new IllegalArgumentException("Cannot apply for leave on weekends. " + current + " is a " + current.getDayOfWeek());
+            }
+            current = current.plusDays(1);
+        }
+
         // Calculate total days if not provided
         Double totalDays = request.getTotalDays();
         if (totalDays == null) {
@@ -318,6 +327,15 @@ public class LeaveServiceImpl implements LeaveService {
                 if (newEndDate.isBefore(leave.getEmployee().getJoiningDate())) {
                     throw new IllegalArgumentException("Cannot apply for leave before joining date (" + leave.getEmployee().getJoiningDate() + ")");
                 }
+            }
+
+            // Validate that leave dates do not include weekends
+            LocalDate current = newStartDate;
+            while (!current.isAfter(newEndDate)) {
+                if (current.getDayOfWeek().getValue() > 5) {
+                    throw new IllegalArgumentException("Cannot apply for leave on weekends. " + current + " is a " + current.getDayOfWeek());
+                }
+                current = current.plusDays(1);
             }
         }
 

@@ -23,8 +23,6 @@ export class TopbarComponent {
   showNotifDropdown = signal<boolean>(false);
   showUserDropdown = signal<boolean>(false);
   showProfileModal = signal<boolean>(false);
-  activeProfileTab = signal<'details' | 'password'>('details');
-  isChangingPassword = signal<boolean>(false);
   isUpdatingProfile = signal<boolean>(false);
   popupMessage = signal<{ text: string; type: 'success' | 'error' } | null>(null);
 
@@ -34,12 +32,6 @@ export class TopbarComponent {
     currentAddress: '',
     permanentAddress: '',
     avatar: ''
-  };
-
-  passwordForm = {
-    currentPassword: '',
-    newPassword: '',
-    confirmNewPassword: ''
   };
 
   currentEmployee = computed(() => {
@@ -53,13 +45,43 @@ export class TopbarComponent {
     const userCode = (user.employeeId || '').toLowerCase().trim();
     const userId = String(user.id || '').trim();
 
-    return employees.find(e =>
-      (userEmail && e.email && e.email.toLowerCase().trim() === userEmail) ||
-      (userName && e.name && e.name.toLowerCase().trim() === userName) ||
-      (userId && e.userId && String(e.userId) === userId) ||
-      (userCode && e.employeeId && e.employeeId.toLowerCase().trim() === userCode) ||
-      (userId && String(e.id) === userId)
-    ) || null;
+    console.log('=== Employee Matching Debug ===');
+    console.log('Current user:', user);
+    console.log('Available employees:', employees);
+    console.log('User email:', userEmail);
+    console.log('User name:', userName);
+    console.log('User employeeId:', userCode);
+    console.log('User id:', userId);
+
+    // Log all available employeeIds for debugging
+    const availableEmployeeIds = employees.map(e => e.employeeId);
+    console.log('Available employeeIds:', availableEmployeeIds);
+
+    // Strict employeeId matching only
+    const matched = employees.find(e => {
+      const eCode = (e.employeeId || '').toLowerCase().trim();
+      const eEmail = (e.email || '').toLowerCase().trim();
+      const eName = (e.name || '').toLowerCase().trim();
+      
+      const codeMatch = userCode && eCode && eCode === userCode;
+      const emailMatch = userEmail && eEmail && eEmail === userEmail;
+      const nameMatch = userName && eName && eName === userName;
+
+      console.log(`Employee ${e.id}:`, {
+        employeeId: e.employeeId,
+        email: e.email,
+        name: e.name,
+        matches: { codeMatch, emailMatch, nameMatch }
+      });
+
+      // Only match if employeeId matches exactly
+      return codeMatch || emailMatch || nameMatch;
+    });
+
+    console.log('Matched employee:', matched);
+    console.log('=== End Debug ===');
+    
+    return matched || null;
   });
 
   notifications = computed(() => {
@@ -80,6 +102,18 @@ export class TopbarComponent {
         message: `${r.employeeName} submitted an attendance regularization request.`,
         time: r.appliedOn || 'Recently',
         type: 'warning'
+      });
+    });
+
+    const profileChanges = this.hrms.pendingProfileChangeRequests();
+    profileChanges.slice(0, 3).forEach(p => {
+      const fieldType = p.fieldType === 'PHONE' ? 'Phone Number' :
+                       p.fieldType === 'CURRENT_ADDRESS' ? 'Current Address' :
+                       p.fieldType === 'PERMANENT_ADDRESS' ? 'Permanent Address' : p.fieldType;
+      list.push({
+        message: `${p.employeeName} submitted a profile change request for ${fieldType}.`,
+        time: p.submittedAt ? p.submittedAt.split('T')[0] : 'Recently',
+        type: 'info'
       });
     });
 
@@ -116,20 +150,54 @@ export class TopbarComponent {
   }
 
   openProfileModal() {
-    this.hrms.loadEmployees();
+    // Load all employees to ensure we find the current user
+    this.hrms.loadEmployees(0, 1000, 'id', 'asc');
+    
     const user = this.auth.currentUser();
     const employee = this.currentEmployee();
+    
+    console.log('=== Profile Modal Debug ===');
+    console.log('User data:', user);
+    console.log('Employee data:', employee);
+    console.log('User role:', this.auth.currentRole());
+    console.log('Has employee data:', !!employee);
+    
+    // Immediate initialization with available data
     this.profileForm = {
-      phone: user?.phone || employee?.phone || '+91 9876543210',
+      phone: employee?.phone || user?.phone || '',
       address: employee?.address || '',
-      currentAddress: employee?.currentAddress || employee?.address || '',
-      permanentAddress: employee?.permanentAddress || employee?.address || '',
+      currentAddress: employee?.currentAddress || '',
+      permanentAddress: employee?.permanentAddress || '',
       avatar: user?.avatar || employee?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'
     };
-    this.activeProfileTab.set('details');
+    
+    console.log('Initial profile form (immediate):', this.profileForm);
+    
+    // If no employee data found, try to match again after delay
+    if (!employee) {
+      console.log('No employee found immediately, retrying after delay...');
+      setTimeout(() => {
+        const loadedEmployee = this.currentEmployee();
+        console.log('Loaded employee after retry:', loadedEmployee);
+        
+        if (loadedEmployee) {
+          this.profileForm = {
+            phone: loadedEmployee.phone || user?.phone || '',
+            address: loadedEmployee.address || '',
+            currentAddress: loadedEmployee.currentAddress || '',
+            permanentAddress: loadedEmployee.permanentAddress || '',
+            avatar: user?.avatar || loadedEmployee.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'
+          };
+          console.log('Profile form updated with employee data:', this.profileForm);
+        } else {
+          console.log('Still no employee found, using user data only');
+        }
+      }, 500);
+    }
+    
     this.showProfileModal.set(true);
     this.showUserDropdown.set(false);
-    this.passwordForm = { currentPassword: '', newPassword: '', confirmNewPassword: '' };
+    console.log('=== End Debug ===');
   }
 
   onFileSelected(event: any) {
@@ -225,31 +293,6 @@ export class TopbarComponent {
         }
       });
     });
-  }
-
-  submitPasswordChange() {
-    if (this.passwordForm.newPassword !== this.passwordForm.confirmNewPassword) {
-      this.showPopup('New passwords do not match.', 'error');
-      return;
-    }
-    if (this.passwordForm.currentPassword && this.passwordForm.newPassword) {
-      this.isChangingPassword.set(true);
-      this.auth.changePassword({
-        currentPassword: this.passwordForm.currentPassword,
-        newPassword: this.passwordForm.newPassword
-      }).subscribe({
-        next: () => {
-          this.isChangingPassword.set(false);
-          this.showPopup('Password updated successfully!', 'success');
-          setTimeout(() => this.showProfileModal.set(false), 1500);
-        },
-        error: (err) => {
-          this.isChangingPassword.set(false);
-          const msg = err?.error?.message || 'Failed to change password.';
-          this.showPopup(msg, 'error');
-        }
-      });
-    }
   }
 
   showPopup(text: string, type: 'success' | 'error') {

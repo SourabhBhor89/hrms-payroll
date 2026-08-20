@@ -140,6 +140,12 @@ public class EmployeeProfileChangeServiceImpl implements EmployeeProfileChangeSe
     }
 
     @Override
+    public Page<ProfileChangeRequestResponse> getAllProfileChangeRequests(Pageable pageable) {
+        Page<EmployeeProfileChangeRequest> requests = requestRepository.findAllByOrderBySubmittedAtDesc(pageable);
+        return requests.map(ProfileChangeRequestResponse::fromEntity);
+    }
+
+    @Override
     public ProfileChangeRequestResponse getProfileChangeRequestById(Long requestId) {
         EmployeeProfileChangeRequest request = requestRepository.findById(requestId)
                 .orElseThrow(() -> new IllegalArgumentException("Profile change request not found with ID: " + requestId));

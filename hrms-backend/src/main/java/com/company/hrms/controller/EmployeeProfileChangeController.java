@@ -1,5 +1,6 @@
 package com.company.hrms.controller;
 
+import com.company.hrms.constants.CacheNames;
 import com.company.hrms.dto.request.CreateProfileChangeRequest;
 import com.company.hrms.dto.response.ProfileChangeRequestResponse;
 import com.company.hrms.entity.Employee;
@@ -8,6 +9,8 @@ import com.company.hrms.security.CustomUserDetails;
 import com.company.hrms.service.EmployeeProfileChangeService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -31,6 +34,7 @@ public class EmployeeProfileChangeController {
 
     @PostMapping
     @PreAuthorize("isAuthenticated()")
+    @CacheEvict(value = CacheNames.PROFILE_CHANGES, allEntries = true)
     public ResponseEntity<?> createProfileChangeRequest(
             @Valid @RequestBody CreateProfileChangeRequest request,
             Authentication authentication) {
@@ -52,6 +56,7 @@ public class EmployeeProfileChangeController {
 
     @GetMapping("/my-requests")
     @PreAuthorize("isAuthenticated()")
+    @Cacheable(value = CacheNames.PROFILE_CHANGES, key = "'my-requests-' + #authentication.principal.username")
     public ResponseEntity<?> getMyProfileChangeRequests(
             Authentication authentication) {
         try {
@@ -69,6 +74,7 @@ public class EmployeeProfileChangeController {
 
     @GetMapping("/pending")
     @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ADMIN', 'ROLE_HR', 'HR', 'ROLE_MANAGER', 'MANAGER', 'EMPLOYEE_MANAGEMENT_UPDATE')")
+    @Cacheable(value = CacheNames.PROFILE_CHANGES, key = "'pending-' + #page + '-' + #size + '-' + #sortBy + '-' + #sortDir")
     public ResponseEntity<?> getPendingProfileChangeRequests(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
@@ -85,6 +91,46 @@ public class EmployeeProfileChangeController {
         } catch (Exception ex) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Internal Server Error", "message", "Failed to retrieve pending profile change requests: " + ex.getMessage()));
+        }
+    }
+
+    @GetMapping("/all")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ADMIN', 'ROLE_HR', 'HR', 'ROLE_MANAGER', 'MANAGER', 'EMPLOYEE_MANAGEMENT_UPDATE')")
+    @Cacheable(value = CacheNames.PROFILE_CHANGES, key = "'all-' + #page + '-' + #size + '-' + #sortBy + '-' + #sortDir")
+    public ResponseEntity<?> getAllProfileChangeRequests(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "submittedAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir) {
+        try {
+            Sort sort = sortDir.equalsIgnoreCase("desc") ? Sort.by(sortBy).descending() : Sort.by(sortBy).ascending();
+            Pageable pageable = PageRequest.of(page, size, sort);
+            Page<ProfileChangeRequestResponse> requests = profileChangeService.getAllProfileChangeRequests(pageable);
+            return ResponseEntity.ok(requests);
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", "Bad Request", "message", ex.getMessage()));
+        } catch (Exception ex) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Internal Server Error", "message", "Failed to retrieve all profile change requests: " + ex.getMessage()));
+        }
+    }
+
+    @GetMapping
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ADMIN', 'ROLE_HR', 'HR', 'ROLE_MANAGER', 'MANAGER', 'EMPLOYEE_MANAGEMENT_UPDATE')")
+    @Cacheable(value = CacheNames.PROFILE_CHANGES, key = "'all-simple'")
+    public ResponseEntity<?> getAllProfileChangeRequestsSimple() {
+        try {
+            // Get all requests without pagination for simpler frontend integration
+            Pageable pageable = PageRequest.of(0, 1000, Sort.by("submittedAt").descending());
+            Page<ProfileChangeRequestResponse> requests = profileChangeService.getAllProfileChangeRequests(pageable);
+            return ResponseEntity.ok(requests.getContent());
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", "Bad Request", "message", ex.getMessage()));
+        } catch (Exception ex) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Internal Server Error", "message", "Failed to retrieve all profile change requests: " + ex.getMessage()));
         }
     }
 
@@ -105,6 +151,7 @@ public class EmployeeProfileChangeController {
 
     @PostMapping("/{id}/approve")
     @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ADMIN', 'ROLE_HR', 'HR', 'ROLE_MANAGER', 'MANAGER', 'EMPLOYEE_MANAGEMENT_UPDATE')")
+    @CacheEvict(value = CacheNames.PROFILE_CHANGES, allEntries = true)
     public ResponseEntity<?> approveProfileChangeRequest(
             @PathVariable Long id,
             @RequestBody(required = false) String remarks,
@@ -127,6 +174,7 @@ public class EmployeeProfileChangeController {
 
     @PostMapping("/{id}/reject")
     @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ADMIN', 'ROLE_HR', 'HR', 'ROLE_MANAGER', 'MANAGER', 'EMPLOYEE_MANAGEMENT_UPDATE')")
+    @CacheEvict(value = CacheNames.PROFILE_CHANGES, allEntries = true)
     public ResponseEntity<?> rejectProfileChangeRequest(
             @PathVariable Long id,
             @RequestBody(required = false) String remarks,
@@ -149,6 +197,7 @@ public class EmployeeProfileChangeController {
 
     @PostMapping("/{id}/cancel")
     @PreAuthorize("isAuthenticated()")
+    @CacheEvict(value = CacheNames.PROFILE_CHANGES, allEntries = true)
     public ResponseEntity<?> cancelProfileChangeRequest(
             @PathVariable Long id,
             Authentication authentication) {

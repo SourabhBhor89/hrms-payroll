@@ -152,31 +152,7 @@
       </div>
     </div>
 
-    <!-- Pending Profile Update Requests Widget (Admin/HR/Manager only) -->
-    <div class="widget-card glass-card" *ngIf="canApproveProfileChanges()">
-      <div class="widget-header">
-        <h3>Pending Profile Updates</h3>
-        <a routerLink="/profile-changes" class="link-text">View All</a>
-      </div>
-      <div class="pending-list">
-        <div class="pending-item" *ngFor="let req of hrms.pendingProfileChangeRequests().slice(0, 3)">
-          <div class="pending-info">
-            <span class="badge badge-purple">{{ getFieldTypeDisplay(req.fieldType) }}</span>
-            <div class="pending-details">
-              <strong>{{ req.employeeName || 'Employee' }}</strong>
-              <span>Wants to update {{ getFieldTypeDisplay(req.fieldType).toLowerCase() }}</span>
-            </div>
-          </div>
-          <div class="pending-actions">
-            <button class="btn btn-success btn-sm" (click)="quickApproveProfileChange(req.id)">✓</button>
-            <button class="btn btn-danger btn-sm" (click)="promptRejectProfileChange(req.id)">✕</button>
-          </div>
-        </div>
-        <div class="no-records-box" *ngIf="hrms.pendingProfileChangeRequests().length === 0" style="padding: 1.5rem; text-align: center; color: var(--text-muted, #64748b); font-size: 0.875rem;">
-          No pending profile update requests
-        </div>
-      </div>
-    </div>
+
 
     <!-- Upcoming Company Holidays Widget -->
     <div class="widget-card glass-card">
@@ -221,6 +197,218 @@
         </div>
       </div>
     </div>
+
+    <!-- Profile Update Requests with Tabs (Admin/HR/Manager only) -->
+    <div class="widget-card glass-card" *ngIf="canApproveProfileChanges()">
+      <div class="widget-header">
+        <h3>Profile Update Requests</h3>
+        <a routerLink="/profile-changes" class="link-text">View All</a>
+      </div>
+      
+      <!-- Tabs -->
+      <div class="tabs-container">
+        <button class="tab-btn" [class.active]="activeProfileTab() === 'my-requests'" (click)="setProfileTab('my-requests')">
+          My Requests
+        </button>
+        <button class="tab-btn" [class.active]="activeProfileTab() === 'approvals'" (click)="setProfileTab('approvals')">
+          Profile Change Approval
+        </button>
+      </div>
+
+      <!-- My Requests Tab - Shows only current user's pending requests -->
+      <div class="tab-content" *ngIf="activeProfileTab() === 'my-requests'">
+        <table class="custom-table">
+          <thead>
+            <tr>
+              <th>Applicant</th>
+              <th>Field Type</th>
+              <th>Old Value</th>
+              <th>New Value</th>
+              <th>Reason</th>
+              <th>Submitted On</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let req of getMyPendingRequests()">
+              <td>
+                <div class="user-cell">
+                  <img [src]="req.employeeAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'" class="table-avatar" />
+                  <div>
+                    <strong>You</strong>
+                    <span class="sub-text">My Request</span>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <span class="badge badge-purple">{{ getFieldTypeDisplay(req.fieldType) }}</span>
+              </td>
+              <td><code>{{ req.oldValue || 'N/A' }}</code></td>
+              <td><code>{{ req.newValue }}</code></td>
+              <td>{{ req.reason || 'No reason provided' }}</td>
+              <td>{{ req.submittedAt ? req.submittedAt.split('T')[0] : 'N/A' }}</td>
+              <td>
+                <span class="badge badge-warning">Pending</span>
+              </td>
+              <td>
+                <button class="btn btn-outline-danger btn-sm" (click)="cancelProfileChangeRequest(req.id)">Cancel</button>
+              </td>
+            </tr>
+            <tr *ngIf="getMyPendingRequests().length === 0">
+              <td colspan="8" class="text-center py-4 text-muted">
+                No pending profile update requests found
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Pagination -->
+        <div class="pagination-container" *ngIf="getProfileChangeTotalPages() > 1">
+          <div class="pagination-info">
+            Page {{ profileChangeCurrentPage() + 1 }} of {{ getProfileChangeTotalPages() }}
+            ({{ getMyPendingRequestsTotal() }} total requests)
+          </div>
+          <div class="pagination-controls">
+            <button class="btn btn-sm btn-secondary" (click)="goToProfileChangePage(profileChangeCurrentPage() - 1)" [disabled]="profileChangeCurrentPage() === 0">Previous</button>
+            <button class="btn btn-sm" [class.btn-primary]="page === profileChangeCurrentPage()" [class.btn-secondary]="page !== profileChangeCurrentPage()" *ngFor="let page of getProfileChangePages()" (click)="goToProfileChangePage(page)">{{ page + 1 }}</button>
+            <button class="btn btn-sm btn-secondary" (click)="goToProfileChangePage(profileChangeCurrentPage() + 1)" [disabled]="profileChangeCurrentPage() === getProfileChangeTotalPages() - 1">Next</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Profile Change Approval Tab - Shows other employees' pending requests -->
+      <div class="tab-content" *ngIf="activeProfileTab() === 'approvals'">
+        <table class="custom-table">
+          <thead>
+            <tr>
+              <th>Applicant</th>
+              <th>Field Type</th>
+              <th>Old Value</th>
+              <th>New Value</th>
+              <th>Reason</th>
+              <th>Submitted On</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let req of getOtherEmployeesPendingRequests()">
+              <td>
+                <div class="user-cell">
+                  <img [src]="req.employeeAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'" class="table-avatar" />
+                  <div>
+                    <strong>{{ req.employeeName || 'Employee' }}</strong>
+                    <span class="sub-text" *ngIf="req.employeeCode">{{ req.employeeCode }}</span>
+                    <span class="sub-text" *ngIf="!req.employeeCode">Staff</span>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <span class="badge badge-purple">{{ getFieldTypeDisplay(req.fieldType) }}</span>
+              </td>
+              <td><code>{{ req.oldValue || 'N/A' }}</code></td>
+              <td><code>{{ req.newValue }}</code></td>
+              <td>{{ req.reason || 'No reason provided' }}</td>
+              <td>{{ req.submittedAt ? req.submittedAt.split('T')[0] : 'N/A' }}</td>
+              <td>
+                <span class="badge badge-warning">Pending</span>
+              </td>
+              <td>
+                <button class="btn btn-success btn-sm" (click)="quickApproveProfileChange(req.id)">Approve</button>
+                <button class="btn btn-danger btn-sm" (click)="promptRejectProfileChange(req.id)">Reject</button>
+              </td>
+            </tr>
+            <tr *ngIf="getOtherEmployeesPendingRequests().length === 0">
+              <td colspan="8" class="text-center py-4 text-muted">
+                No pending profile update requests found
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Pagination -->
+        <div class="pagination-container" *ngIf="getProfileChangeTotalPages() > 1">
+          <div class="pagination-info">
+            Page {{ profileChangeCurrentPage() + 1 }} of {{ getProfileChangeTotalPages() }}
+            ({{ getOtherEmployeesPendingRequestsTotal() }} total requests)
+          </div>
+          <div class="pagination-controls">
+            <button class="btn btn-sm btn-secondary" (click)="goToProfileChangePage(profileChangeCurrentPage() - 1)" [disabled]="profileChangeCurrentPage() === 0">Previous</button>
+            <button class="btn btn-sm" [class.btn-primary]="page === profileChangeCurrentPage()" [class.btn-secondary]="page !== profileChangeCurrentPage()" *ngFor="let page of getProfileChangePages()" (click)="goToProfileChangePage(page)">{{ page + 1 }}</button>
+            <button class="btn btn-sm btn-secondary" (click)="goToProfileChangePage(profileChangeCurrentPage() + 1)" [disabled]="profileChangeCurrentPage() === getProfileChangeTotalPages() - 1">Next</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- My Profile Update Requests (EMPLOYEES & COORDINATORS) -->
+  <div class="bottom-grid full-width-activity" *ngIf="auth.currentRole() === 'Employee' || auth.currentRole() === 'Coordinator'">
+    <div class="widget-card glass-card">
+      <div class="widget-header">
+        <h3>My Profile Update Requests</h3>
+        <a routerLink="/profile-changes" class="link-text">View All</a>
+      </div>
+      <table class="custom-table">
+        <thead>
+          <tr>
+            <th>Applicant</th>
+            <th>Field Type</th>
+            <th>Old Value</th>
+            <th>New Value</th>
+            <th>Reason</th>
+            <th>Submitted On</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let req of getEmployeePendingRequests()">
+            <td>
+              <div class="user-cell">
+                <img [src]="req.employeeAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'" class="table-avatar" />
+                <div>
+                  <strong>You</strong>
+                  <span class="sub-text">My Request</span>
+                </div>
+              </div>
+            </td>
+            <td>
+              <span class="badge badge-purple">{{ getFieldTypeDisplay(req.fieldType) }}</span>
+            </td>
+            <td><code>{{ req.oldValue || 'N/A' }}</code></td>
+            <td><code>{{ req.newValue }}</code></td>
+            <td>{{ req.reason || 'No reason provided' }}</td>
+            <td>{{ req.submittedAt ? req.submittedAt.split('T')[0] : 'N/A' }}</td>
+            <td>
+              <span class="badge badge-warning">Pending</span>
+            </td>
+            <td>
+              <button class="btn btn-outline-danger btn-sm" (click)="cancelProfileChangeRequest(req.id)">Cancel</button>
+            </td>
+          </tr>
+          <tr *ngIf="getEmployeePendingRequests().length === 0">
+            <td colspan="8" class="text-center py-4 text-muted">
+              No pending profile update requests found
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Pagination -->
+      <div class="pagination-container" *ngIf="getProfileChangeTotalPages() > 1">
+        <div class="pagination-info">
+          Page {{ profileChangeCurrentPage() + 1 }} of {{ getProfileChangeTotalPages() }}
+          ({{ getEmployeePendingRequestsTotal() }} total requests)
+        </div>
+        <div class="pagination-controls">
+          <button class="btn btn-sm btn-secondary" (click)="goToProfileChangePage(profileChangeCurrentPage() - 1)" [disabled]="profileChangeCurrentPage() === 0">Previous</button>
+          <button class="btn btn-sm" [class.btn-primary]="page === profileChangeCurrentPage()" [class.btn-secondary]="page !== profileChangeCurrentPage()" *ngFor="let page of getProfileChangePages()" (click)="goToProfileChangePage(page)">{{ page + 1 }}</button>
+          <button class="btn btn-sm btn-secondary" (click)="goToProfileChangePage(profileChangeCurrentPage() + 1)" [disabled]="profileChangeCurrentPage() === getProfileChangeTotalPages() - 1">Next</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Profile Change Rejection Modal -->
@@ -240,6 +428,32 @@
           <button type="submit" class="btn btn-danger">Confirm Rejection</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Profile Change Approval Modal -->
+  <div class="modal-backdrop" *ngIf="showApproveModal()">
+    <div class="modal-content">
+      <h3>Approve Profile Change Request</h3>
+      <p class="sub-text">Are you sure you want to approve this profile change request?</p>
+
+      <div class="modal-actions mt-4">
+        <button type="button" class="btn btn-secondary" (click)="cancelApproveModal()">Cancel</button>
+        <button type="button" class="btn btn-success" (click)="confirmApproveProfileChange()">Confirm Approval</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Profile Change Cancellation Modal -->
+  <div class="modal-backdrop" *ngIf="showCancelModal()">
+    <div class="modal-content">
+      <h3>Cancel Profile Change Request</h3>
+      <p class="sub-text">Are you sure you want to cancel this profile change request?</p>
+
+      <div class="modal-actions mt-4">
+        <button type="button" class="btn btn-secondary" (click)="cancelCancelModal()">Cancel</button>
+        <button type="button" class="btn btn-danger" (click)="confirmCancelProfileChange()">Confirm Cancellation</button>
+      </div>
     </div>
   </div>
 </div>

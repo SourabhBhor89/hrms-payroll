@@ -15,8 +15,12 @@ export class ProfileChangesComponent implements OnInit {
   hrms = inject(HrmsService);
   auth = inject(AuthService);
 
-  currentPage = signal<number>(0);
+  currentPage = 0;
   pageSize = 10;
+
+  // Tab and Filter State
+  activeTab = 'approvals';
+  activeFilter = 'All';
 
   // Modal Signals
   showRejectModal = signal<boolean>(false);
@@ -24,37 +28,75 @@ export class ProfileChangesComponent implements OnInit {
   rejectionReasonInput: string = '';
 
   profileChangeRequests = computed(() => this.hrms.profileChangeRequests());
-  pendingRequests = computed(() => this.hrms.pendingProfileChangeRequests());
+  allProfileChangeRequests = computed(() => {
+    const data = this.hrms.allProfileChangeRequests();
+    console.log('allProfileChangeRequests computed:', data);
+    return data;
+  });
   totalElements = signal<number>(0);
   totalPages = signal<number>(0);
 
   ngOnInit() {
     if (this.canApprove()) {
-      this.hrms.loadPendingProfileChangeRequests();
+      this.hrms.loadAllProfileChangeRequests(); // Load all for filtering
+      this.hrms.loadMyProfileChangeRequests(); // Load own requests too
+      
+      // Debug: log profile change requests after loading
+      setTimeout(() => {
+        console.log('All profile change requests:', this.hrms.allProfileChangeRequests());
+        console.log('My profile change requests:', this.hrms.profileChangeRequests());
+        console.log('Current user:', this.auth.currentUser());
+        console.log('Active tab:', this.activeTab);
+        console.log('Active filter:', this.activeFilter);
+        console.log('Filtered requests:', this.filteredRequests());
+      }, 1000);
     } else {
       this.hrms.loadMyProfileChangeRequests();
     }
   }
 
   canApprove(): boolean {
-    return this.auth.hasPermission('EMPLOYEE_MANAGEMENT_UPDATE') || 
+    const result = this.auth.hasPermission('EMPLOYEE_MANAGEMENT_UPDATE') || 
            this.auth.hasPermission('LEAVE_APPROVE') ||
            this.auth.currentRole() === 'Admin' ||
            this.auth.currentRole() === 'HR Manager' ||
            this.auth.currentRole() === 'Manager';
+    console.log('canApprove check:', result);
+    console.log('Current role:', this.auth.currentRole());
+    console.log('Has EMPLOYEE_MANAGEMENT_UPDATE:', this.auth.hasPermission('EMPLOYEE_MANAGEMENT_UPDATE'));
+    console.log('Has LEAVE_APPROVE:', this.auth.hasPermission('LEAVE_APPROVE'));
+    return result;
   }
 
   refreshRequests() {
     if (this.canApprove()) {
-      this.hrms.loadPendingProfileChangeRequests();
+      this.hrms.loadAllProfileChangeRequests(); // Load all for filtering
+      this.hrms.loadMyProfileChangeRequests();
     } else {
       this.hrms.loadMyProfileChangeRequests();
     }
   }
 
+  setActiveTab(tab: 'approvals' | 'my-requests') {
+    this.activeTab = tab;
+    this.currentPage = 0; // Reset to first page when switching tabs
+  }
+
+  setFilter(filter: 'All' | 'Pending' | 'Approved' | 'Rejected' | 'Cancelled') {
+    this.activeFilter = filter;
+    this.currentPage = 0; // Reset to first page when changing filter
+  }
+
+  getPendingCount(): number {
+    return this.allProfileChangeRequests().filter(req => {
+      const status = (req.status || '').toUpperCase();
+      return status === 'PENDING' || status === 'Pending';
+    }).length;
+  }
+
   paginatedRequests(): any[] {
     const list = this.filteredRequests();
-    const start = this.currentPage() * this.pageSize;
+    const start = this.currentPage * this.pageSize;
     return list.slice(start, start + this.pageSize);
   }
 
@@ -75,7 +117,7 @@ export class ProfileChangesComponent implements OnInit {
   goToPage(page: number) {
     const totalPages = this.getTotalPages();
     if (page >= 0 && page < totalPages) {
-      this.currentPage.set(page);
+      this.currentPage = page;
     }
   }
 
@@ -83,12 +125,55 @@ export class ProfileChangesComponent implements OnInit {
     let sourceList: any[] = [];
 
     if (this.canApprove()) {
-      sourceList = [...this.pendingRequests()];
+      if (this.activeTab === 'approvals') {
+        sourceList = [...this.allProfileChangeRequests()];
+        console.log('Using allProfileChangeRequests for approvals tab:', sourceList);
+      } else {
+        sourceList = [...this.hrms.profileChangeRequests()];
+        console.log('Using profileChangeRequests for my-requests tab:', sourceList);
+      }
     } else {
-      sourceList = [...this.profileChangeRequests()];
+      sourceList = [...this.hrms.profileChangeRequests()];
+      console.log('Using profileChangeRequests for regular employee:', sourceList);
     }
 
+    console.log('Source list for filtering:', sourceList);
+    console.log('Current filter:', this.activeFilter);
+
+    // Apply filter to both tabs
+    const filter = this.activeFilter;
+    if (filter !== 'All') {
+      sourceList = sourceList.filter(req => {
+        const status = (req.status || '').toUpperCase();
+        console.log('Checking request status:', status, 'against filter:', filter);
+        switch (filter) {
+          case 'Pending':
+            return status === 'PENDING' || status === 'Pending';
+          case 'Approved':
+            return status === 'APPROVED' || status === 'Approved';
+          case 'Rejected':
+            return status === 'REJECTED' || status === 'Rejected';
+          case 'Cancelled':
+            return status === 'CANCELLED' || status === 'Cancelled';
+          default:
+            return true;
+        }
+      });
+    }
+
+    console.log('Filtered result:', sourceList);
+
     return [...sourceList].sort((a, b) => {
+      // Sort by status: Pending first, then by submitted date
+      const statusA = (a.status || '').toUpperCase();
+      const statusB = (b.status || '').toUpperCase();
+      const isPendingA = statusA === 'PENDING' || statusA === 'Pending';
+      const isPendingB = statusB === 'PENDING' || statusB === 'Pending';
+
+      if (isPendingA && !isPendingB) return -1;
+      if (!isPendingA && isPendingB) return 1;
+
+      // If both have same status, sort by submitted date (newest first)
       const dateA = a.submittedAt || '';
       const dateB = b.submittedAt || '';
       return dateB.localeCompare(dateA);

@@ -16,7 +16,10 @@ import java.util.Optional;
 @Repository
 public interface EmployeeProfileChangeRequestRepository extends JpaRepository<EmployeeProfileChangeRequest, Long> {
 
-    List<EmployeeProfileChangeRequest> findByEmployeeId(Long employeeId);
+    @Query("SELECT r FROM EmployeeProfileChangeRequest r WHERE r.employee.id = :employeeId ORDER BY r.submittedAt DESC")
+    List<EmployeeProfileChangeRequest> findByEmployeeId(@Param("employeeId") Long employeeId);
+
+//    List<EmployeeProfileChangeRequest> findByEmployeeId(Long employeeId);
 
     List<EmployeeProfileChangeRequest> findByEmployeeIdAndStatus(Long employeeId, ProfileChangeStatus status);
 
@@ -29,4 +32,7 @@ public interface EmployeeProfileChangeRequestRepository extends JpaRepository<Em
 
     @Query("SELECT r FROM EmployeeProfileChangeRequest r WHERE r.status IN :statuses ORDER BY r.submittedAt DESC")
     Page<EmployeeProfileChangeRequest> findByStatusInOrderBySubmittedAtDesc(@Param("statuses") List<ProfileChangeStatus> statuses, Pageable pageable);
+
+    @Query("SELECT r FROM EmployeeProfileChangeRequest r ORDER BY r.submittedAt DESC")
+    Page<EmployeeProfileChangeRequest> findAllByOrderBySubmittedAtDesc(Pageable pageable);
 }

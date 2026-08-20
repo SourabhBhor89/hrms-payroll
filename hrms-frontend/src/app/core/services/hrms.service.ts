@@ -99,6 +99,7 @@ export class HrmsService {
   regularizationRequests = signal<RegularizationRequest[]>([]);
   profileChangeRequests = signal<any[]>([]);
   pendingProfileChangeRequests = signal<any[]>([]);
+  allProfileChangeRequests = signal<any[]>([]);
   
   // Pagination state
   employeePagination = signal<{ totalElements: number; totalPages: number; currentPage: number; pageSize: number }>({
@@ -313,7 +314,8 @@ export class HrmsService {
     this.loadRegularizations();
     this.loadMyProfileChangeRequests();
     if (this.isAdminOrHrUser()) {
-      this.loadPendingProfileChangeRequests();
+      this.loadAllProfileChangeRequests(); // Load all for filtering support
+      this.loadPendingProfileChangeRequests(); // Also load pending for dashboard
     }
   }
 
@@ -889,10 +891,22 @@ export class HrmsService {
   }
 
   loadMyProfileChangeRequests() {
+    console.log('Loading my profile change requests...');
     this.http.get<any[]>('/api/v1/profile-changes/my-requests').pipe(
-      catchError(() => of([]))
+      catchError((error) => {
+        console.error('Failed to load my-requests, trying all endpoint:', error);
+        // Fallback to all requests endpoint
+        return this.http.get<any>('/api/v1/profile-changes');
+      }),
+      catchError((error) => {
+        console.error('All endpoints failed:', error);
+        return of([]);
+      })
     ).subscribe(data => {
-      this.profileChangeRequests.set(data || []);
+      console.log('My profile change requests loaded:', data);
+      // Handle different response formats
+      const requests = Array.isArray(data) ? data : (data?.content || data?.data || []);
+      this.profileChangeRequests.set(requests);
     });
   }
 
@@ -901,6 +915,52 @@ export class HrmsService {
       catchError(() => of({ content: [] }))
     ).subscribe(data => {
       this.pendingProfileChangeRequests.set(data?.content || []);
+    });
+  }
+
+  loadAllProfileChangeRequests() {
+    console.log('Loading all profile change requests...');
+    // Use the main endpoint which now returns all requests for HR/Manager/Admin
+    this.http.get<any[]>('/api/v1/profile-changes').pipe(
+      catchError((error) => {
+        console.error('Main endpoint failed with error:', error);
+        console.log('Trying /all endpoint as fallback');
+        return this.http.get<any>('/api/v1/profile-changes/all', { params: { page: 0, size: 100, sortBy: 'submittedAt', sortDir: 'desc' } });
+      }),
+      catchError((error) => {
+        console.error('All endpoints failed with error:', error);
+        console.log('Returning empty array');
+        return of([]);
+      })
+    ).subscribe(data => {
+      console.log('All profile change requests from API:', data);
+      console.log('Data type:', typeof data);
+      console.log('Is array:', Array.isArray(data));
+      console.log('Has content property:', data?.content);
+      
+      // Handle different response formats
+      let requests: any[] = [];
+      if (Array.isArray(data)) {
+        requests = data;
+      } else if (data?.content && Array.isArray(data.content)) {
+        requests = data.content;
+      } else if (data?.data && Array.isArray(data.data)) {
+        requests = data.data;
+      }
+      
+      console.log('Extracted requests:', requests);
+      console.log('Number of requests:', requests.length);
+      if (requests.length > 0) {
+        console.log('Sample request:', requests[0]);
+      }
+      
+      this.allProfileChangeRequests.set(requests);
+      // Also update pendingProfileChangeRequests with pending items for backward compatibility
+      const pendingItems = requests.filter((req: any) => 
+        (req.status || '').toUpperCase() === 'PENDING' || (req.status || '').toUpperCase() === 'Pending'
+      );
+      this.pendingProfileChangeRequests.set(pendingItems);
+      console.log('Pending items filtered:', pendingItems);
     });
   }
 

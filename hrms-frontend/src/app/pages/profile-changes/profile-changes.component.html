@@ -10,25 +10,47 @@
   <!-- Main Content Card with Tabs & Filter -->
   <div class="table-container glass-card mt-4">
     <div class="table-header-box flex-header">
+      <!-- Tabs for HR/Manager -->
+      <div class="view-tabs" *ngIf="canApprove()">
+        <button class="tab-btn" [class.active]="activeTab === 'my-requests'" (click)="activeTab = 'my-requests'">
+          My Requests
+        </button>
+        <button class="tab-btn" [class.active]="activeTab === 'approvals'" (click)="activeTab = 'approvals'">
+          Profile Change Approval
+          <span class="tab-badge" *ngIf="getPendingCount() > 0">
+            {{ getPendingCount() }}
+          </span>
+        </button>
+      </div>
+      <!-- Single tab for regular employees -->
       <div class="view-tabs" *ngIf="!canApprove()">
         <button class="tab-btn active">
           My Requests
         </button>
       </div>
-      <h3 *ngIf="canApprove()">Pending Profile Change Approvals</h3>
       <h3 *ngIf="!canApprove()">My Profile Change Requests</h3>
+      <h3 *ngIf="canApprove() && activeTab === 'approvals'">Profile Change Approvals</h3>
+      <h3 *ngIf="canApprove() && activeTab === 'my-requests'">My Profile Change Requests</h3>
+
+      <div class="filter-pills">
+        <button class="pill-btn" [class.active]="activeFilter === 'All'" (click)="activeFilter = 'All'">All</button>
+        <button class="pill-btn" [class.active]="activeFilter === 'Pending'" (click)="activeFilter = 'Pending'">Pending</button>
+        <button class="pill-btn" [class.active]="activeFilter === 'Approved'" (click)="activeFilter = 'Approved'">Approved</button>
+        <button class="pill-btn" [class.active]="activeFilter === 'Rejected'" (click)="activeFilter = 'Rejected'">Rejected</button>
+        <button class="pill-btn" [class.active]="activeFilter === 'Cancelled'" (click)="activeFilter = 'Cancelled'">Cancelled</button>
+      </div>
     </div>
 
     <table class="custom-table">
       <thead>
         <tr>
-          <th>Employee</th>
+          <th>Applicant</th>
           <th>Field Type</th>
           <th>Old Value</th>
           <th>New Value</th>
           <th>Reason</th>
           <th>Submitted On</th>
-          <th *ngIf="canApprove()">Reviewed By</th>
+          <th *ngIf="activeTab === 'approvals'">Reviewed By</th>
           <th>Status</th>
           <th>Actions</th>
         </tr>
@@ -37,10 +59,11 @@
         <tr *ngFor="let req of paginatedRequests()">
           <td>
             <div class="user-cell">
-              <img [src]="'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'" class="table-avatar" />
+              <img [src]="req.employeeAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'" class="table-avatar" />
               <div>
                 <strong>{{ req.employeeName || 'Employee' }}</strong>
                 <span class="sub-text" *ngIf="req.employeeCode">{{ req.employeeCode }}</span>
+                <span class="sub-text" *ngIf="!req.employeeCode">{{ 'Staff' }}</span>
               </div>
             </div>
           </td>
@@ -51,12 +74,9 @@
           <td><code>{{ req.newValue }}</code></td>
           <td class="reason-cell">
             <div>{{ req.reason || 'No reason provided' }}</div>
-            <div *ngIf="req.reviewRemarks" class="rejection-note">
-              <small><strong>Review Note:</strong> {{ req.reviewRemarks }}</small>
-            </div>
           </td>
           <td>{{ req.submittedAt ? req.submittedAt.split('T')[0] : 'N/A' }}</td>
-          <td *ngIf="canApprove()">
+          <td *ngIf="activeTab === 'approvals'">
             <span *ngIf="req.reviewedByName">{{ req.reviewedByName }}</span>
             <span *ngIf="!req.reviewedByName && req.status === 'PENDING'" class="text-muted">-</span>
           </td>
@@ -66,8 +86,8 @@
             </span>
           </td>
           <td>
-            <!-- Approval Actions for Managers -->
-            <div class="action-buttons" *ngIf="canApprove()">
+            <!-- Approval Actions for Managers (only in approvals tab) -->
+            <div class="action-buttons" *ngIf="canApprove() && activeTab === 'approvals'">
               <ng-container *ngIf="req.status === 'PENDING'">
                 <button class="btn btn-success btn-sm" (click)="approve(req.id)">Approve</button>
                 <button class="btn btn-danger btn-sm" (click)="promptReject(req.id)">Reject</button>
@@ -77,8 +97,8 @@
               </span>
             </div>
 
-            <!-- Self Request Actions -->
-            <div class="action-buttons" *ngIf="!canApprove()">
+            <!-- Self Request Actions (in my-requests tab or for regular employees) -->
+            <div class="action-buttons" *ngIf="!canApprove() || activeTab === 'my-requests'">
               <ng-container *ngIf="req.status === 'PENDING'">
                 <button class="btn btn-outline-danger btn-sm" (click)="cancelRequest(req.id)">Cancel</button>
               </ng-container>
@@ -89,8 +109,8 @@
           </td>
         </tr>
         <tr *ngIf="filteredRequests().length === 0">
-          <td [attr.colspan]="canApprove() ? 9 : 8" class="text-center py-4 text-muted">
-            No profile change requests found.
+          <td [attr.colspan]="activeTab === 'approvals' ? 9 : 8" class="text-center py-4 text-muted">
+            No profile change requests found for selected filter.
           </td>
         </tr>
       </tbody>
@@ -99,24 +119,24 @@
     <!-- Pagination Controls -->
     <div class="pagination-bar" *ngIf="getTotalPages() > 1">
       <div class="pagination-info">
-        Showing <strong>{{ currentPage() * pageSize + 1 }}</strong> to <strong>{{ (currentPage() + 1) * pageSize < filteredRequests().length ? (currentPage() + 1) * pageSize : filteredRequests().length }}</strong> of <strong>{{ filteredRequests().length }}</strong> entries
+        Showing <strong>{{ currentPage * pageSize + 1 }}</strong> to <strong>{{ (currentPage + 1) * pageSize < filteredRequests().length ? (currentPage + 1) * pageSize : filteredRequests().length }}</strong> of <strong>{{ filteredRequests().length }}</strong> entries
       </div>
       <div class="pagination-buttons">
-        <button class="btn btn-pagination btn-icon" [disabled]="currentPage() === 0" (click)="goToPage(0)" title="First Page">
+        <button class="btn btn-pagination btn-icon" [disabled]="currentPage === 0" (click)="goToPage(0)" title="First Page">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg>
         </button>
-        <button class="btn btn-pagination btn-icon" [disabled]="currentPage() === 0" (click)="goToPage(currentPage() - 1)" title="Previous Page">
+        <button class="btn btn-pagination btn-icon" [disabled]="currentPage === 0" (click)="goToPage(currentPage - 1)" title="Previous Page">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
         </button>
         
-        <button *ngFor="let page of getPages()" class="btn btn-pagination page-num" [class.active]="currentPage() === page" (click)="goToPage(page)">
+        <button *ngFor="let page of getPages()" class="btn btn-pagination page-num" [class.active]="currentPage === page" (click)="goToPage(page)">
           {{ page + 1 }}
         </button>
 
-        <button class="btn btn-pagination btn-icon" [disabled]="currentPage() === getTotalPages() - 1" (click)="goToPage(currentPage() + 1)" title="Next Page">
+        <button class="btn btn-pagination btn-icon" [disabled]="currentPage === getTotalPages() - 1" (click)="goToPage(currentPage + 1)" title="Next Page">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
         </button>
-        <button class="btn btn-pagination btn-icon" [disabled]="currentPage() === getTotalPages() - 1" (click)="goToPage(getTotalPages() - 1)" title="Last Page">
+        <button class="btn btn-pagination btn-icon" [disabled]="currentPage === getTotalPages() - 1" (click)="goToPage(getTotalPages() - 1)" title="Last Page">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>
         </button>
       </div>
