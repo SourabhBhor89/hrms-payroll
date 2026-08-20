@@ -252,7 +252,9 @@
                 <span class="badge badge-warning">Pending</span>
               </td>
               <td>
-                <button class="btn btn-outline-danger btn-sm" (click)="cancelProfileChangeRequest(req.id)">Cancel</button>
+                <div class="action-buttons">
+                  <button class="btn btn-outline-danger" (click)="cancelProfileChangeRequest(req.id)">Cancel</button>
+                </div>
               </td>
             </tr>
             <tr *ngIf="getMyPendingRequests().length === 0">
@@ -315,8 +317,10 @@
                 <span class="badge badge-warning">Pending</span>
               </td>
               <td>
-                <button class="btn btn-success btn-sm" (click)="quickApproveProfileChange(req.id)">Approve</button>
-                <button class="btn btn-danger btn-sm" (click)="promptRejectProfileChange(req.id)">Reject</button>
+                <div class="action-buttons">
+                  <button class="btn btn-success" (click)="quickApproveProfileChange(req.id)">Approve</button>
+                  <button class="btn btn-danger" (click)="promptRejectProfileChange(req.id)">Reject</button>
+                </div>
               </td>
             </tr>
             <tr *ngIf="getOtherEmployeesPendingRequests().length === 0">
@@ -385,7 +389,9 @@
               <span class="badge badge-warning">Pending</span>
             </td>
             <td>
-              <button class="btn btn-outline-danger btn-sm" (click)="cancelProfileChangeRequest(req.id)">Cancel</button>
+              <div class="action-buttons">
+                <button class="btn btn-outline-danger" (click)="cancelProfileChangeRequest(req.id)">Cancel</button>
+              </div>
             </td>
           </tr>
           <tr *ngIf="getEmployeePendingRequests().length === 0">
@@ -428,19 +434,6 @@
           <button type="submit" class="btn btn-danger">Confirm Rejection</button>
         </div>
       </form>
-    </div>
-  </div>
-
-  <!-- Profile Change Approval Modal -->
-  <div class="modal-backdrop" *ngIf="showApproveModal()">
-    <div class="modal-content">
-      <h3>Approve Profile Change Request</h3>
-      <p class="sub-text">Are you sure you want to approve this profile change request?</p>
-
-      <div class="modal-actions mt-4">
-        <button type="button" class="btn btn-secondary" (click)="cancelApproveModal()">Cancel</button>
-        <button type="button" class="btn btn-success" (click)="confirmApproveProfileChange()">Confirm Approval</button>
-      </div>
     </div>
   </div>
 

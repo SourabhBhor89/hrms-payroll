@@ -21,10 +21,6 @@ export class DashboardComponent implements OnInit {
   rejectingRequestId: number | null = null;
   rejectionReasonInput: string = '';
 
-  // Modal Signals for Profile Change Approval
-  showApproveModal = signal<boolean>(false);
-  approvingRequestId: number | null = null;
-
   // Modal Signals for Profile Change Cancellation
   showCancelModal = signal<boolean>(false);
   cancellingRequestId: number | null = null;
@@ -395,34 +391,17 @@ export class DashboardComponent implements OnInit {
   }
 
   quickApproveProfileChange(id: number) {
-    this.approvingRequestId = id;
-    this.showApproveModal.set(true);
-  }
-
-  confirmApproveProfileChange() {
-    if (this.approvingRequestId) {
-      this.hrms.approveProfileChangeRequest(this.approvingRequestId, 'Quick approved from dashboard').subscribe({
-        next: () => {
-          this.hrms.loadPendingProfileChangeRequests();
-          this.hrms.loadMyProfileChangeRequests();
-          this.showApproveModal.set(false);
-          this.approvingRequestId = null;
-          // Reset to first page after approval
-          this.profileChangeCurrentPage.set(0);
-        },
-        error: (err) => {
-          console.error('Error approving profile change:', err);
-          alert('Failed to approve profile change request');
-          this.showApproveModal.set(false);
-          this.approvingRequestId = null;
-        }
-      });
-    }
-  }
-
-  cancelApproveModal() {
-    this.showApproveModal.set(false);
-    this.approvingRequestId = null;
+    this.hrms.approveProfileChangeRequest(id, 'Quick approved from dashboard').subscribe({
+      next: () => {
+        this.hrms.loadPendingProfileChangeRequests();
+        this.hrms.loadMyProfileChangeRequests();
+        this.profileChangeCurrentPage.set(0);
+      },
+      error: (err) => {
+        console.error('Error approving profile change:', err);
+        alert('Failed to approve profile change request');
+      }
+    });
   }
 
   promptRejectProfileChange(id: number) {
@@ -444,7 +423,6 @@ export class DashboardComponent implements OnInit {
           this.hrms.loadPendingProfileChangeRequests();
           this.showCancelModal.set(false);
           this.cancellingRequestId = null;
-          // Reset to first page after cancellation
           this.profileChangeCurrentPage.set(0);
         },
         error: (err) => {
@@ -471,7 +449,6 @@ export class DashboardComponent implements OnInit {
           this.rejectionReasonInput = '';
           this.hrms.loadPendingProfileChangeRequests();
           this.hrms.loadMyProfileChangeRequests();
-          // Reset to first page after rejection
           this.profileChangeCurrentPage.set(0);
         },
         error: (err) => {

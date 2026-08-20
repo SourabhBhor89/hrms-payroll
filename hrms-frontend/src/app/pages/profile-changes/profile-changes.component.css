@@ -326,6 +326,9 @@
   background: #22c55e;
   color: white;
   border-color: #22c55e;
+  border-radius: 9999px;
+  padding: 0.5rem 1.25rem;
+  font-weight: 600;
 }
 
 .btn-success:hover:not(:disabled) {
@@ -337,6 +340,9 @@
   background: #ef4444;
   color: white;
   border-color: #ef4444;
+  border-radius: 9999px;
+  padding: 0.5rem 1.25rem;
+  font-weight: 600;
 }
 
 .btn-danger:hover:not(:disabled) {
@@ -359,6 +365,9 @@
   background: transparent;
   color: var(--danger, #ef4444);
   border-color: var(--danger, #ef4444);
+  border-radius: 9999px;
+  padding: 0.5rem 1.25rem;
+  font-weight: 600;
 }
 
 .btn-outline-danger:hover:not(:disabled) {
@@ -369,6 +378,14 @@
 .btn-sm {
   padding: 0.25rem 0.625rem;
   font-size: 0.75rem;
+}
+
+/* Override for table action buttons to use pill style */
+.action-buttons .btn.btn-success,
+.action-buttons .btn.btn-danger,
+.action-buttons .btn.btn-outline-danger {
+  padding: 0.5rem 1.25rem;
+  font-size: 0.8125rem;
 }
 
 .pagination-bar {

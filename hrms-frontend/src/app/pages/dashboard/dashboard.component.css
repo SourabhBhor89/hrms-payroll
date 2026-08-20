@@ -818,3 +818,57 @@
   background: #dc2626;
 }
 
+/* Profile Change Approval Buttons - Rounded Pill Style */
+.custom-table .btn-success {
+  background: #22c55e;
+  color: white;
+  border: none;
+  border-radius: 9999px;
+  padding: 0.5rem 1.25rem;
+  font-weight: 600;
+}
+
+.custom-table .btn-success:hover:not(:disabled) {
+  background: #16a34a;
+}
+
+.custom-table .btn-danger {
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 9999px;
+  padding: 0.5rem 1.25rem;
+  font-weight: 600;
+}
+
+.custom-table .btn-danger:hover:not(:disabled) {
+  background: #dc2626;
+}
+
+.custom-table .btn-outline-danger {
+  background: transparent;
+  color: #ef4444;
+  border: 1px solid #ef4444;
+  border-radius: 9999px;
+  padding: 0.5rem 1.25rem;
+  font-weight: 600;
+}
+
+.custom-table .btn-outline-danger:hover:not(:disabled) {
+  background: #ef4444;
+  color: white;
+}
+
+/* Override for table action buttons to use pill style */
+.action-buttons .btn.btn-success,
+.action-buttons .btn.btn-danger,
+.action-buttons .btn.btn-outline-danger {
+  padding: 0.5rem 1.25rem;
+  font-size: 0.8125rem;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+

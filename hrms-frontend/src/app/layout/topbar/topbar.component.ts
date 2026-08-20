@@ -269,7 +269,7 @@ export class TopbarComponent {
     // Submit each request
     let completedRequests = 0;
     let hasError = false;
-    
+
     requests.forEach(req => {
       this.hrms.createProfileChangeRequest(req).subscribe({
         next: () => {
@@ -278,6 +278,8 @@ export class TopbarComponent {
             this.isUpdatingProfile.set(false);
             if (!hasError) {
               this.showPopup('Profile change request submitted for approval!', 'success');
+              this.hrms.loadMyProfileChangeRequests();
+              this.hrms.loadPendingProfileChangeRequests();
               setTimeout(() => this.showProfileModal.set(false), 1500);
             }
           }

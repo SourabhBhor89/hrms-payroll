@@ -28,9 +28,9 @@
           My Requests
         </button>
       </div>
-      <h3 *ngIf="!canApprove()">My Profile Change Requests</h3>
+      <!-- <h3 *ngIf="!canApprove()">My Profile Change Requests</h3>
       <h3 *ngIf="canApprove() && activeTab === 'approvals'">Profile Change Approvals</h3>
-      <h3 *ngIf="canApprove() && activeTab === 'my-requests'">My Profile Change Requests</h3>
+      <h3 *ngIf="canApprove() && activeTab === 'my-requests'">My Profile Change Requests</h3> -->
 
       <div class="filter-pills">
         <button class="pill-btn" [class.active]="activeFilter === 'All'" (click)="activeFilter = 'All'">All</button>
@@ -89,8 +89,8 @@
             <!-- Approval Actions for Managers (only in approvals tab) -->
             <div class="action-buttons" *ngIf="canApprove() && activeTab === 'approvals'">
               <ng-container *ngIf="req.status === 'PENDING'">
-                <button class="btn btn-success btn-sm" (click)="approve(req.id)">Approve</button>
-                <button class="btn btn-danger btn-sm" (click)="promptReject(req.id)">Reject</button>
+                <button class="btn btn-success" (click)="approve(req.id)">Approve</button>
+                <button class="btn btn-danger" (click)="promptReject(req.id)">Reject</button>
               </ng-container>
               <span *ngIf="req.status !== 'PENDING'" class="action-done">
                 {{ getStatusDisplay(req.status) }}
@@ -100,7 +100,7 @@
             <!-- Self Request Actions (in my-requests tab or for regular employees) -->
             <div class="action-buttons" *ngIf="!canApprove() || activeTab === 'my-requests'">
               <ng-container *ngIf="req.status === 'PENDING'">
-                <button class="btn btn-outline-danger btn-sm" (click)="cancelRequest(req.id)">Cancel</button>
+                <button class="btn btn-outline-danger" (click)="cancelRequest(req.id)">Cancel</button>
               </ng-container>
               <span *ngIf="req.status !== 'PENDING'" class="action-done">
                 -
