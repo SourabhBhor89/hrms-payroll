@@ -45,9 +45,9 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   return next(authReq).pipe(
     catchError((error) => {
       if (error instanceof HttpErrorResponse && error.status === 401) {
-        // Exclude auth login and refresh calls from triggering refresh loop
-        if (targetUrl.includes('/auth/login') || targetUrl.includes('/auth/refresh')) {
-          if (targetUrl.includes('/auth/refresh')) {
+        // Exclude auth login, logout and refresh calls from triggering refresh loop
+        if (targetUrl.includes('/auth/login') || targetUrl.includes('/auth/refresh') || targetUrl.includes('/auth/logout')) {
+          if (targetUrl.includes('/auth/refresh') || targetUrl.includes('/auth/logout')) {
             authService.clearLocalSession();
             router.navigate(['/auth/login']);
           }

@@ -20,9 +20,20 @@
 }
 
 .balance-card {
-  padding: 1.25rem;
+  padding: 1.35rem 1.5rem;
+  border-radius: 20px;
+  background: #ffffff;
+  border: 1.5px solid #bae6fd;
   display: flex;
   flex-direction: column;
+  box-shadow: 0 10px 30px -10px rgba(14, 165, 233, 0.12);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.balance-card:hover {
+  transform: translateY(-4px);
+  border-color: #7dd3fc;
+  box-shadow: 0 14px 35px -10px rgba(14, 165, 233, 0.18);
 }
 
 .b-header {
