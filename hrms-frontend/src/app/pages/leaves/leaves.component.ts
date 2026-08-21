@@ -264,16 +264,53 @@ export class LeavesComponent implements OnInit {
     if (this.formData.startDate && this.formData.endDate) {
       const start = new Date(this.formData.startDate);
       const end = new Date(this.formData.endDate);
+
+      // Validate that start date is not a weekend
+      const startDayOfWeek = start.getDay();
+      if (startDayOfWeek === 0 || startDayOfWeek === 6) {
+        this.notify.showAlert('Start date cannot be a weekend (Saturday or Sunday).');
+        this.formData.startDate = '';
+        this.formData.totalDays = 1;
+        return;
+      }
+
       if (end >= start) {
-        const diffTime = Math.abs(end.getTime() - start.getTime());
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-        this.formData.totalDays = diffDays;
+        // Calculate total days excluding weekends
+        let totalDays = 0;
+        const current = new Date(start);
+        while (current <= end) {
+          const dayOfWeek = current.getDay();
+          // Exclude weekends (Saturday = 6, Sunday = 0)
+          if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+            totalDays++;
+          }
+          current.setDate(current.getDate() + 1);
+        }
+        this.formData.totalDays = totalDays;
       }
     }
   }
 
   submitForm() {
     if (!this.formData.startDate || !this.formData.reason) return;
+
+    // Validate that start date is not a weekend
+    const start = new Date(this.formData.startDate);
+    const startDayOfWeek = start.getDay();
+    if (startDayOfWeek === 0 || startDayOfWeek === 6) {
+      this.notify.showAlert('Start date cannot be a weekend (Saturday or Sunday).');
+      return;
+    }
+
+    // Validate that end date is not a weekend
+    if (this.formData.endDate) {
+      const end = new Date(this.formData.endDate);
+      const endDayOfWeek = end.getDay();
+      if (endDayOfWeek === 0 || endDayOfWeek === 6) {
+        this.notify.showAlert('End date cannot be a weekend (Saturday or Sunday).');
+        return;
+      }
+    }
 
     let targetLeaveTypeId = Number(this.formData.leaveTypeId);
     if (!targetLeaveTypeId || targetLeaveTypeId === 0) {

@@ -75,13 +75,13 @@ public class LeaveServiceImpl implements LeaveService {
         }
 
         // Validate that leave dates do not include weekends
-        LocalDate current = request.getStartDate();
-        while (!current.isAfter(request.getEndDate())) {
-            if (current.getDayOfWeek().getValue() > 5) {
-                throw new IllegalArgumentException("Cannot apply for leave on weekends. " + current + " is a " + current.getDayOfWeek());
-            }
-            current = current.plusDays(1);
-        }
+//        LocalDate current = request.getStartDate();
+//        while (!current.isAfter(request.getEndDate())) {
+//            if (current.getDayOfWeek().getValue() > 5) {
+//                throw new IllegalArgumentException("Cannot apply for leave on weekends. " + current + " is a " + current.getDayOfWeek());
+//            }
+//            current = current.plusDays(1);
+//        }
 
         // Calculate total days if not provided
         Double totalDays = request.getTotalDays();
