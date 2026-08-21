@@ -89,6 +89,11 @@ public class LeaveServiceImpl implements LeaveService {
             totalDays = calculateTotalDays(request.getStartDate(), request.getEndDate());
         }
 
+        // Validate that total days is greater than 0
+        if (totalDays <= 0) {
+            throw new IllegalArgumentException("Total leave days must be greater than 0. Please check your date range (weekends are excluded from calculation).");
+        }
+
         // Check for overlapping leaves
         List<Leave> overlappingLeaves = leaveRepository.findOverlappingLeaves(
                 employee, Leave.LeaveStatus.PENDING, request.getStartDate(), request.getEndDate());
@@ -330,13 +335,13 @@ public class LeaveServiceImpl implements LeaveService {
             }
 
             // Validate that leave dates do not include weekends
-            LocalDate current = newStartDate;
-            while (!current.isAfter(newEndDate)) {
-                if (current.getDayOfWeek().getValue() > 5) {
-                    throw new IllegalArgumentException("Cannot apply for leave on weekends. " + current + " is a " + current.getDayOfWeek());
-                }
-                current = current.plusDays(1);
-            }
+//            LocalDate current = newStartDate;
+//            while (!current.isAfter(newEndDate)) {
+//                if (current.getDayOfWeek().getValue() > 5) {
+//                    throw new IllegalArgumentException("Cannot apply for leave on weekends. " + current + " is a " + current.getDayOfWeek());
+//                }
+//                current = current.plusDays(1);
+//            }
         }
 
         // Recalculate totalDays if dates changed but totalDays not provided

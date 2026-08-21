@@ -265,15 +265,6 @@ export class LeavesComponent implements OnInit {
       const start = new Date(this.formData.startDate);
       const end = new Date(this.formData.endDate);
 
-      // Validate that start date is not a weekend
-      const startDayOfWeek = start.getDay();
-      if (startDayOfWeek === 0 || startDayOfWeek === 6) {
-        this.notify.showAlert('Start date cannot be a weekend (Saturday or Sunday).');
-        this.formData.startDate = '';
-        this.formData.totalDays = 1;
-        return;
-      }
-
       if (end >= start) {
         // Calculate total days excluding weekends
         let totalDays = 0;
@@ -293,24 +284,6 @@ export class LeavesComponent implements OnInit {
 
   submitForm() {
     if (!this.formData.startDate || !this.formData.reason) return;
-
-    // Validate that start date is not a weekend
-    const start = new Date(this.formData.startDate);
-    const startDayOfWeek = start.getDay();
-    if (startDayOfWeek === 0 || startDayOfWeek === 6) {
-      this.notify.showAlert('Start date cannot be a weekend (Saturday or Sunday).');
-      return;
-    }
-
-    // Validate that end date is not a weekend
-    if (this.formData.endDate) {
-      const end = new Date(this.formData.endDate);
-      const endDayOfWeek = end.getDay();
-      if (endDayOfWeek === 0 || endDayOfWeek === 6) {
-        this.notify.showAlert('End date cannot be a weekend (Saturday or Sunday).');
-        return;
-      }
-    }
 
     let targetLeaveTypeId = Number(this.formData.leaveTypeId);
     if (!targetLeaveTypeId || targetLeaveTypeId === 0) {
