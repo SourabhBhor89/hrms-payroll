@@ -21,6 +21,13 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.data.jpa.domain.Specification;
+import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.JoinType;
+import jakarta.persistence.criteria.Predicate;
+import java.util.ArrayList;
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class EmployeeServiceImpl implements EmployeeService {
@@ -32,8 +39,56 @@ public class EmployeeServiceImpl implements EmployeeService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<EmployeeDto> getAllEmployees(Pageable pageable) {
-        Page<Employee> employees = employeeRepository.findAllByOrderByActiveDesc(pageable);
+    public Page<EmployeeDto> getAllEmployees(String search, String department, String role, Pageable pageable) {
+        boolean hasSearch = search != null && !search.trim().isEmpty();
+        boolean hasDept = department != null && !department.trim().isEmpty() && !"All".equalsIgnoreCase(department.trim());
+        boolean hasRole = role != null && !role.trim().isEmpty() && !"All".equalsIgnoreCase(role.trim());
+
+        if (!hasSearch && !hasDept && !hasRole) {
+            return employeeRepository.findAll(pageable).map(this::mapToDto);
+        }
+
+        Specification<Employee> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            if (hasSearch) {
+                String term = "%" + search.trim().toLowerCase() + "%";
+                Join<Employee, User> userJoin = root.join("user", JoinType.LEFT);
+
+                Predicate codeMatch = cb.like(cb.lower(root.get("employeeCode")), term);
+                Predicate firstNameMatch = cb.like(cb.lower(root.get("firstName")), term);
+                Predicate lastNameMatch = cb.like(cb.lower(root.get("lastName")), term);
+                Predicate fullNameMatch = cb.like(cb.lower(cb.concat(cb.concat(root.get("firstName"), " "), cb.coalesce(root.get("lastName"), ""))), term);
+                Predicate deptMatch = cb.like(cb.lower(root.get("department")), term);
+                Predicate desigMatch = cb.like(cb.lower(root.get("designation")), term);
+                Predicate emailMatch = cb.like(cb.lower(userJoin.get("email")), term);
+
+                predicates.add(cb.or(codeMatch, firstNameMatch, lastNameMatch, fullNameMatch, deptMatch, desigMatch, emailMatch));
+            }
+
+            if (hasDept) {
+                predicates.add(cb.equal(cb.lower(root.get("department")), department.trim().toLowerCase()));
+            }
+
+            if (hasRole) {
+                Join<Employee, User> userJoin = root.join("user", JoinType.LEFT);
+                Join<User, Role> roleJoin = userJoin.join("role", JoinType.LEFT);
+                String roleSearch = role.trim().toUpperCase();
+                if ("HR MANAGER".equals(roleSearch)) roleSearch = "HR";
+                else if ("ADMINISTRATOR".equals(roleSearch)) roleSearch = "ADMIN";
+
+                try {
+                    RoleName roleNameEnum = RoleName.valueOf(roleSearch);
+                    predicates.add(cb.equal(roleJoin.get("name"), roleNameEnum));
+                } catch (Exception e) {
+                    // Ignore if enum doesn't match
+                }
+            }
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        Page<Employee> employees = employeeRepository.findAll(spec, pageable);
         return employees.map(this::mapToDto);
     }
 

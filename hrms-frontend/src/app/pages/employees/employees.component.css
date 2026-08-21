@@ -151,10 +151,58 @@
   border-top: 1px solid var(--border-color);
 }
 
+/* Sortable Table Column Headers */
+.sortable-header {
+  cursor: pointer !important;
+  user-select: none !important;
+  transition: background-color 0.2s ease, color 0.2s ease !important;
+}
+
+.sortable-header:hover {
+  background-color: var(--bg-hover, rgba(2, 132, 199, 0.08)) !important;
+  color: var(--primary, #0284c7) !important;
+}
+
+.th-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.sort-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.35;
+  transition: all 0.2s ease;
+  color: var(--text-muted, #64748b);
+}
+
+.sortable-header:hover .sort-indicator {
+  opacity: 0.85;
+  color: #0284c7;
+}
+
+.sort-indicator.active {
+  opacity: 1 !important;
+  color: #0284c7 !important;
+  font-weight: bold;
+}
+
 .user-cell {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+}
+
+.user-cell.clickable-employee {
+  cursor: pointer !important;
+  transition: all 0.2s ease;
+}
+
+.user-cell.clickable-employee:hover .user-name-link {
+  color: #0284c7 !important;
+  text-decoration: underline !important;
 }
 
 .table-avatar {
@@ -443,14 +491,23 @@
   }
 }
 
-.btn-warning {
-  background-color: #f59e0b !important;
-  color: #ffffff !important;
-  border: none !important;
+/* Edit Action Button Styling - Royal Blue / Indigo Theme */
+.btn-warning, .action-btn.btn-edit {
+  background-color: #dbeafe !important;
+  color: #1d4ed8 !important;
+  border: 1px solid #bfdbfe !important;
+  font-weight: 700 !important;
+  border-radius: 8px !important;
+  padding: 0.35rem 0.75rem !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
 
-.btn-warning:hover {
-  background-color: #d97706 !important;
+.btn-warning:hover, .action-btn.btn-edit:hover {
+  background-color: #2563eb !important;
+  color: #ffffff !important;
+  border-color: #2563eb !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35) !important;
 }
 
 /* Pagination Styling */

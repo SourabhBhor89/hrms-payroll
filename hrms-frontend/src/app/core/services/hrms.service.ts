@@ -14,7 +14,9 @@ import {
   Holiday,
   Timesheet,
   RegularizationRequest,
-  RegularizationStatus
+  RegularizationStatus,
+  EmployeeSearchResult,
+  EmployeeLeaveWfhSummary
 } from '../models/hrms.model';
 
 export interface DashboardSummary {
@@ -439,9 +441,18 @@ export class HrmsService {
   }
 
   // Employees API
-  loadEmployees(page: number = 0, size: number = 10, sortBy: string = 'id', sortDir: string = 'asc') {
+  loadEmployees(page: number = 0, size: number = 10, sortBy: string = 'id', sortDir: string = 'asc', search: string = '', department: string = 'All', role: string = 'All') {
     this.isLoading.set(true);
-    const params = { page, size, sortBy, sortDir };
+    const params: any = { page, size, sortBy, sortDir };
+    if (search && search.trim()) {
+      params.search = search.trim();
+    }
+    if (department && department !== 'All') {
+      params.department = department;
+    }
+    if (role && role !== 'All') {
+      params.role = role;
+    }
     
     this.http.get<any>('/api/v1/employees', { params }).pipe(
       catchError(() => of({ content: [], totalElements: 0, totalPages: 0, number: 0, size: 10 }))
@@ -526,6 +537,11 @@ export class HrmsService {
       currentSalary: newEmp.currentSalary,
       techStack: newEmp.techStack,
       education: newEmp.education,
+      tenthQualification: newEmp.tenthQualification,
+      twelfthQualification: newEmp.twelfthQualification,
+      bachelorQualification: newEmp.bachelorQualification,
+      hasHighestQualification: newEmp.hasHighestQualification,
+      highestQualification: newEmp.hasHighestQualification ? newEmp.highestQualification : '',
       emergencyContact1: newEmp.emergencyContact1,
       emergencyContact2: newEmp.emergencyContact2,
       photoUrl: newEmp.photoUrl,
@@ -564,6 +580,11 @@ export class HrmsService {
       currentSalary: emp.currentSalary,
       techStack: emp.techStack,
       education: emp.education,
+      tenthQualification: emp.tenthQualification,
+      twelfthQualification: emp.twelfthQualification,
+      bachelorQualification: emp.bachelorQualification,
+      hasHighestQualification: emp.hasHighestQualification,
+      highestQualification: emp.hasHighestQualification ? emp.highestQualification : '',
       emergencyContact1: emp.emergencyContact1,
       emergencyContact2: emp.emergencyContact2,
       photoUrl: emp.photoUrl,
@@ -1260,6 +1281,38 @@ export class HrmsService {
         this.loadAttendance();
       });
     }
+  }
+
+  // Employee Leave & WFH Report APIs
+  searchEmployees(query: string): Observable<EmployeeSearchResult[]> {
+    return this.http.get<EmployeeSearchResult[]>(`/api/v1/leaves/employee-search?query=${encodeURIComponent(query)}`);
+  }
+
+  getEmployeeLeaveWfhSummary(employeeId: number | string, year?: number, month?: number): Observable<EmployeeLeaveWfhSummary> {
+    let url = `/api/v1/leaves/employee-summary/${employeeId}`;
+    const params: string[] = [];
+    if (year) params.push(`year=${year}`);
+    if (month) params.push(`month=${month}`);
+    if (params.length > 0) {
+      url += '?' + params.join('&');
+    }
+    return this.http.get<EmployeeLeaveWfhSummary>(url);
+  }
+
+  updateEmployeeDayStatus(payload: {
+    employeeId: number | string;
+    date: string;
+    status: string;
+    leaveTypeId?: number;
+    reason?: string;
+  }): Observable<any> {
+    return this.http.put<any>('/api/v1/leaves/employee-status', payload).pipe(
+      catchError(err => {
+        const msg = err?.error?.message || err?.error?.error || 'Failed to update day status.';
+        this.notify.showAlert(msg);
+        return of(null);
+      })
+    );
   }
 
 }

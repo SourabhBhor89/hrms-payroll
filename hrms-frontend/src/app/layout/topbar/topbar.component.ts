@@ -24,7 +24,20 @@ export class TopbarComponent {
   showUserDropdown = signal<boolean>(false);
   showProfileModal = signal<boolean>(false);
   isUpdatingProfile = signal<boolean>(false);
+  activeProfileTab = signal<'details' | 'password'>('details');
+  isChangingPassword = signal<boolean>(false);
   popupMessage = signal<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  passwordForm = {
+    currentPassword: '',
+    newPassword: '',
+    confirmNewPassword: ''
+  };
+
+  canChangePassword(): boolean {
+    const role = this.auth.currentRole();
+    return role === 'Admin' || role === 'HR Manager' || role === 'Manager';
+  }
 
   profileForm = {
     phone: '',
@@ -62,7 +75,7 @@ export class TopbarComponent {
       const eCode = (e.employeeId || '').toLowerCase().trim();
       const eEmail = (e.email || '').toLowerCase().trim();
       const eName = (e.name || '').toLowerCase().trim();
-      
+
       const codeMatch = userCode && eCode && eCode === userCode;
       const emailMatch = userEmail && eEmail && eEmail === userEmail;
       const nameMatch = userName && eName && eName === userName;
@@ -80,7 +93,7 @@ export class TopbarComponent {
 
     console.log('Matched employee:', matched);
     console.log('=== End Debug ===');
-    
+
     return matched || null;
   });
 
@@ -152,16 +165,16 @@ export class TopbarComponent {
   openProfileModal() {
     // Load all employees to ensure we find the current user
     this.hrms.loadEmployees(0, 1000, 'id', 'asc');
-    
+
     const user = this.auth.currentUser();
     const employee = this.currentEmployee();
-    
+
     console.log('=== Profile Modal Debug ===');
     console.log('User data:', user);
     console.log('Employee data:', employee);
     console.log('User role:', this.auth.currentRole());
     console.log('Has employee data:', !!employee);
-    
+
     // Immediate initialization with available data
     this.profileForm = {
       phone: employee?.phone || user?.phone || '',
@@ -170,16 +183,16 @@ export class TopbarComponent {
       permanentAddress: employee?.permanentAddress || '',
       avatar: user?.avatar || employee?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'
     };
-    
+
     console.log('Initial profile form (immediate):', this.profileForm);
-    
+
     // If no employee data found, try to match again after delay
     if (!employee) {
       console.log('No employee found immediately, retrying after delay...');
       setTimeout(() => {
         const loadedEmployee = this.currentEmployee();
         console.log('Loaded employee after retry:', loadedEmployee);
-        
+
         if (loadedEmployee) {
           this.profileForm = {
             phone: loadedEmployee.phone || user?.phone || '',
@@ -194,7 +207,7 @@ export class TopbarComponent {
         }
       }, 500);
     }
-    
+
     this.showProfileModal.set(true);
     this.showUserDropdown.set(false);
     console.log('=== End Debug ===');
@@ -217,31 +230,31 @@ export class TopbarComponent {
       this.showPopup('Please provide a reason for the change.', 'error');
       return;
     }
-    
+
     // Check if any fields have changed
     const employee = this.currentEmployee();
     const phoneChanged = this.profileForm.phone !== (employee?.phone || '');
     const currentAddressChanged = this.profileForm.currentAddress !== (employee?.currentAddress || employee?.address || '');
     const permanentAddressChanged = this.profileForm.permanentAddress !== (employee?.permanentAddress || employee?.address || '');
-    
+
     // Validate that at least one field has changed
     if (!phoneChanged && !currentAddressChanged && !permanentAddressChanged) {
       this.showPopup('Please make at least one change to submit a profile update request.', 'error');
       return;
     }
-    
+
     // Validate phone number if it's being changed
     if (phoneChanged && !this.profileForm.phone.trim()) {
       this.showPopup('Phone number cannot be empty.', 'error');
       return;
     }
-    
+
     this.isUpdatingProfile.set(true);
-    
+
     // Create change requests for each changed field
     const requests = [];
     const reason = this.profileForm.address;
-    
+
     if (phoneChanged) {
       requests.push({
         fieldType: 'PHONE',
@@ -249,7 +262,7 @@ export class TopbarComponent {
         reason: reason
       });
     }
-    
+
     if (currentAddressChanged) {
       requests.push({
         fieldType: 'CURRENT_ADDRESS',
@@ -257,7 +270,7 @@ export class TopbarComponent {
         reason: reason
       });
     }
-    
+
     if (permanentAddressChanged) {
       requests.push({
         fieldType: 'PERMANENT_ADDRESS',
@@ -265,7 +278,7 @@ export class TopbarComponent {
         reason: reason
       });
     }
-    
+
     // Submit each request
     let completedRequests = 0;
     let hasError = false;
@@ -295,6 +308,35 @@ export class TopbarComponent {
         }
       });
     });
+  }
+
+  submitPasswordChange() {
+    if (!this.canChangePassword()) {
+      this.showPopup('Only Admin and HR Managers can change passwords.', 'error');
+      return;
+    }
+    if (this.passwordForm.newPassword !== this.passwordForm.confirmNewPassword) {
+      this.showPopup('New passwords do not match.', 'error');
+      return;
+    }
+    if (this.passwordForm.currentPassword && this.passwordForm.newPassword) {
+      this.isChangingPassword.set(true);
+      this.auth.changePassword({
+        currentPassword: this.passwordForm.currentPassword,
+        newPassword: this.passwordForm.newPassword
+      }).subscribe({
+        next: () => {
+          this.isChangingPassword.set(false);
+          this.showPopup('Password updated successfully!', 'success');
+          setTimeout(() => this.showProfileModal.set(false), 1500);
+        },
+        error: (err) => {
+          this.isChangingPassword.set(false);
+          const msg = err?.error?.message || 'Failed to change password.';
+          this.showPopup(msg, 'error');
+        }
+      });
+    }
   }
 
   showPopup(text: string, type: 'success' | 'error') {

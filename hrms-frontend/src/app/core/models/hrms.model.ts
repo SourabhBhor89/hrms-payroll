@@ -229,3 +229,57 @@ export interface RegularizationRequest {
   notes?: string;
 }
 
+export interface EmployeeSearchResult {
+  id: number;
+  employeeCode: string;
+  name: string;
+  department?: string;
+  designation?: string;
+  email?: string;
+  avatar?: string;
+}
+
+export interface CalendarDayEntry {
+  date: string;
+  dayOfWeek: string;
+  isWeekend: boolean;
+  isHoliday: boolean;
+  holidayTitle?: string;
+  isLeave: boolean;
+  isWfh: boolean;
+  isPresent?: boolean;
+  leaveTypeCode?: string;
+  leaveTypeName?: string;
+  totalDays?: number;
+}
+
+export interface LeaveTypeSummary {
+  leaveTypeId: number;
+  leaveTypeCode: string;
+  leaveTypeName: string;
+  monthTakenDays: number;
+  balanceDays: number | string;
+  defaultDaysPerYear: number;
+  paid: boolean;
+}
+
+export interface EmployeeLeaveWfhSummary {
+  employeeId: number;
+  employeeCode: string;
+  employeeName: string;
+  department?: string;
+  designation?: string;
+  email?: string;
+
+  selectedYear: number;
+  selectedMonth: number;
+
+  monthLeaveTakenTotal: number;
+  monthWfhTakenTotal: number;
+
+  ytdLeaveTakenTotal: number;
+  ytdWfhTakenTotal: number;
+
+  calendarEntries: CalendarDayEntry[];
+  leaveTypeSummaries: LeaveTypeSummary[];
+}
