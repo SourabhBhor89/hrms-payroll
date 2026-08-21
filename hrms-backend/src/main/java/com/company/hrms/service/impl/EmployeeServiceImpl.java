@@ -113,12 +113,7 @@ public class EmployeeServiceImpl implements EmployeeService {
             throw new IllegalArgumentException("Email address already exists: " + request.getEmail());
         }
 
-        RoleName roleName = RoleName.EMPLOYEE;
-        if (request.getRole() != null && request.getRole().equalsIgnoreCase("HR")) {
-            roleName = RoleName.HR;
-        } else if (request.getRole() != null && request.getRole().equalsIgnoreCase("ADMIN")) {
-            roleName = RoleName.ADMIN;
-        }
+        RoleName roleName = resolveRoleName(request.getRole());
 
         Role role = roleRepository.findByName(roleName)
                 .orElseThrow(() -> new IllegalStateException("Role not found: " + request.getRole()));
@@ -203,12 +198,7 @@ public class EmployeeServiceImpl implements EmployeeService {
         }
 
         if (request.getRole() != null && !request.getRole().isBlank() && employee.getUser() != null) {
-            RoleName roleName = RoleName.EMPLOYEE;
-            if (request.getRole().equalsIgnoreCase("HR") || request.getRole().equalsIgnoreCase("HR Manager")) {
-                roleName = RoleName.HR;
-            } else if (request.getRole().equalsIgnoreCase("ADMIN") || request.getRole().equalsIgnoreCase("Admin")) {
-                roleName = RoleName.ADMIN;
-            }
+            RoleName roleName = resolveRoleName(request.getRole());
             Role role = roleRepository.findByName(roleName).orElse(null);
             if (role != null) {
                 employee.getUser().setRole(role);
@@ -274,6 +264,20 @@ public class EmployeeServiceImpl implements EmployeeService {
                 .orElseThrow(() -> new IllegalArgumentException("Employee not found with ID: " + id));
         employee.setActive(false);
         employeeRepository.save(employee);
+    }
+
+    private RoleName resolveRoleName(String roleInput) {
+        if (roleInput == null || roleInput.isBlank()) {
+            return RoleName.EMPLOYEE;
+        }
+        String normalized = roleInput.trim().toUpperCase();
+        if ("HR MANAGER".equals(normalized)) return RoleName.HR;
+        if ("ADMINISTRATOR".equals(normalized)) return RoleName.ADMIN;
+        try {
+            return RoleName.valueOf(normalized);
+        } catch (IllegalArgumentException e) {
+            return RoleName.EMPLOYEE;
+        }
     }
 
     private EmployeeDto mapToDto(Employee emp) {

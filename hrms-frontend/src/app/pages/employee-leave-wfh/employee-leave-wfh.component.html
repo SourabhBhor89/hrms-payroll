@@ -132,7 +132,8 @@
             <!-- Actual Month Days -->
             <div 
               *ngFor="let cell of summary.calendarEntries" 
-              class="calendar-cell clickable-cell"
+              class="calendar-cell"
+              [class.clickable-cell]="canEdit()"
               [class.cell-weekend]="cell.isWeekend"
               [class.cell-holiday]="cell.isHoliday && !cell.isWfh && !cell.isLeave"
               [class.cell-leave]="cell.isLeave"
@@ -140,15 +141,15 @@
               [class.cell-present]="cell.isPresent"
               [class.cell-absent]="isAbsent(cell)"
               [class.cell-today]="isToday(cell)"
-              (click)="openEditModal(cell)"
-              title="Click to edit status for this day">
+              (click)="canEdit() ? openEditModal(cell) : null"
+              [title]="canEdit() ? 'Click to edit status for this day' : ''">
               
               <div class="cell-top">
                 <span class="day-number">{{ getDayNumber(cell.date) }}</span>
                 <div class="cell-top-right">
                   <span class="today-tag" *ngIf="isToday(cell)">Today</span>
                   <span class="day-code" *ngIf="cell.isWeekend">W-Off</span>
-                  <svg class="edit-cell-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <svg *ngIf="canEdit()" class="edit-cell-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                   </svg>
                 </div>

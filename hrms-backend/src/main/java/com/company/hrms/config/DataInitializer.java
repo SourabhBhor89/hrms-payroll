@@ -11,12 +11,18 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
+import com.company.hrms.repository.PermissionRepository;
+import java.util.HashSet;
+
+import org.springframework.transaction.annotation.Transactional;
+
 @Component
 @RequiredArgsConstructor
 public class DataInitializer implements CommandLineRunner {
 
     private final RoleRepository roleRepository;
     private final UserRepository userRepository;
+    private final PermissionRepository permissionRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Value("${app.admin.email:admin@hrms.local}")
@@ -26,6 +32,7 @@ public class DataInitializer implements CommandLineRunner {
     private String adminPassword;
 
     @Override
+    @Transactional
     public void run(String... args) {
 
         Role adminRole = roleRepository
@@ -79,6 +86,42 @@ public class DataInitializer implements CommandLineRunner {
                 userRepository.save(emp);
                 System.out.println("Default HRMS employee user created: " + empEmail);
             }
+        });
+
+        if (roleRepository.findByName(RoleName.MANAGER).isEmpty()) {
+            Role r = new Role();
+            r.setName(RoleName.MANAGER);
+            roleRepository.save(r);
+        }
+
+        if (roleRepository.findByName(RoleName.COORDINATOR).isEmpty()) {
+            Role r = new Role();
+            r.setName(RoleName.COORDINATOR);
+            roleRepository.save(r);
+        }
+
+        roleRepository.findByName(RoleName.MANAGER).ifPresent(managerRole -> {
+            permissionRepository.findByName("EMPLOYEE_LEAVE_WFH_VIEW").ifPresent(perm -> {
+                if (managerRole.getPermissions() == null) {
+                    managerRole.setPermissions(new HashSet<>());
+                }
+                if (!managerRole.getPermissions().contains(perm)) {
+                    managerRole.getPermissions().add(perm);
+                    roleRepository.save(managerRole);
+                }
+            });
+        });
+
+        roleRepository.findByName(RoleName.COORDINATOR).ifPresent(coordRole -> {
+            permissionRepository.findByName("EMPLOYEE_LEAVE_WFH_VIEW").ifPresent(perm -> {
+                if (coordRole.getPermissions() == null) {
+                    coordRole.setPermissions(new HashSet<>());
+                }
+                if (!coordRole.getPermissions().contains(perm)) {
+                    coordRole.getPermissions().add(perm);
+                    roleRepository.save(coordRole);
+                }
+            });
         });
     }
 }

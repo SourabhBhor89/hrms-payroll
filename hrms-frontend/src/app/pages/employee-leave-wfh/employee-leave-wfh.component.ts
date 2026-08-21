@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { HrmsService } from '../../core/services/hrms.service';
+import { AuthService } from '../../core/services/auth.service';
 import { EmployeeSearchResult, EmployeeLeaveWfhSummary, CalendarDayEntry, LeaveTypeSummary } from '../../core/models/hrms.model';
 
 interface MonthOption {
@@ -20,6 +21,7 @@ interface MonthOption {
 export class EmployeeLeaveWfhComponent implements OnInit {
   private hrmsService = inject(HrmsService);
   private route = inject(ActivatedRoute);
+  private auth = inject(AuthService);
 
   @ViewChild('searchInput') searchInput!: ElementRef;
 
@@ -126,7 +128,13 @@ export class EmployeeLeaveWfhComponent implements OnInit {
       }));
   }
 
+  canEdit(): boolean {
+    const role = (this.auth.currentRole() || '').toUpperCase();
+    return role === 'ADMIN' || role === 'HR MANAGER' || role === 'HR' || role === 'MANAGER';
+  }
+
   openEditModal(cell: CalendarDayEntry) {
+    if (!this.canEdit()) return;
     this.selectedDayCell.set(cell);
     if (cell.isWfh) {
       this.editStatus.set('WFH');

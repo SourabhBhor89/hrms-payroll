@@ -73,7 +73,7 @@ class LeaveControllerSecurityTest {
         Method method = LeaveController.class.getMethod("updateEmployeeDayStatus", com.company.hrms.dto.request.UpdateEmployeeDayStatusRequest.class);
         assertTrue(method.isAnnotationPresent(PreAuthorize.class));
         PreAuthorize annotation = method.getAnnotation(PreAuthorize.class);
-        assertEquals("hasAuthority('EMPLOYEE_LEAVE_WFH_VIEW')", annotation.value());
+        assertEquals("hasAuthority('EMPLOYEE_LEAVE_WFH_VIEW') and !hasAuthority('LEAVE_READ_ONLY')", annotation.value());
     }
 
     @Test
