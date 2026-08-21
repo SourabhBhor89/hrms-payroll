@@ -4,6 +4,8 @@ import com.company.hrms.dto.request.ApproveLeaveRequest;
 import com.company.hrms.dto.request.CreateLeaveRequest;
 import com.company.hrms.dto.request.UpdateLeaveRequest;
 import com.company.hrms.dto.response.EmployeeLeaveDataResponse;
+import com.company.hrms.dto.response.EmployeeLeaveWfhSummaryDto;
+import com.company.hrms.dto.response.EmployeeSearchResultDto;
 import com.company.hrms.dto.response.LeaveResponse;
 import com.company.hrms.dto.response.LeaveTypeResponse;
 import org.springframework.data.domain.Pageable;
@@ -18,6 +20,12 @@ public interface LeaveService {
     EmployeeLeaveDataResponse getEmployeeLeaveData(Long employeeId, Integer year, Integer month);
 
     EmployeeLeaveDataResponse getEmployeeLeaveData(Long employeeId, Integer year, Integer month, boolean isAdminOrHr);
+
+    EmployeeLeaveWfhSummaryDto getEmployeeLeaveWfhSummary(Long employeeId, Integer year, Integer month);
+
+    List<EmployeeSearchResultDto> searchEmployees(String query);
+
+    void updateEmployeeDayStatus(com.company.hrms.dto.request.UpdateEmployeeDayStatusRequest request);
 
     LeaveResponse updateLeave(Long id, UpdateLeaveRequest request, Long employeeId);
 

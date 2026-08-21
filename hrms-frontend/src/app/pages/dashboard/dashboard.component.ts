@@ -1,4 +1,4 @@
-import { Component, inject, signal, computed, OnInit } from '@angular/core';
+import { Component, inject, signal, computed, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -12,14 +12,26 @@ import { HrmsService } from '../../core/services/hrms.service';
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.css'
 })
-export class DashboardComponent implements OnInit {
+export class DashboardComponent implements OnInit, OnDestroy {
   auth = inject(AuthService);
   hrms = inject(HrmsService);
+
+  // Live ticking clock & toast signals
+  liveTime = signal<string>('');
+  toastMessage = signal<string | null>(null);
+  private liveTimerInterval: any = null;
 
   // Modal Signals for Profile Change Rejection
   showRejectModal = signal<boolean>(false);
   rejectingRequestId: number | null = null;
   rejectionReasonInput: string = '';
+
+  get greetingMessage(): string {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  }
 
   // Modal Signals for Profile Change Cancellation
   showCancelModal = signal<boolean>(false);
@@ -34,10 +46,15 @@ export class DashboardComponent implements OnInit {
 
   ngOnInit() {
     this.hrms.refreshAllData();
+    this.updateLiveTime();
+    this.liveTimerInterval = setInterval(() => {
+      this.updateLiveTime();
+    }, 1000);
+
     // Load profile change requests for activity feed
-    if (this.auth.hasPermission('EMPLOYEE_MANAGEMENT_UPDATE') || 
-        this.auth.currentRole() === 'Admin' || 
-        this.auth.currentRole() === 'HR Manager' || 
+    if (this.auth.hasPermission('EMPLOYEE_MANAGEMENT_UPDATE') ||
+        this.auth.currentRole() === 'Admin' ||
+        this.auth.currentRole() === 'HR Manager' ||
         this.auth.currentRole() === 'Manager') {
       this.hrms.loadPendingProfileChangeRequests(); // Load all pending for approval tab
       this.hrms.loadMyProfileChangeRequests(); // Load own requests for my-requests tab
@@ -45,6 +62,18 @@ export class DashboardComponent implements OnInit {
       // Load own requests for regular employees and coordinators
       this.hrms.loadMyProfileChangeRequests();
     }
+  }
+
+  ngOnDestroy() {
+    if (this.liveTimerInterval) {
+      clearInterval(this.liveTimerInterval);
+      this.liveTimerInterval = null;
+    }
+  }
+
+  updateLiveTime() {
+    const now = new Date();
+    this.liveTime.set(now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
   }
 
   recentActivities = computed(() => {
@@ -75,8 +104,8 @@ export class DashboardComponent implements OnInit {
     // 3. Profile Change Requests
     const profileChanges = this.hrms.pendingProfileChangeRequests();
     profileChanges.slice(0, 2).forEach(p => {
-      const fieldType = p.fieldType === 'PHONE' ? 'Phone Number' : 
-                       p.fieldType === 'CURRENT_ADDRESS' ? 'Current Address' : 
+      const fieldType = p.fieldType === 'PHONE' ? 'Phone Number' :
+                       p.fieldType === 'CURRENT_ADDRESS' ? 'Current Address' :
                        p.fieldType === 'PERMANENT_ADDRESS' ? 'Permanent Address' : p.fieldType;
       activities.push({
         avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
@@ -132,6 +161,88 @@ export class DashboardComponent implements OnInit {
 
   checkOut() {
     this.hrms.toggleClockIn();
+  }
+
+  handleCheckIn() {
+    this.checkIn();
+    this.toastMessage.set('⚡ Checked In successfully! Have a productive work day.');
+    setTimeout(() => this.toastMessage.set(null), 4000);
+  }
+
+  handleCheckOut() {
+    this.checkOut();
+    this.toastMessage.set('👋 Checked Out successfully! See you tomorrow.');
+    setTimeout(() => this.toastMessage.set(null), 4000);
+  }
+
+  getElapsedSeconds(): number {
+    // Consume liveTime signal to trigger reactive change detection every second
+    const _tick = this.liveTime();
+
+    const inStr = this.hrms.todayClockInTime();
+    if (!inStr || inStr === '--') return 0;
+
+    const outStr = this.hrms.todayClockOutTime();
+    const now = new Date();
+
+    const parseTimeToDate = (timeStr: string): Date | null => {
+      try {
+        const todayYMD = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+        let d = new Date(`${todayYMD} ${timeStr}`);
+        if (!isNaN(d.getTime())) return d;
+
+        const match = timeStr.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?$/i);
+        if (match) {
+          let hrs = parseInt(match[1], 10);
+          const mins = parseInt(match[2], 10);
+          const secs = match[3] ? parseInt(match[3], 10) : 0;
+          const ampm = match[4]?.toUpperCase();
+          if (ampm === 'PM' && hrs < 12) hrs += 12;
+          if (ampm === 'AM' && hrs === 12) hrs = 0;
+          d = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hrs, mins, secs);
+          if (!isNaN(d.getTime())) return d;
+        }
+        return null;
+      } catch (_) {
+        return null;
+      }
+    };
+
+    const inTime = parseTimeToDate(inStr);
+    if (!inTime) return this.hrms.clockDurationSeconds();
+
+    const outTime = (outStr && outStr !== '--') ? parseTimeToDate(outStr) : now;
+    if (!outTime) return this.hrms.clockDurationSeconds();
+
+    const diffSec = Math.floor((outTime.getTime() - inTime.getTime()) / 1000);
+    return diffSec > 0 ? diffSec : 0;
+  }
+
+  formattedLiveDuration(): string {
+    const secs = this.getElapsedSeconds();
+    if (secs === 0) return '00h 00m 00s';
+    const hrs = Math.floor(secs / 3600);
+    const mins = Math.floor((secs % 3600) / 60);
+    const s = secs % 60;
+    return `${hrs.toString().padStart(2, '0')}h ${mins.toString().padStart(2, '0')}m ${s.toString().padStart(2, '0')}s`;
+  }
+
+  getShiftProgressPercent(): number {
+    const secs = this.getElapsedSeconds();
+    if (secs === 0) return 0;
+    const targetSecs = 9 * 3600; // 9 Hours standard day
+    const pct = Math.min(100, Math.round((secs / targetSecs) * 100));
+    return pct;
+  }
+
+  getRemainingShiftTime(): string {
+    const secs = this.getElapsedSeconds();
+    const targetSecs = 9 * 3600;
+    if (secs >= targetSecs) return 'Goal Reached 🎉';
+    const remSecs = targetSecs - secs;
+    const hrs = Math.floor(remSecs / 3600);
+    const mins = Math.floor((remSecs % 3600) / 60);
+    return `${hrs}h ${mins}m left`;
   }
 
   getWorkDuration(): string {

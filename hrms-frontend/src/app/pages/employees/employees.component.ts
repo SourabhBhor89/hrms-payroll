@@ -1,6 +1,7 @@
 import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { HrmsService } from '../../core/services/hrms.service';
 import { AuthService } from '../../core/services/auth.service';
 import { Employee, UserRole } from '../../core/models/hrms.model';
@@ -15,24 +16,31 @@ import { Employee, UserRole } from '../../core/models/hrms.model';
 export class EmployeesComponent implements OnInit {
   hrms = inject(HrmsService);
   auth = inject(AuthService);
+  router = inject(Router);
 
   ngOnInit() {
     this.loadEmployeesPage();
   }
 
   viewMode = signal<'grid' | 'table'>('grid');
-  
+
   currentPage = signal<number>(0);
   pageSize = 10;
   sortBy = signal<string>('id');
   sortDir = signal<string>('asc');
 
+  private searchTimeout: any = null;
   private _searchQuery = '';
   get searchQuery() { return this._searchQuery; }
   set searchQuery(val: string) {
     this._searchQuery = val;
     this.currentPage.set(0);
-    this.loadEmployeesPage();
+    if (this.searchTimeout) {
+      clearTimeout(this.searchTimeout);
+    }
+    this.searchTimeout = setTimeout(() => {
+      this.loadEmployeesPage();
+    }, 750);
   }
 
   private _selectedDept = 'All';
@@ -51,12 +59,35 @@ export class EmployeesComponent implements OnInit {
     this.loadEmployeesPage();
   }
 
+  toggleSort(columnKey: string) {
+    if (this.sortBy() === columnKey) {
+      this.sortDir.set(this.sortDir() === 'asc' ? 'desc' : 'asc');
+    } else {
+      this.sortBy.set(columnKey);
+      this.sortDir.set('asc');
+    }
+    this.currentPage.set(0);
+    this.loadEmployeesPage();
+  }
+
   paginatedEmployees() {
     return this.hrms.employees();
   }
 
   loadEmployeesPage() {
-    this.hrms.loadEmployees(this.currentPage(), this.pageSize, this.sortBy(), this.sortDir());
+    let sortField = this.sortBy();
+    if (sortField === 'employeeId') {
+      sortField = 'employeeCode';
+    }
+    this.hrms.loadEmployees(
+      this.currentPage(),
+      this.pageSize,
+      sortField,
+      this.sortDir(),
+      this.searchQuery,
+      this.selectedDept,
+      this.selectedRoleFilter
+    );
   }
 
   getEmployeePages(): number[] {
@@ -171,6 +202,26 @@ export class EmployeesComponent implements OnInit {
 
   canManage(): boolean {
     return this.auth.hasPermission('EMPLOYEE_MANAGEMENT_CREATE') || this.auth.hasPermission('EMPLOYEE_MANAGEMENT_UPDATE');
+  }
+
+  canViewEmployeeLeaveWfh(): boolean {
+    const role = (this.auth.currentRole() || '').toUpperCase();
+    return role === 'ADMIN' || role === 'HR MANAGER' || role === 'HR' || role === 'MANAGER' || role === 'COORDINATOR';
+  }
+
+  onEmployeeClick(emp: Employee) {
+    if (this.canViewEmployeeLeaveWfh()) {
+      this.router.navigate(['/employee-leave-wfh'], {
+        queryParams: {
+          employeeId: emp.id,
+          employeeCode: emp.employeeId,
+          name: emp.name,
+          department: emp.department,
+          designation: emp.designation,
+          avatar: emp.avatar
+        }
+      });
+    }
   }
 
   togglePasswordVisibility() {
@@ -351,6 +402,11 @@ export class EmployeesComponent implements OnInit {
       currentSalary: emp.currentSalary || '',
       techStack: emp.techStack || '',
       education: emp.education || '',
+      tenthQualification: emp.tenthQualification || '',
+      twelfthQualification: emp.twelfthQualification || '',
+      bachelorQualification: emp.bachelorQualification || '',
+      hasHighestQualification: !!emp.highestQualification,
+      highestQualification: emp.highestQualification || '',
       emergencyContact1: emp.emergencyContact1 || '',
       emergencyContact2: emp.emergencyContact2 || '',
       photoUrl: emp.photoUrl || emp.avatar || '',
@@ -380,7 +436,7 @@ export class EmployeesComponent implements OnInit {
           this.isSaving.set(false);
           this.isEditMode.set(false);
           this.editingEmployeeId.set(null);
-          
+
           // Update selectedEmployee signal if viewing
           const updatedInList = this.hrms.employees().find(e => e.id === id);
           if (updatedInList) {

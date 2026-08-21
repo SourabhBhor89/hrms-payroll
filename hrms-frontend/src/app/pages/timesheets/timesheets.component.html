@@ -1,15 +1,18 @@
 <div class="timesheets-page">
-  <!-- Header -->
-  <div class="page-header">
-    <div>
-      <h2>Timesheets & Project Time Tracker</h2>
+  <!-- Hero Header Banner -->
+  <div class="page-hero-banner mb-4">
+    <div class="hero-main">
+      <div class="hero-badge">
+        <span class="pulse-dot"></span>
+        <span>HRMS Workforce Portal &bull; Time Tracking</span>
+      </div>
+      <h2>Timesheets & Project Tracker</h2>
       <p class="subtitle">Log daily task hours across active projects and manage weekly approval workflows.</p>
     </div>
-
-    <div class="header-actions">
-      <span class="week-pill">Week: Aug 03 - Aug 09, 2026</span>
-      <button class="btn btn-primary" (click)="submitActiveTimesheet()" [disabled]="activeTimesheet().status === 'Approved'">
-        {{ activeTimesheet().status === 'Submitted' ? 'Timesheet Submitted' : 'Submit Timesheet for Approval' }}
+    <div class="hero-actions">
+      <span class="week-pill" style="background: rgba(255,255,255,0.1); color: #7dd3fc; border: 1px solid rgba(255,255,255,0.18); padding: 0.4rem 0.85rem; border-radius: 999px; font-weight: 700; font-size: 0.8125rem;">Week: Aug 03 - Aug 09, 2026</span>
+      <button class="btn btn-primary btn-hero-action" (click)="submitActiveTimesheet()" [disabled]="activeTimesheet().status === 'Approved'">
+        <span>{{ activeTimesheet().status === 'Submitted' ? 'Timesheet Submitted ✓' : 'Submit Timesheet' }}</span>
       </button>
     </div>
   </div>

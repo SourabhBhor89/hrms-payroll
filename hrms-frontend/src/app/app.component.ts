@@ -1,5 +1,6 @@
-import { Component } from '@angular/core';
+import { Component, inject, OnInit } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
+import { Title } from '@angular/platform-browser';
 import { AlertModalComponent } from './core/components/alert-modal/alert-modal.component';
 import { LoaderComponent } from './layout/loader/loader.component';
 
@@ -14,6 +15,11 @@ import { LoaderComponent } from './layout/loader/loader.component';
   `,
   styles: []
 })
-export class AppComponent {
-  title = 'NexusHR Dashboard';
+export class AppComponent implements OnInit {
+  title = 'TRH - Live To Build';
+  private titleService = inject(Title);
+
+  ngOnInit() {
+    this.titleService.setTitle('TRH - Live To Build');
+  }
 }

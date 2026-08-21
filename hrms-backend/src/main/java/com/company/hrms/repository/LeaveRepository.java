@@ -54,4 +54,10 @@ public interface LeaveRepository extends JpaRepository<Leave, Long> {
                                    @Param("leaveType") LeaveType leaveType,
                                    @Param("yearStart") LocalDate yearStart,
                                    @Param("yearEnd") LocalDate yearEnd);
+
+    @Query("SELECT l FROM Leave l WHERE l.employee.id = :employeeId AND l.status = 'APPROVED' " +
+           "AND l.startDate <= :endDate AND l.endDate >= :startDate")
+    List<Leave> findApprovedLeavesByEmployeeAndDateRange(@Param("employeeId") Long employeeId,
+                                                         @Param("startDate") LocalDate startDate,
+                                                         @Param("endDate") LocalDate endDate);
 }

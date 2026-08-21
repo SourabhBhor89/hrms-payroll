@@ -111,22 +111,27 @@ public class GoogleCalendarService {
 
     @Cacheable(value = CacheNames.HOLIDAYS, key = "'all'")
     public List<HolidayDto> getPublicHolidays() {
-        List<HolidayDto> allHolidays = inMemoryCache.get();
-        boolean isExpired = (System.currentTimeMillis() - lastFetchTimestamp) > CACHE_TTL_MS;
+        try {
+            List<HolidayDto> allHolidays = inMemoryCache.get();
+            boolean isExpired = (System.currentTimeMillis() - lastFetchTimestamp) > CACHE_TTL_MS;
 
-        if (allHolidays == null || allHolidays.isEmpty() || isExpired) {
-            log.info("In-memory holidays cache miss or expired. Fetching fresh data...");
-            allHolidays = refreshHolidaysCache();
-        }
+            if (allHolidays == null || allHolidays.isEmpty() || isExpired) {
+                log.info("In-memory holidays cache miss or expired. Fetching fresh data...");
+                allHolidays = refreshHolidaysCache();
+            }
 
-        if (allHolidays == null || allHolidays.isEmpty()) {
+            if (allHolidays == null || allHolidays.isEmpty()) {
+                return List.of();
+            }
+
+            return allHolidays.stream()
+                    .filter(HolidayDto::isUpcoming)
+                    .sorted(Comparator.comparing(HolidayDto::getDate))
+                    .toList();
+        } catch (Exception e) {
+            log.error("Error fetching public holidays: {}", e.getMessage(), e);
             return List.of();
         }
-
-        return allHolidays.stream()
-                .filter(HolidayDto::isUpcoming)
-                .sorted(Comparator.comparing(HolidayDto::getDate))
-                .toList();
     }
 
     public List<HolidayDto> fetchFromICalFeed(int year) {

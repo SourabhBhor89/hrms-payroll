@@ -10,13 +10,15 @@ import { LeavesComponent } from './pages/leaves/leaves.component';
 import { HolidaysComponent } from './pages/holidays/holidays.component';
 import { TimesheetsComponent } from './pages/timesheets/timesheets.component';
 import { ProfileChangesComponent } from './pages/profile-changes/profile-changes.component';
+import { EmployeeLeaveWfhComponent } from './pages/employee-leave-wfh/employee-leave-wfh.component';
 import { authGuard } from './core/guards/auth.guard';
+import { permissionGuard } from './core/guards/permission.guard';
 
 export const routes: Routes = [
   // Auth Routes
-  { path: 'auth/login', component: LoginComponent },
-  { path: 'auth/forgot-password', component: ForgotPasswordComponent },
-  { path: 'auth/reset-password', component: ResetPasswordComponent },
+  { path: 'auth/login', title: 'TRH - Live To Build', component: LoginComponent },
+  { path: 'auth/forgot-password', title: 'TRH - Live To Build', component: ForgotPasswordComponent },
+  { path: 'auth/reset-password', title: 'TRH - Live To Build', component: ResetPasswordComponent },
 
   // App Shell Layout Protected Routes
   {
@@ -25,13 +27,14 @@ export const routes: Routes = [
     canActivate: [authGuard],
     children: [
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
-      { path: 'dashboard', component: DashboardComponent },
-      { path: 'employees', component: EmployeesComponent },
-      { path: 'attendance', component: AttendanceComponent },
-      { path: 'leaves', component: LeavesComponent },
-      { path: 'holidays', component: HolidaysComponent },
-      { path: 'timesheets', component: TimesheetsComponent },
-      { path: 'profile-changes', component: ProfileChangesComponent } // Keep route for dashboard access
+      { path: 'dashboard', title: 'TRH - Live To Build', component: DashboardComponent },
+      { path: 'employees', title: 'TRH - Live To Build', component: EmployeesComponent },
+      { path: 'attendance', title: 'TRH - Live To Build', component: AttendanceComponent },
+      { path: 'leaves', title: 'TRH - Live To Build', component: LeavesComponent },
+      { path: 'holidays', title: 'TRH - Live To Build', component: HolidaysComponent },
+      { path: 'timesheets', title: 'TRH - Live To Build', component: TimesheetsComponent },
+      { path: 'profile-changes', title: 'TRH - Live To Build', component: ProfileChangesComponent }, // Keep route for dashboard access
+      { path: 'employee-leave-wfh', title: 'TRH - Live To Build', component: EmployeeLeaveWfhComponent, canActivate: [permissionGuard], data: { permission: 'EMPLOYEE_LEAVE_WFH_VIEW' } }
     ]
   },
 

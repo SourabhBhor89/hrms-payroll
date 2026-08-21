@@ -15,6 +15,7 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
@@ -31,6 +32,7 @@ import java.util.Set;
 import java.util.UUID;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
 
@@ -249,19 +251,44 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public void logout(HttpServletRequest request, HttpServletResponse response) {
-        String rawRefreshToken = extractRefreshTokenFromCookie(request);
-        LocalDateTime now = LocalDateTime.now();
+        try {
+            LocalDateTime now = LocalDateTime.now();
 
-        if (rawRefreshToken != null && !rawRefreshToken.isBlank()) {
-            String hashedToken = jwtService.hashToken(rawRefreshToken);
-            userSessionRepository.findByRefreshTokenHash(hashedToken)
-                    .ifPresent(session -> {
-                        userSessionRepository.revokeSessionIfValid(session.getId(), now, now);
-                    });
-        }
+            if (request != null) {
+                String rawRefreshToken = extractRefreshTokenFromCookie(request);
+                if (rawRefreshToken != null && !rawRefreshToken.isBlank()) {
+                    try {
+                        String hashedToken = jwtService.hashToken(rawRefreshToken);
+                        userSessionRepository.findByRefreshTokenHash(hashedToken)
+                                .ifPresent(session -> {
+                                    userSessionRepository.revokeSessionIfValid(session.getId(), now, now);
+                                });
+                    } catch (Exception e) {
+                        log.warn("Failed to revoke session by refresh cookie: {}", e.getMessage());
+                    }
+                }
 
-        if (response != null) {
-            clearRefreshTokenCookie(response);
+                String authHeader = request.getHeader("Authorization");
+                if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                    try {
+                        String token = authHeader.substring(7);
+                        String username = jwtService.extractUsername(token);
+                        if (username != null) {
+                            userRepository.findByEmail(username).ifPresent(user -> {
+                                userSessionRepository.revokeAllUserSessions(user.getId(), now);
+                            });
+                        }
+                    } catch (Exception e) {
+                        log.warn("Failed to revoke user sessions by Bearer token: {}", e.getMessage());
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.error("Error during session logout cleanup: {}", e.getMessage(), e);
+        } finally {
+            if (response != null) {
+                clearRefreshTokenCookie(response);
+            }
         }
     }
 

@@ -37,11 +37,25 @@ public class EmployeeController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "id") String sortBy,
-            @RequestParam(defaultValue = "asc") String sortDir
+            @RequestParam(defaultValue = "asc") String sortDir,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String department,
+            @RequestParam(required = false) String role
     ) {
-        Sort sort = sortDir.equalsIgnoreCase("desc") ? Sort.by(sortBy).descending() : Sort.by(sortBy).ascending();
+        String sortProperty = sortBy;
+        if ("employeeId".equalsIgnoreCase(sortBy) || "employee_code".equalsIgnoreCase(sortBy)) {
+            sortProperty = "employeeCode";
+        } else if ("name".equalsIgnoreCase(sortBy)) {
+            sortProperty = "firstName";
+        } else if ("role".equalsIgnoreCase(sortBy)) {
+            sortProperty = "user.role.name";
+        } else if ("status".equalsIgnoreCase(sortBy)) {
+            sortProperty = "active";
+        }
+
+        Sort sort = sortDir.equalsIgnoreCase("desc") ? Sort.by(sortProperty).descending() : Sort.by(sortProperty).ascending();
         Pageable pageable = PageRequest.of(page, size, sort);
-        return ResponseEntity.ok(employeeService.getAllEmployees(pageable));
+        return ResponseEntity.ok(employeeService.getAllEmployees(search, department, role, pageable));
     }
 
     @GetMapping("/{id}")
