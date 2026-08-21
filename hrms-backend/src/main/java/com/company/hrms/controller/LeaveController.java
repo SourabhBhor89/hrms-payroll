@@ -2,8 +2,11 @@ package com.company.hrms.controller;
 
 import com.company.hrms.dto.request.ApproveLeaveRequest;
 import com.company.hrms.dto.request.CreateLeaveRequest;
+import com.company.hrms.dto.request.UpdateEmployeeDayStatusRequest;
 import com.company.hrms.dto.request.UpdateLeaveRequest;
 import com.company.hrms.dto.response.EmployeeLeaveDataResponse;
+import com.company.hrms.dto.response.EmployeeLeaveWfhSummaryDto;
+import com.company.hrms.dto.response.EmployeeSearchResultDto;
 import com.company.hrms.dto.response.LeaveResponse;
 import com.company.hrms.dto.response.LeaveTypeResponse;
 import com.company.hrms.entity.Employee;
@@ -155,6 +158,33 @@ public class LeaveController {
                     "message", "Failed to process monthly leave balance update: " + e.getMessage()
             ));
         }
+    }
+
+    @GetMapping("/employee-search")
+    @PreAuthorize("hasAuthority('EMPLOYEE_LEAVE_WFH_VIEW')")
+    public ResponseEntity<List<EmployeeSearchResultDto>> searchEmployees(
+            @RequestParam(required = false, defaultValue = "") String query
+    ) {
+        return ResponseEntity.ok(leaveService.searchEmployees(query));
+    }
+
+    @PutMapping("/employee-status")
+    @PreAuthorize("hasAuthority('EMPLOYEE_LEAVE_WFH_VIEW')")
+    public ResponseEntity<Map<String, String>> updateEmployeeDayStatus(
+            @Valid @RequestBody UpdateEmployeeDayStatusRequest request
+    ) {
+        leaveService.updateEmployeeDayStatus(request);
+        return ResponseEntity.ok(Map.of("message", "Employee day status updated successfully"));
+    }
+
+    @GetMapping("/employee-summary/{employeeId}")
+    @PreAuthorize("hasAuthority('EMPLOYEE_LEAVE_WFH_VIEW')")
+    public ResponseEntity<EmployeeLeaveWfhSummaryDto> getEmployeeLeaveWfhSummary(
+            @PathVariable Long employeeId,
+            @RequestParam(required = false) Integer year,
+            @RequestParam(required = false) Integer month
+    ) {
+        return ResponseEntity.ok(leaveService.getEmployeeLeaveWfhSummary(employeeId, year, month));
     }
 
     // Helper method to extract employee ID from authentication

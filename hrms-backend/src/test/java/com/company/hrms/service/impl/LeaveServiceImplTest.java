@@ -10,6 +10,7 @@ import com.company.hrms.entity.Employee;
 import com.company.hrms.entity.Leave;
 import com.company.hrms.entity.LeaveBalance;
 import com.company.hrms.entity.LeaveType;
+import com.company.hrms.repository.AttendanceRepository;
 import com.company.hrms.repository.EmployeeRepository;
 import com.company.hrms.repository.LeaveBalanceRepository;
 import com.company.hrms.repository.LeaveRepository;
@@ -49,6 +50,12 @@ class LeaveServiceImplTest {
 
     @Mock
     private EmployeeRepository employeeRepository;
+
+    @Mock
+    private AttendanceRepository attendanceRepository;
+
+    @Mock
+    private com.company.hrms.service.Google_Calendar_Service.GoogleCalendarService googleCalendarService;
 
     @InjectMocks
     private LeaveServiceImpl leaveService;
@@ -401,5 +408,44 @@ class LeaveServiceImplTest {
         assertEquals(2, responses.size());
         assertTrue(responses.stream().allMatch(LeaveTypeResponse::getActive));
         verify(employeeRepository, times(1)).findById(1L);
+    }
+
+    @Test
+    @DisplayName("searchEmployees - Returns max 15 results")
+    void testSearchEmployees() {
+        when(employeeRepository.searchEmployees(eq("John"), any(org.springframework.data.domain.Pageable.class)))
+                .thenReturn(Collections.singletonList(testEmployee));
+
+        var results = leaveService.searchEmployees("John");
+
+        assertNotNull(results);
+        assertEquals(1, results.size());
+        assertEquals("EMP001", results.get(0).getEmployeeCode());
+        assertEquals("John Doe", results.get(0).getName());
+    }
+
+    @Test
+    @DisplayName("getEmployeeLeaveWfhSummary - Valid employee & month summary")
+    void testGetEmployeeLeaveWfhSummary() {
+        when(employeeRepository.findById(1L)).thenReturn(Optional.of(testEmployee));
+        when(leaveRepository.findApprovedLeavesByEmployeeAndDateRange(eq(1L), any(), any()))
+                .thenReturn(Collections.emptyList());
+        when(attendanceRepository.findByEmployeeIdAndDateBetween(eq(1L), any(), any()))
+                .thenReturn(Collections.emptyList());
+        when(leaveTypeRepository.findAll()).thenReturn(Arrays.asList(paidLeaveType, wfhLeaveType));
+        when(leaveBalanceRepository.findAllByEmployeeAndLeaveTypeAndYearAndMonth(any(), any(), anyInt(), anyInt()))
+                .thenReturn(Collections.singletonList(leaveBalance));
+        when(googleCalendarService.getPublicHolidays()).thenReturn(Collections.emptyList());
+
+        var summary = leaveService.getEmployeeLeaveWfhSummary(1L, 2026, 8);
+
+        assertNotNull(summary);
+        assertEquals(1L, summary.getEmployeeId());
+        assertEquals("EMP001", summary.getEmployeeCode());
+        assertEquals(2026, summary.getSelectedYear());
+        assertEquals(8, summary.getSelectedMonth());
+        assertEquals(31, summary.getCalendarEntries().size());
+        assertEquals(0.0, summary.getMonthLeaveTakenTotal());
+        assertEquals(0.0, summary.getMonthWfhTakenTotal());
     }
 }

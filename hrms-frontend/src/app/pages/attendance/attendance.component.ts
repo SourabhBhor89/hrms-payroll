@@ -236,11 +236,12 @@ export class AttendanceComponent implements OnInit {
         }
       }
 
-      // Check regularization eligibility rules (Admin cannot self-regularize; WFH & Leave days cannot be regularized)
+      // Check regularization eligibility rules (Admin cannot self-regularize; Present, WFH, Leave, Holiday, or Admin-locked days cannot be regularized)
       const isAdminUser = this.auth.currentRole() === 'Admin';
       const minDate = this.minAllowedRegularizationDate();
       const isBeforeMinDate = dateStr < minDate;
-      const canReg = !isAdminUser && isPastOrToday && !isWeekend && !hasApprovedLeaveOrWfh && status !== 'Leave' && status !== 'WFH' && status !== 'Week Off' && status !== 'Holiday' && !isLocked && regStatus !== 'Pending' && regStatus !== 'Approved' && regStatus !== 'Rejected' && !isBeforeMinDate;
+      const isPresentDay = (status as string) === 'Present' || (status as string) === 'PRESENT';
+      const canReg = !isAdminUser && isPastOrToday && !isWeekend && !hasApprovedLeaveOrWfh && !isPresentDay && (status as string) !== 'Leave' && (status as string) !== 'WFH' && (status as string) !== 'Week Off' && (status as string) !== 'Holiday' && !isLocked && regStatus !== 'Pending' && regStatus !== 'Approved' && regStatus !== 'Rejected' && !isBeforeMinDate;
 
       cells.push({
         dateStr,
@@ -341,18 +342,23 @@ export class AttendanceComponent implements OnInit {
 
   minAllowedRegularizationDate = computed(() => {
     const today = new Date();
-    const prevMonthFirstDay = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-    const yyyy = prevMonthFirstDay.getFullYear();
-    const mm = String(prevMonthFirstDay.getMonth() + 1).padStart(2, '0');
-    const firstDayOfPrevMonthStr = `${yyyy}-${mm}-01`;
+    const dayOfWeek = today.getDay(); // 0 = Sun, 1 = Mon, 2 = Tue, ..., 6 = Sat
+    const diffToMonday = (dayOfWeek + 6) % 7;
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - diffToMonday);
+
+    const yyyy = monday.getFullYear();
+    const mm = String(monday.getMonth() + 1).padStart(2, '0');
+    const dd = String(monday.getDate()).padStart(2, '0');
+    const mondayStr = `${yyyy}-${mm}-${dd}`;
 
     const emp = this.currentEmployee();
     const joiningDateStr = emp?.joinDate;
 
-    if (joiningDateStr && joiningDateStr > firstDayOfPrevMonthStr) {
+    if (joiningDateStr && joiningDateStr > mondayStr) {
       return joiningDateStr;
     }
-    return firstDayOfPrevMonthStr;
+    return mondayStr;
   });
 
   maxAllowedRegularizationDate = computed(() => {
@@ -387,7 +393,7 @@ export class AttendanceComponent implements OnInit {
     const maxDate = this.maxAllowedRegularizationDate();
     if (cell?.dateStr) {
       if (cell.dateStr < minDate) {
-        this.notify.showAlert(`Cannot submit regularization request for a date before ${minDate}.`);
+        this.notify.showAlert(`Regularization requests can only be submitted for the current week (from ${minDate} onwards).`);
         return;
       }
       if (cell.dateStr > maxDate) {
@@ -426,7 +432,7 @@ export class AttendanceComponent implements OnInit {
     const maxDate = this.maxAllowedRegularizationDate();
 
     if (this.regForm.attendanceDate < minDate) {
-      this.notify.showAlert(`Cannot submit regularization request for a date before ${minDate}.`);
+      this.notify.showAlert(`Regularization requests can only be submitted for the current week (from ${minDate} onwards).`);
       return;
     }
     if (this.regForm.attendanceDate > maxDate) {

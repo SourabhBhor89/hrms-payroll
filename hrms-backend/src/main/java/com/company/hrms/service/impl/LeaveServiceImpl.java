@@ -2,17 +2,21 @@ package com.company.hrms.service.impl;
 
 import com.company.hrms.dto.request.ApproveLeaveRequest;
 import com.company.hrms.dto.request.CreateLeaveRequest;
+import com.company.hrms.dto.request.UpdateEmployeeDayStatusRequest;
 import com.company.hrms.dto.request.UpdateLeaveRequest;
 import com.company.hrms.dto.response.EmployeeLeaveBalanceDetail;
 import com.company.hrms.dto.response.EmployeeLeaveDataResponse;
 import com.company.hrms.dto.response.LeaveResponse;
 import com.company.hrms.dto.response.LeaveTypeResponse;
 import com.company.hrms.entity.Attendance;
+import com.company.hrms.entity.AttendanceRegularization;
 import com.company.hrms.entity.AttendanceStatus;
 import com.company.hrms.entity.Employee;
 import com.company.hrms.entity.Leave;
 import com.company.hrms.entity.LeaveBalance;
 import com.company.hrms.entity.LeaveType;
+import com.company.hrms.entity.RegularizationStatus;
+import com.company.hrms.repository.AttendanceRegularizationRepository;
 import com.company.hrms.repository.AttendanceRepository;
 import com.company.hrms.repository.EmployeeRepository;
 import com.company.hrms.repository.LeaveBalanceRepository;
@@ -27,11 +31,25 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.company.hrms.dto.response.EmployeeLeaveWfhSummaryDto;
+import com.company.hrms.dto.response.EmployeeSearchResultDto;
+import com.company.hrms.dto.response.HolidayDto;
+import com.company.hrms.service.Google_Calendar_Service.GoogleCalendarService;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+
 import java.math.BigDecimal;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Year;
+import java.time.format.TextStyle;
+import java.time.temporal.TemporalAdjusters;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -43,6 +61,8 @@ public class LeaveServiceImpl implements LeaveService {
     private final LeaveBalanceRepository leaveBalanceRepository;
     private final EmployeeRepository employeeRepository;
     private final AttendanceRepository attendanceRepository;
+    private final AttendanceRegularizationRepository regularizationRepository;
+    private final GoogleCalendarService googleCalendarService;
 
     @Override
     @Transactional
@@ -238,17 +258,12 @@ public class LeaveServiceImpl implements LeaveService {
                     .findByEmployeeAndLeaveTypeAndYearAndMonth(employee, leaveType, year, month)
                     .orElseGet(() -> createInitialLeaveBalance(employee, leaveType, year, month));
 
-            BigDecimal usedDaysVal = balance.getUsedDays() != null ? balance.getUsedDays() : BigDecimal.ZERO;
-            if ("WFH".equalsIgnoreCase(leaveType.getCode()) || (leaveType.getName() != null && leaveType.getName().toLowerCase().contains("work from home"))) {
-                double wfhSum = empLeaves.stream()
-                        .filter(l -> l.getLeaveType() != null && l.getLeaveType().getId().equals(leaveType.getId()))
-                        .filter(l -> l.getStatus() == Leave.LeaveStatus.APPROVED)
-                        .mapToDouble(l -> l.getTotalDays() != null ? l.getTotalDays() : 0.0)
-                        .sum();
-                if (wfhSum > 0) {
-                    usedDaysVal = BigDecimal.valueOf(wfhSum);
-                }
-            }
+            double approvedDaysSum = empLeaves.stream()
+                    .filter(l -> l != null && l.getLeaveType() != null && l.getLeaveType().getId().equals(leaveType.getId()))
+                    .filter(l -> l.getStatus() == Leave.LeaveStatus.APPROVED)
+                    .mapToDouble(l -> l.getTotalDays() != null ? l.getTotalDays() : 0.0)
+                    .sum();
+            BigDecimal usedDaysVal = BigDecimal.valueOf(approvedDaysSum);
 
             EmployeeLeaveBalanceDetail detail = EmployeeLeaveBalanceDetail.builder()
                     .leaveTypeId(leaveType.getId())
@@ -282,6 +297,470 @@ public class LeaveServiceImpl implements LeaveService {
                 .month(month)
                 .leaveBalances(balanceDetails)
                 .leaves(leaveResponses)
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<EmployeeSearchResultDto> searchEmployees(String query) {
+        if (query == null || query.isBlank()) {
+            return List.of();
+        }
+        String trimmed = query.trim();
+        Pageable limitFifteen = PageRequest.of(0, 15);
+        List<Employee> employees = employeeRepository.searchEmployees(trimmed, limitFifteen);
+        return employees.stream()
+                .map(e -> EmployeeSearchResultDto.builder()
+                        .id(e.getId())
+                        .employeeCode(e.getEmployeeCode())
+                        .name(e.getFirstName() + (e.getLastName() != null ? " " + e.getLastName() : ""))
+                        .department(e.getDepartment())
+                        .designation(e.getDesignation())
+                        .email(e.getUser() != null ? e.getUser().getEmail() : null)
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    @CacheEvict(value = CacheNames.LEAVES, allEntries = true)
+    public void updateEmployeeDayStatus(UpdateEmployeeDayStatusRequest request) {
+        if (request == null || request.getEmployeeId() == null || request.getDate() == null || request.getStatus() == null) {
+            throw new IllegalArgumentException("Invalid status update request");
+        }
+
+        Employee employee = employeeRepository.findById(request.getEmployeeId())
+                .orElseGet(() -> employeeRepository.findByUserId(request.getEmployeeId())
+                        .orElseThrow(() -> new IllegalArgumentException("Employee not found with ID: " + request.getEmployeeId())));
+
+        LocalDate date = request.getDate();
+        String targetStatus = request.getStatus().trim().toUpperCase();
+
+        Attendance attendance = attendanceRepository.findByEmployeeIdAndDate(employee.getId(), date)
+                .orElseGet(() -> {
+                    Attendance a = new Attendance();
+                    a.setEmployee(employee);
+                    a.setDate(date);
+                    a.setCreatedBy("Admin/HR");
+                    return a;
+                });
+
+        List<Leave> existingLeaves = leaveRepository.findApprovedLeavesByEmployeeAndDateRange(employee.getId(), date, date);
+
+        if ("PRESENT".equalsIgnoreCase(targetStatus)) {
+            removeOrSplitDateFromLeaves(existingLeaves, date);
+            attendance.setStatus(AttendanceStatus.PRESENT);
+            attendance.setIsLocked(true);
+            if (attendance.getClockIn() == null) {
+                attendance.setClockIn(date.atTime(10, 0));
+            }
+            if (attendance.getClockOut() == null) {
+                attendance.setClockOut(date.atTime(19, 0));
+            }
+            attendance.setTotalHours(9.0);
+            attendance.setNotes(request.getReason() != null && !request.getReason().isBlank() ? request.getReason() : "Marked Present by Admin/HR");
+            attendance = attendanceRepository.save(attendance);
+            syncAttendanceRegularizations(attendance, targetStatus);
+        } else if ("ABSENT".equalsIgnoreCase(targetStatus)) {
+            removeOrSplitDateFromLeaves(existingLeaves, date);
+            attendance.setStatus(AttendanceStatus.ABSENT);
+            attendance.setIsLocked(true);
+            attendance.setClockIn(null);
+            attendance.setClockOut(null);
+            attendance.setTotalHours(0.0);
+            attendance.setNotes(request.getReason() != null && !request.getReason().isBlank() ? request.getReason() : "Marked Absent by Admin/HR");
+            attendance = attendanceRepository.save(attendance);
+            syncAttendanceRegularizations(attendance, targetStatus);
+        } else if ("WFH".equalsIgnoreCase(targetStatus)) {
+            removeOrSplitDateFromLeaves(existingLeaves, date);
+            attendance.setStatus(AttendanceStatus.WFH);
+            attendance.setIsLocked(true);
+            attendance.setNotes(request.getReason() != null && !request.getReason().isBlank() ? request.getReason() : "Marked WFH by Admin/HR");
+            attendance = attendanceRepository.save(attendance);
+            syncAttendanceRegularizations(attendance, targetStatus);
+
+            LeaveType wfhType = leaveTypeRepository.findAll().stream()
+                    .filter(lt -> "WFH".equalsIgnoreCase(lt.getCode()) || (lt.getName() != null && lt.getName().toLowerCase().contains("work from home")))
+                    .findFirst()
+                    .orElse(null);
+
+            if (wfhType != null) {
+                Leave leave = new Leave();
+                leave.setEmployee(employee);
+                leave.setLeaveType(wfhType);
+                leave.setStartDate(date);
+                leave.setEndDate(date);
+                leave.setTotalDays(1.0);
+                leave.setReason(request.getReason() != null && !request.getReason().isBlank() ? request.getReason() : "WFH assigned by Admin/HR");
+                leave.setStatus(Leave.LeaveStatus.APPROVED);
+                leave.setApprovedAt(LocalDateTime.now());
+                leaveRepository.save(leave);
+            }
+        } else if ("LEAVE".equalsIgnoreCase(targetStatus)) {
+            removeOrSplitDateFromLeaves(existingLeaves, date);
+            attendance.setStatus(AttendanceStatus.LEAVE);
+            attendance.setIsLocked(true);
+            attendance.setClockIn(null);
+            attendance.setClockOut(null);
+            attendance.setTotalHours(0.0);
+            attendance.setNotes(request.getReason() != null && !request.getReason().isBlank() ? request.getReason() : "Marked Leave by Admin/HR");
+            attendance = attendanceRepository.save(attendance);
+            syncAttendanceRegularizations(attendance, targetStatus);
+
+            LeaveType targetLeaveType = null;
+            if (request.getLeaveTypeId() != null) {
+                targetLeaveType = leaveTypeRepository.findById(request.getLeaveTypeId()).orElse(null);
+            }
+            if (targetLeaveType == null) {
+                targetLeaveType = leaveTypeRepository.findAll().stream()
+                        .filter(lt -> !"WFH".equalsIgnoreCase(lt.getCode()))
+                        .findFirst()
+                        .orElse(null);
+            }
+
+            if (targetLeaveType != null) {
+                Leave leave = new Leave();
+                leave.setEmployee(employee);
+                leave.setLeaveType(targetLeaveType);
+                leave.setStartDate(date);
+                leave.setEndDate(date);
+                leave.setTotalDays(1.0);
+                leave.setReason(request.getReason() != null && !request.getReason().isBlank() ? request.getReason() : "Leave assigned by Admin/HR");
+                leave.setStatus(Leave.LeaveStatus.APPROVED);
+                leave.setApprovedAt(LocalDateTime.now());
+                leaveRepository.save(leave);
+            }
+        } else {
+            throw new IllegalArgumentException("Unsupported day status: " + request.getStatus());
+        }
+    }
+
+    private void syncAttendanceRegularizations(Attendance attendance, String targetStatus) {
+        if (attendance == null || attendance.getId() == null) return;
+
+        List<AttendanceRegularization> regs = regularizationRepository.findByAttendanceId(attendance.getId());
+        if (regs != null && !regs.isEmpty()) {
+            for (AttendanceRegularization reg : regs) {
+                if ("PRESENT".equalsIgnoreCase(targetStatus)) {
+                    reg.setStatus(RegularizationStatus.APPROVED);
+                    reg.setApprovedAt(LocalDateTime.now());
+                    reg.setReviewRemarks("Marked Present by Admin/HR");
+                    reg.setReviewedBy("Admin/HR");
+                } else {
+                    reg.setStatus(RegularizationStatus.REJECTED);
+                    reg.setRejectedAt(LocalDateTime.now());
+                    reg.setReviewRemarks("Status overridden to " + targetStatus + " by Admin/HR");
+                    reg.setReviewedBy("Admin/HR");
+                }
+                regularizationRepository.save(reg);
+            }
+        }
+    }
+
+    private void removeOrSplitDateFromLeaves(List<Leave> leaves, LocalDate targetDate) {
+        if (leaves == null || leaves.isEmpty()) return;
+
+        for (Leave l : new ArrayList<>(leaves)) {
+            if (l == null || l.getStartDate() == null || l.getEndDate() == null) continue;
+            if (l.getStatus() != Leave.LeaveStatus.APPROVED && l.getStatus() != Leave.LeaveStatus.PENDING) continue;
+
+            LocalDate startDate = l.getStartDate();
+            LocalDate endDate = l.getEndDate();
+
+            if (targetDate.isBefore(startDate) || targetDate.isAfter(endDate)) {
+                continue;
+            }
+
+            if (startDate.equals(targetDate) && endDate.equals(targetDate)) {
+                // Case 1: Single day leave -> Cancel
+                l.setStatus(Leave.LeaveStatus.CANCELLED);
+                leaveRepository.save(l);
+            } else if (startDate.equals(targetDate)) {
+                // Case 2: Target date is start date -> Shrink start date forward
+                LocalDate newStart = targetDate.plusDays(1);
+                l.setStartDate(newStart);
+                l.setTotalDays(calculateTotalDays(newStart, endDate));
+                leaveRepository.save(l);
+            } else if (endDate.equals(targetDate)) {
+                // Case 3: Target date is end date -> Shrink end date backward
+                LocalDate newEnd = targetDate.minusDays(1);
+                l.setEndDate(newEnd);
+                l.setTotalDays(calculateTotalDays(startDate, newEnd));
+                leaveRepository.save(l);
+            } else {
+                // Case 4: Target date is in the middle -> Split into two leaves
+                LocalDate firstSegEnd = targetDate.minusDays(1);
+                LocalDate secondSegStart = targetDate.plusDays(1);
+
+                l.setEndDate(firstSegEnd);
+                l.setTotalDays(calculateTotalDays(startDate, firstSegEnd));
+                leaveRepository.save(l);
+
+                Leave secondLeave = new Leave();
+                secondLeave.setEmployee(l.getEmployee());
+                secondLeave.setLeaveType(l.getLeaveType());
+                secondLeave.setStartDate(secondSegStart);
+                secondLeave.setEndDate(endDate);
+                secondLeave.setTotalDays(calculateTotalDays(secondSegStart, endDate));
+                secondLeave.setReason(l.getReason());
+                secondLeave.setStatus(l.getStatus());
+                secondLeave.setApprovedBy(l.getApprovedBy());
+                secondLeave.setApprovedAt(l.getApprovedAt());
+                leaveRepository.save(secondLeave);
+            }
+        }
+    }
+
+    @Override
+    @Transactional
+    public EmployeeLeaveWfhSummaryDto getEmployeeLeaveWfhSummary(Long employeeId, Integer year, Integer month) {
+        final int targetYear = (year != null) ? year : Year.now().getValue();
+        final int targetMonth = (month != null) ? month : LocalDate.now().getMonthValue();
+
+        Employee employee = employeeRepository.findById(employeeId)
+                .orElseGet(() -> employeeRepository.findByUserId(employeeId)
+                        .orElseThrow(() -> new IllegalArgumentException("Employee not found with ID: " + employeeId)));
+
+        Long empId = employee.getId();
+
+        LocalDate monthStart = LocalDate.of(targetYear, targetMonth, 1);
+        LocalDate monthEnd = monthStart.with(TemporalAdjusters.lastDayOfMonth());
+
+        // YTD range: Jan 1 of selected year -> monthEnd
+        LocalDate ytdStart = LocalDate.of(targetYear, 1, 1);
+        LocalDate ytdEnd = monthEnd;
+
+        // Fetch all approved leaves for employee in YTD range
+        List<Leave> approvedYtdLeaves = leaveRepository.findApprovedLeavesByEmployeeAndDateRange(empId, ytdStart, ytdEnd);
+        if (approvedYtdLeaves == null) {
+            approvedYtdLeaves = List.of();
+        }
+
+        // Fetch attendance records for employee in YTD range
+        List<Attendance> ytdAttendances = attendanceRepository.findByEmployeeIdAndDateBetween(empId, ytdStart, ytdEnd);
+        Map<LocalDate, Attendance> attendanceMap = (ytdAttendances != null) ? ytdAttendances.stream()
+                .filter(a -> a != null && a.getDate() != null)
+                .collect(Collectors.toMap(Attendance::getDate, a -> a, (e, r) -> e)) : Map.of();
+
+        // Public holidays mapping (null-safe)
+        Map<LocalDate, String> holidayMap = new HashMap<>();
+        if (googleCalendarService != null) {
+            try {
+                List<HolidayDto> holidays = googleCalendarService.getPublicHolidays();
+                if (holidays != null) {
+                    for (HolidayDto h : holidays) {
+                        if (h != null && h.getDate() != null && !h.getDate().isBlank()) {
+                            try {
+                                LocalDate d = LocalDate.parse(h.getDate().trim());
+                                String title = (h.getTitle() != null && !h.getTitle().isBlank()) 
+                                        ? h.getTitle() 
+                                        : (h.getName() != null ? h.getName() : "Holiday");
+                                holidayMap.put(d, title);
+                            } catch (Exception ignored) {
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                // Ignore holiday service lookup errors
+            }
+        }
+
+        // Active leave types mapping for fallback matching
+        List<LeaveType> allActiveTypes = leaveTypeRepository.findAll().stream()
+                .filter(LeaveType::getActive)
+                .collect(Collectors.toList());
+
+        LeaveType defaultWfhType = allActiveTypes.stream()
+                .filter(lt -> "WFH".equalsIgnoreCase(lt.getCode()) || (lt.getName() != null && lt.getName().toLowerCase().contains("work from home")))
+                .findFirst()
+                .orElse(null);
+
+        LeaveType defaultPaidType = allActiveTypes.stream()
+                .filter(lt -> !"WFH".equalsIgnoreCase(lt.getCode()))
+                .findFirst()
+                .orElse(null);
+
+        // Calculate YTD totals by traversing working days from Jan 1 -> monthEnd
+        double ytdWfhTotal = 0.0;
+        double ytdLeaveTotal = 0.0;
+
+        LocalDate cur = ytdStart;
+        while (!cur.isAfter(ytdEnd)) {
+            DayOfWeek dow = cur.getDayOfWeek();
+            boolean isWeekend = (dow == DayOfWeek.SATURDAY || dow == DayOfWeek.SUNDAY);
+            boolean isHoliday = holidayMap.containsKey(cur);
+            Attendance att = attendanceMap.get(cur);
+            boolean isAttWfh = att != null && att.getStatus() == AttendanceStatus.WFH;
+            boolean isAttLeave = att != null && att.getStatus() == AttendanceStatus.LEAVE;
+
+            boolean isPresent = att != null && !isAttWfh && !isAttLeave && (
+                    att.getStatus() == AttendanceStatus.PRESENT || 
+                    att.getStatus() == AttendanceStatus.LATE || 
+                    att.getStatus() == AttendanceStatus.HALF_DAY || 
+                    (att.getClockIn() != null && !att.getClockIn().toString().isBlank())
+            );
+
+            // Count Leave / WFH when employee is not present
+            if (!isWeekend && !isPresent) {
+                final LocalDate checkDate = cur;
+                Leave matchingLeave = approvedYtdLeaves.stream()
+                        .filter(l -> l != null && l.getStartDate() != null && l.getEndDate() != null && l.getLeaveType() != null)
+                        .filter(l -> !checkDate.isBefore(l.getStartDate()) && !checkDate.isAfter(l.getEndDate()))
+                        .findFirst()
+                        .orElse(null);
+
+                if (matchingLeave != null) {
+                    boolean isWfh = "WFH".equalsIgnoreCase(matchingLeave.getLeaveType().getCode()) ||
+                            (matchingLeave.getLeaveType().getName() != null && matchingLeave.getLeaveType().getName().toLowerCase().contains("work from home"));
+                    double dayVal = (matchingLeave.getTotalDays() != null && matchingLeave.getTotalDays() < 1.0) ? matchingLeave.getTotalDays() : 1.0;
+                    if (isWfh) {
+                        ytdWfhTotal += dayVal;
+                    } else {
+                        ytdLeaveTotal += dayVal;
+                    }
+                } else if (isAttWfh) {
+                    ytdWfhTotal += 1.0;
+                } else if (isAttLeave) {
+                    ytdLeaveTotal += 1.0;
+                }
+            }
+            cur = cur.plusDays(1);
+        }
+
+        // Calendar Entries & Selected Month totals
+        double monthWfhTotal = 0.0;
+        double monthLeaveTotal = 0.0;
+        Map<Long, Double> monthLeaveTypeTakenMap = new HashMap<>();
+
+        List<EmployeeLeaveWfhSummaryDto.CalendarDayEntry> calendarEntries = new ArrayList<>();
+        for (int day = 1; day <= monthEnd.getDayOfMonth(); day++) {
+            LocalDate date = LocalDate.of(targetYear, targetMonth, day);
+            DayOfWeek dow = date.getDayOfWeek();
+            boolean isWeekend = (dow == DayOfWeek.SATURDAY || dow == DayOfWeek.SUNDAY);
+            boolean isHoliday = holidayMap.containsKey(date);
+            String holidayTitle = holidayMap.get(date);
+
+            Attendance att = attendanceMap.get(date);
+            boolean isAttWfh = att != null && att.getStatus() == AttendanceStatus.WFH;
+            boolean isAttLeave = att != null && att.getStatus() == AttendanceStatus.LEAVE;
+
+            boolean isPresent = att != null && !isAttWfh && !isAttLeave && (
+                    att.getStatus() == AttendanceStatus.PRESENT || 
+                    att.getStatus() == AttendanceStatus.LATE || 
+                    att.getStatus() == AttendanceStatus.HALF_DAY || 
+                    (att.getClockIn() != null && !att.getClockIn().toString().isBlank())
+            );
+
+            Leave matchingLeave = null;
+            if (!isWeekend && !isPresent) {
+                matchingLeave = approvedYtdLeaves.stream()
+                        .filter(l -> l != null && l.getStartDate() != null && l.getEndDate() != null && l.getLeaveType() != null)
+                        .filter(l -> !date.isBefore(l.getStartDate()) && !date.isAfter(l.getEndDate()))
+                        .findFirst()
+                        .orElse(null);
+            }
+
+            boolean isLeave = false;
+            boolean isWfh = false;
+            String leaveCode = null;
+            String leaveName = null;
+            Double leaveDays = null;
+
+            if (!isWeekend && !isPresent) {
+                if (matchingLeave != null && matchingLeave.getLeaveType() != null) {
+                    boolean wfh = "WFH".equalsIgnoreCase(matchingLeave.getLeaveType().getCode()) ||
+                            (matchingLeave.getLeaveType().getName() != null && matchingLeave.getLeaveType().getName().toLowerCase().contains("work from home"));
+                    if (wfh) {
+                        isWfh = true;
+                    } else {
+                        isLeave = true;
+                    }
+                    leaveCode = matchingLeave.getLeaveType().getCode();
+                    leaveName = matchingLeave.getLeaveType().getName();
+                    leaveDays = matchingLeave.getTotalDays();
+
+                    Long ltId = matchingLeave.getLeaveType().getId();
+                    monthLeaveTypeTakenMap.put(ltId, monthLeaveTypeTakenMap.getOrDefault(ltId, 0.0) + 1.0);
+                } else if (isAttWfh) {
+                    isWfh = true;
+                    if (defaultWfhType != null) {
+                        leaveCode = defaultWfhType.getCode();
+                        leaveName = defaultWfhType.getName();
+                        Long ltId = defaultWfhType.getId();
+                        monthLeaveTypeTakenMap.put(ltId, monthLeaveTypeTakenMap.getOrDefault(ltId, 0.0) + 1.0);
+                    }
+                } else if (isAttLeave) {
+                    isLeave = true;
+                    if (defaultPaidType != null) {
+                        leaveCode = defaultPaidType.getCode();
+                        leaveName = defaultPaidType.getName();
+                        Long ltId = defaultPaidType.getId();
+                        monthLeaveTypeTakenMap.put(ltId, monthLeaveTypeTakenMap.getOrDefault(ltId, 0.0) + 1.0);
+                    }
+                }
+            }
+
+            if (isWfh) {
+                monthWfhTotal += 1.0;
+            } else if (isLeave) {
+                monthLeaveTotal += 1.0;
+            }
+
+            calendarEntries.add(EmployeeLeaveWfhSummaryDto.CalendarDayEntry.builder()
+                    .date(date)
+                    .dayOfWeek(dow.getDisplayName(TextStyle.SHORT, Locale.ENGLISH))
+                    .isWeekend(isWeekend)
+                    .isHoliday(isHoliday)
+                    .holidayTitle(holidayTitle)
+                    .isLeave(isLeave)
+                    .isWfh(isWfh)
+                    .isPresent(isPresent)
+                    .leaveTypeCode(leaveCode)
+                    .leaveTypeName(leaveName)
+                    .totalDays(leaveDays)
+                    .build());
+        }
+
+        // Leave Type Summaries
+        List<EmployeeLeaveWfhSummaryDto.LeaveTypeSummaryItem> leaveTypeSummaries = new ArrayList<>();
+        for (LeaveType lt : allActiveTypes) {
+            double monthTaken = monthLeaveTypeTakenMap.getOrDefault(lt.getId(), 0.0);
+
+            LeaveBalance balance = leaveBalanceRepository
+                    .findAllByEmployeeAndLeaveTypeAndYearAndMonth(employee, lt, targetYear, targetMonth)
+                    .stream().findFirst()
+                    .orElseGet(() -> createInitialLeaveBalance(employee, lt, targetYear, targetMonth));
+
+            leaveTypeSummaries.add(EmployeeLeaveWfhSummaryDto.LeaveTypeSummaryItem.builder()
+                    .leaveTypeId(lt.getId())
+                    .leaveTypeCode(lt.getCode())
+                    .leaveTypeName(lt.getName())
+                    .monthTakenDays(monthTaken)
+                    .balanceDays(balance != null ? balance.getBalanceDays() : BigDecimal.ZERO)
+                    .defaultDaysPerYear(lt.getDefaultDaysPerYear())
+                    .paid(lt.getPaid())
+                    .build());
+        }
+
+        String fullName = (employee.getFirstName() != null ? employee.getFirstName() : "") +
+                (employee.getLastName() != null && !employee.getLastName().isBlank() ? " " + employee.getLastName() : "");
+
+        return EmployeeLeaveWfhSummaryDto.builder()
+                .employeeId(employee.getId())
+                .employeeCode(employee.getEmployeeCode())
+                .employeeName(fullName.trim())
+                .department(employee.getDepartment())
+                .designation(employee.getDesignation())
+                .email(employee.getUser() != null ? employee.getUser().getEmail() : null)
+                .selectedYear(targetYear)
+                .selectedMonth(targetMonth)
+                .monthLeaveTakenTotal(monthLeaveTotal)
+                .monthWfhTakenTotal(monthWfhTotal)
+                .ytdLeaveTakenTotal(ytdLeaveTotal)
+                .ytdWfhTakenTotal(ytdWfhTotal)
+                .calendarEntries(calendarEntries)
+                .leaveTypeSummaries(leaveTypeSummaries)
                 .build();
     }
 
