@@ -514,9 +514,13 @@ export class HrmsService {
     });
   }
 
+  getNextEmployeeCode(): Observable<{ employeeCode: string }> {
+    return this.http.get<{ employeeCode: string }>('/api/v1/employees/next-code');
+  }
+
   addEmployee(newEmp: any): Observable<any> {
     return this.http.post<any>('/api/v1/employees', {
-      employeeCode: newEmp.employeeCode || `EMP-00${this.employees().length + 1}`,
+      employeeCode: newEmp.employeeCode,
       firstName: newEmp.firstName,
       lastName: newEmp.lastName,
       email: newEmp.email,

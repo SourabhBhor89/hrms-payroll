@@ -2,6 +2,8 @@ package com.company.hrms.service.impl;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -16,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.company.hrms.constants.CacheNames;
 import com.company.hrms.dto.request.CreateEmployeeRequest;
 import com.company.hrms.dto.response.EmployeeDto;
+import com.company.hrms.dto.response.NextEmployeeCodeResponse;
 import com.company.hrms.entity.Employee;
 import com.company.hrms.entity.Role;
 import com.company.hrms.entity.RoleName;
@@ -337,5 +340,37 @@ public class EmployeeServiceImpl implements EmployeeService {
                 .maritalStatus(emp.getMaritalStatus())
                 .marriageDate(emp.getMarriageDate())
                 .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public NextEmployeeCodeResponse getNextEmployeeCode() {
+        int maxNum = 0;
+        try {
+            Integer maxSuffix = employeeRepository.findMaxEmployeeCodeNumericSuffix();
+            if (maxSuffix != null) {
+                maxNum = maxSuffix;
+            }
+        } catch (Exception e) {
+            List<String> codes = employeeRepository.findAllEmployeeCodes();
+            Pattern digitPattern = Pattern.compile("\\d+");
+            for (String code : codes) {
+                if (code != null) {
+                    Matcher matcher = digitPattern.matcher(code);
+                    if (matcher.find()) {
+                        try {
+                            int num = Integer.parseInt(matcher.group());
+                            if (num > maxNum) {
+                                maxNum = num;
+                            }
+                        } catch (NumberFormatException ex) {
+                            // Ignore numbers exceeding Integer.MAX_VALUE
+                        }
+                    }
+                }
+            }
+        }
+        String nextCode = String.format("EMP-%03d", maxNum + 1);
+        return new NextEmployeeCodeResponse(nextCode);
     }
 }
