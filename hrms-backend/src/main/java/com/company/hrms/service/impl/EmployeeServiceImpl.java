@@ -1,5 +1,19 @@
 package com.company.hrms.service.impl;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.company.hrms.constants.CacheNames;
 import com.company.hrms.dto.request.CreateEmployeeRequest;
 import com.company.hrms.dto.response.EmployeeDto;
 import com.company.hrms.entity.Employee;
@@ -10,23 +24,12 @@ import com.company.hrms.repository.EmployeeRepository;
 import com.company.hrms.repository.RoleRepository;
 import com.company.hrms.repository.UserRepository;
 import com.company.hrms.service.EmployeeService;
-import lombok.RequiredArgsConstructor;
-import com.company.hrms.constants.CacheNames;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
-import org.springframework.cache.annotation.Caching;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import com.company.hrms.service.Mail_Service.Mail_Sender_Service;
 
-import org.springframework.data.jpa.domain.Specification;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
-import java.util.ArrayList;
-import java.util.List;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -36,6 +39,7 @@ public class EmployeeServiceImpl implements EmployeeService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
+    private final Mail_Sender_Service mailSenderService; // Inject the Mail_Sender_Service
 
     @Override
     @Transactional(readOnly = true)
@@ -104,12 +108,15 @@ public class EmployeeServiceImpl implements EmployeeService {
     @Override
     @Transactional
     @CacheEvict(value = CacheNames.EMPLOYEES, key = "'all'")
-    public EmployeeDto createEmployee(CreateEmployeeRequest request) {
-        if (employeeRepository.existsByEmployeeCode(request.getEmployeeCode())) {
+    public EmployeeDto createEmployee(CreateEmployeeRequest request) 
+    {
+        if (employeeRepository.existsByEmployeeCode(request.getEmployeeCode())) 
+        {
             throw new IllegalArgumentException("Employee code already exists: " + request.getEmployeeCode());
         }
 
-        if (userRepository.existsByEmail(request.getEmail())) {
+        if (userRepository.existsByEmail(request.getEmail())) 
+        {
             throw new IllegalArgumentException("Email address already exists: " + request.getEmail());
         }
 
@@ -165,6 +172,16 @@ public class EmployeeServiceImpl implements EmployeeService {
         employee.setUpdatedBy("ADMIN/ HR");
         employee.setActive(true);
         employee = employeeRepository.save(employee);
+
+        // Send email notification to the employee
+        // This mathod accept (to:email, employeeFullName, password)
+        // Logging
+        System.out.println("\n Sending email to: " + user.getEmail());
+
+         mailSenderService.sendEmployeeCredencialMail(user.getEmail(), 
+                                            employee.getFirstName() + " " + employee.getLastName(), 
+                                            pwd);
+
 
         return mapToDto(employee);
     }
