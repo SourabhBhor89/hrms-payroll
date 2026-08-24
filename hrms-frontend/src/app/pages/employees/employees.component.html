@@ -63,6 +63,8 @@
         <option value="All">All Roles</option>
         <option value="Admin">Admin</option>
         <option value="HR Manager">HR Manager</option>
+        <option value="Manager">Manager</option>
+        <option value="Coordinator">Coordinator</option>
         <option value="Employee">Employee</option>
       </select>
     </div>
@@ -160,7 +162,7 @@
           </td>
           <td>
             <div class="table-actions">
-              <button class="btn btn-secondary btn-sm" (click)="onEmployeeClick(emp)">View</button>
+              <button class="btn btn-secondary btn-sm" (click)="viewEmployeeDetails(emp)">View</button>
               <button *ngIf="canManage()" class="btn btn-warning btn-sm" (click)="openEditModal(emp)">Edit</button>
               <button *ngIf="canManage()" class="btn btn-danger btn-sm" (click)="deleteEmp(emp.id)">Delete</button>
             </div>
@@ -629,7 +631,9 @@
               <select class="form-select" [(ngModel)]="editEmp.role" name="editRole">
                 <option value="EMPLOYEE">EMPLOYEE</option>
                 <option value="HR">HR</option>
-                <option value="ADMIN">ADMIN</option>
+                <option value="MANAGER">MANAGER</option>
+                <option value="COORDINATOR">COORDINATOR</option>
+                <option value="ADMIN" *ngIf="auth.currentRole() === 'Admin'">ADMIN</option>
               </select>
             </div>
           </div>

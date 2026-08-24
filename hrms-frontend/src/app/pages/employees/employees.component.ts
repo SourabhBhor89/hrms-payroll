@@ -375,6 +375,8 @@ export class EmployeesComponent implements OnInit {
     let roleCode = 'EMPLOYEE';
     if (emp.role === 'Admin') roleCode = 'ADMIN';
     else if (emp.role === 'HR Manager') roleCode = 'HR';
+    else if (emp.role === 'Manager') roleCode = 'MANAGER';
+    else if (emp.role === 'Coordinator') roleCode = 'COORDINATOR';
     else if (typeof emp.role === 'string') roleCode = emp.role.toUpperCase();
 
     this.editEmp = {

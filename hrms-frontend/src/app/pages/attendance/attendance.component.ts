@@ -167,7 +167,7 @@ export class AttendanceComponent implements OnInit {
       const liveState = this.hrms.todayAttendanceState();
       if (dateStr === todayStr && (liveState.isClockedIn || liveState.clockIn)) {
         if (!attRecord || status === 'Absent' || status === 'Holiday' || status === 'Week Off') {
-          status = 'Present';
+          status = (liveState.status === 'LATE' || liveState.status === 'Late') ? 'Late' : 'Present';
         }
         if (checkIn === '--' && liveState.clockIn) {
           checkIn = liveState.clockIn;
@@ -301,6 +301,7 @@ export class AttendanceComponent implements OnInit {
   getBadgeClass(status?: AttendanceStatus): string {
     switch (status) {
       case 'Present': return 'badge-success';
+      case 'Late': return 'badge-warning';
       case 'WFH': return 'badge-info';
       case 'Half Day': return 'badge-warning';
       case 'Leave': return 'badge-warning';
@@ -815,7 +816,7 @@ export class AttendanceComponent implements OnInit {
 
   daysPresentCount = computed(() => {
     return this.calendarGrid().filter(cell =>
-      !cell.otherMonth && (cell.status === 'Present' || cell.status === 'Half Day' || cell.regularizationStatus === 'Approved')
+      !cell.otherMonth && (cell.status === 'Present' || cell.status === 'Late' || cell.status === 'Half Day' || cell.regularizationStatus === 'Approved')
     ).length;
   });
 
@@ -866,7 +867,7 @@ export class AttendanceComponent implements OnInit {
   totalHoursWorked = computed(() => {
     let total = 0;
     this.calendarGrid().forEach(cell => {
-      if (!cell.otherMonth && (cell.status === 'Present' || cell.status === 'Half Day' || cell.status === 'WFH' || cell.regularizationStatus === 'Approved')) {
+      if (!cell.otherMonth && (cell.status === 'Present' || cell.status === 'Late' || cell.status === 'Half Day' || cell.status === 'WFH' || cell.regularizationStatus === 'Approved')) {
         total += this.calculateCellHours(cell);
       }
     });
@@ -965,7 +966,7 @@ export class AttendanceComponent implements OnInit {
               avatar: r.avatar || empInfo?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
               department: empInfo?.department || 'Staff',
               designation: empInfo?.designation || 'Staff Member',
-              status: r.status === 'Half Day' ? 'Half Day' : 'Present',
+              status: r.status === 'Half Day' ? 'Half Day' : (r.status === 'Late' ? 'Late' : 'Present'),
               details: `${inTime}${outTime}`
             });
           }

@@ -132,20 +132,26 @@
             <!-- Actual Month Days -->
             <div 
               *ngFor="let cell of summary.calendarEntries" 
-              class="calendar-cell clickable-cell"
+              class="calendar-cell"
+              [class.clickable-cell]="canEdit()"
               [class.cell-weekend]="cell.isWeekend"
               [class.cell-holiday]="cell.isHoliday && !cell.isWfh && !cell.isLeave"
               [class.cell-leave]="cell.isLeave"
               [class.cell-wfh]="cell.isWfh"
-              [class.cell-present]="cell.isPresent"
-              (click)="openEditModal(cell)"
-              title="Click to edit status for this day">
+              [class.cell-late]="(cell.status === 'LATE' || cell.status === 'Late') && !cell.isWfh && !cell.isLeave"
+              [class.cell-half-day]="(cell.status === 'HALF_DAY' || cell.status === 'Half Day') && !cell.isWfh && !cell.isLeave"
+              [class.cell-present]="(cell.status === 'PRESENT' || cell.status === 'Present' || (cell.isPresent && !cell.status)) && cell.status !== 'LATE' && cell.status !== 'Late' && cell.status !== 'HALF_DAY' && cell.status !== 'Half Day' && !cell.isWfh && !cell.isLeave"
+              [class.cell-absent]="isAbsent(cell)"
+              [class.cell-today]="isToday(cell)"
+              (click)="canEdit() ? openEditModal(cell) : null"
+              [title]="canEdit() ? 'Click to edit status for this day' : ''">
               
               <div class="cell-top">
                 <span class="day-number">{{ getDayNumber(cell.date) }}</span>
                 <div class="cell-top-right">
+                  <span class="today-tag" *ngIf="isToday(cell)">Today</span>
                   <span class="day-code" *ngIf="cell.isWeekend">W-Off</span>
-                  <svg class="edit-cell-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <svg *ngIf="canEdit()" class="edit-cell-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                   </svg>
                 </div>
@@ -161,8 +167,17 @@
                 <span class="badge badge-leave" *ngIf="cell.isLeave">
                   {{ cell.leaveTypeName || cell.leaveTypeCode || 'Leave' }}
                 </span>
-                <span class="badge badge-present" *ngIf="cell.isPresent">
+                <span class="badge badge-late" *ngIf="(cell.status === 'LATE' || cell.status === 'Late') && !cell.isWfh && !cell.isLeave">
+                  LATE
+                </span>
+                <span class="badge badge-half-day" *ngIf="(cell.status === 'HALF_DAY' || cell.status === 'Half Day') && !cell.isWfh && !cell.isLeave">
+                  HALF DAY
+                </span>
+                <span class="badge badge-present" *ngIf="(cell.status === 'PRESENT' || cell.status === 'Present' || (cell.isPresent && !cell.status)) && cell.status !== 'LATE' && cell.status !== 'Late' && cell.status !== 'HALF_DAY' && cell.status !== 'Half Day' && !cell.isWfh && !cell.isLeave">
                   PRESENT
+                </span>
+                <span class="badge badge-absent" *ngIf="isAbsent(cell)">
+                  ABSENT
                 </span>
               </div>
             </div>
@@ -172,6 +187,9 @@
         <!-- Legend -->
         <div class="calendar-legend">
           <div class="legend-item"><span class="legend-dot dot-present"></span> Present</div>
+          <div class="legend-item"><span class="legend-dot dot-late"></span> Late</div>
+          <div class="legend-item"><span class="legend-dot dot-half-day"></span> Half Day</div>
+          <div class="legend-item"><span class="legend-dot dot-absent"></span> Absent</div>
           <div class="legend-item"><span class="legend-dot dot-leave"></span> Leave</div>
           <div class="legend-item"><span class="legend-dot dot-wfh"></span> WFH</div>
           <div class="legend-item"><span class="legend-dot dot-holiday"></span> Holiday</div>

@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { HrmsService } from '../../core/services/hrms.service';
+import { AuthService } from '../../core/services/auth.service';
 import { EmployeeSearchResult, EmployeeLeaveWfhSummary, CalendarDayEntry, LeaveTypeSummary } from '../../core/models/hrms.model';
 
 interface MonthOption {
@@ -20,6 +21,7 @@ interface MonthOption {
 export class EmployeeLeaveWfhComponent implements OnInit {
   private hrmsService = inject(HrmsService);
   private route = inject(ActivatedRoute);
+  private auth = inject(AuthService);
 
   @ViewChild('searchInput') searchInput!: ElementRef;
 
@@ -126,12 +128,20 @@ export class EmployeeLeaveWfhComponent implements OnInit {
       }));
   }
 
+  canEdit(): boolean {
+    const role = (this.auth.currentRole() || '').toUpperCase();
+    return role === 'ADMIN' || role === 'HR MANAGER' || role === 'HR' || role === 'MANAGER';
+  }
+
   openEditModal(cell: CalendarDayEntry) {
+    if (!this.canEdit()) return;
     this.selectedDayCell.set(cell);
     if (cell.isWfh) {
       this.editStatus.set('WFH');
     } else if (cell.isLeave) {
       this.editStatus.set('LEAVE');
+    } else if (cell.status === 'LATE' || cell.status === 'Late') {
+      this.editStatus.set('PRESENT');
     } else if (cell.isPresent) {
       this.editStatus.set('PRESENT');
     } else {
@@ -285,7 +295,75 @@ export class EmployeeLeaveWfhComponent implements OnInit {
     return m ? `${m.label} ${this.selectedYear()}` : `${this.selectedYear()}`;
   }
 
-  getDayNumber(dateStr: string): number {
-    return new Date(dateStr).getDate();
+  private formatDateStr(dateVal: any): string {
+    if (!dateVal) return '';
+    if (typeof dateVal === 'string') return dateVal;
+    if (Array.isArray(dateVal)) {
+      const y = dateVal[0];
+      const m = String(dateVal[1]).padStart(2, '0');
+      const d = String(dateVal[2]).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+    return String(dateVal);
+  }
+
+  private getTodayStr(): string {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  getDayNumber(dateVal: any): number {
+    if (Array.isArray(dateVal)) {
+      return dateVal[2];
+    }
+    const dStr = this.formatDateStr(dateVal);
+    if (!dStr) return 1;
+    const parts = dStr.split('-');
+    if (parts.length === 3) {
+      return parseInt(parts[2], 10);
+    }
+    return new Date(dStr).getDate();
+  }
+
+  private parseCellDate(dateVal: any): Date | null {
+    if (!dateVal) return null;
+    if (typeof dateVal === 'string') {
+      const parts = dateVal.split('T')[0].split('-');
+      if (parts.length === 3) {
+        return new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+      }
+    } else if (Array.isArray(dateVal)) {
+      return new Date(dateVal[0], dateVal[1] - 1, dateVal[2]);
+    }
+    return new Date(dateVal);
+  }
+
+  isToday(cell: CalendarDayEntry): boolean {
+    if (!cell || !cell.date) return false;
+    const cellDate = this.parseCellDate(cell.date);
+    if (!cellDate) return false;
+    const now = new Date();
+    return cellDate.getFullYear() === now.getFullYear() &&
+           cellDate.getMonth() === now.getMonth() &&
+           cellDate.getDate() === now.getDate();
+  }
+
+  isAbsent(cell: CalendarDayEntry): boolean {
+    if (!cell || !cell.date) return false;
+    if (cell.isWeekend || cell.isHoliday || cell.isWfh || cell.isLeave || cell.isPresent) {
+      return false;
+    }
+
+    const cellDate = this.parseCellDate(cell.date);
+    if (!cellDate) return false;
+
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    // Only past dates and today's date can be ABSENT
+    return cellDate.getTime() <= today.getTime();
   }
 }

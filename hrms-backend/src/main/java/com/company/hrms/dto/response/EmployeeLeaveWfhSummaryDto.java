@@ -47,6 +47,7 @@ public class EmployeeLeaveWfhSummaryDto {
         private Boolean isLeave;
         private Boolean isWfh;
         private Boolean isPresent;
+        private String status;
         private String leaveTypeCode;
         private String leaveTypeName;
         private Double totalDays;

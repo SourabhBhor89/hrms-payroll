@@ -160,11 +160,13 @@ export class HrmsService {
     clockOut: string;
     isClockedIn: boolean;
     isClockedOut: boolean;
+    status?: string;
   }>({
     clockIn: '',
     clockOut: '',
     isClockedIn: false,
-    isClockedOut: false
+    isClockedOut: false,
+    status: ''
   });
 
   todayClockInTime = computed(() => {
@@ -376,7 +378,8 @@ export class HrmsService {
           clockIn: inStr,
           clockOut: outStr,
           isClockedIn: inState,
-          isClockedOut: outState
+          isClockedOut: outState,
+          status: res.status || ''
         });
 
         if (inStr) this.clockInTime.set(inStr);
@@ -663,12 +666,13 @@ export class HrmsService {
           const clockOutTime = outDt ? outDt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '--';
           const hoursStr = a.totalHours != null ? `${a.totalHours} hrs` : '--';
           let statusStr: AttendanceStatus = 'Present';
-          if (a.status === 'LATE') statusStr = 'Present';
-          else if (a.status === 'HALF_DAY') statusStr = 'Half Day';
-          else if (a.status === 'ABSENT') statusStr = 'Absent';
-          else if (a.status === 'LEAVE') statusStr = 'Leave';
-          else if (a.status === 'HOLIDAY') statusStr = 'Holiday';
-          else if (a.status === 'WEEKEND') statusStr = 'Week Off';
+          if (a.status === 'LATE' || a.status === 'Late') statusStr = 'Late';
+          else if (a.status === 'PRESENT' || a.status === 'Present') statusStr = 'Present';
+          else if (a.status === 'HALF_DAY' || a.status === 'Half Day') statusStr = 'Half Day';
+          else if (a.status === 'ABSENT' || a.status === 'Absent') statusStr = 'Absent';
+          else if (a.status === 'LEAVE' || a.status === 'Leave') statusStr = 'Leave';
+          else if (a.status === 'HOLIDAY' || a.status === 'Holiday') statusStr = 'Holiday';
+          else if (a.status === 'WEEKEND' || a.status === 'Week Off') statusStr = 'Week Off';
           else if (a.status === 'WFH') statusStr = 'WFH';
 
           return {

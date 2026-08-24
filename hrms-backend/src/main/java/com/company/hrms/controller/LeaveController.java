@@ -169,7 +169,7 @@ public class LeaveController {
     }
 
     @PutMapping("/employee-status")
-    @PreAuthorize("hasAuthority('EMPLOYEE_LEAVE_WFH_VIEW')")
+    @PreAuthorize("hasAuthority('EMPLOYEE_LEAVE_WFH_VIEW') and !hasAuthority('LEAVE_READ_ONLY')")
     public ResponseEntity<Map<String, String>> updateEmployeeDayStatus(
             @Valid @RequestBody UpdateEmployeeDayStatusRequest request
     ) {
