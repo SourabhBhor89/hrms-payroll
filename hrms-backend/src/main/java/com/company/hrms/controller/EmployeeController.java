@@ -2,6 +2,7 @@ package com.company.hrms.controller;
 
 import com.company.hrms.dto.request.CreateEmployeeRequest;
 import com.company.hrms.dto.response.EmployeeDto;
+import com.company.hrms.dto.response.NextEmployeeCodeResponse;
 import com.company.hrms.service.EmployeeService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -56,6 +57,12 @@ public class EmployeeController {
         Sort sort = sortDir.equalsIgnoreCase("desc") ? Sort.by(sortProperty).descending() : Sort.by(sortProperty).ascending();
         Pageable pageable = PageRequest.of(page, size, sort);
         return ResponseEntity.ok(employeeService.getAllEmployees(search, department, role, pageable));
+    }
+
+    @GetMapping("/next-code")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ADMIN', 'ROLE_HR', 'HR', 'ROLE_MANAGER', 'MANAGER', 'EMPLOYEE_MANAGEMENT_CREATE', 'EMPLOYEE_MANAGEMENT_VIEW')")
+    public ResponseEntity<NextEmployeeCodeResponse> getNextEmployeeCode() {
+        return ResponseEntity.ok(employeeService.getNextEmployeeCode());
     }
 
     @GetMapping("/{id}")

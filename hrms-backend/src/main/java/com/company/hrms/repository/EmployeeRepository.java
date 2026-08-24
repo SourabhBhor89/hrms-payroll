@@ -21,6 +21,12 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long>, JpaSp
 
     boolean existsByEmployeeCode(String employeeCode);
 
+    @Query(value = "SELECT COALESCE(MAX(CAST(SUBSTRING(employee_code FROM '[0-9]+') AS INTEGER)), 0) FROM employees", nativeQuery = true)
+    Integer findMaxEmployeeCodeNumericSuffix();
+
+    @Query("SELECT e.employeeCode FROM Employee e")
+    List<String> findAllEmployeeCodes();
+
     long countByActiveTrue();
 
     Page<Employee> findAllByOrderByActiveDesc(Pageable pageable);

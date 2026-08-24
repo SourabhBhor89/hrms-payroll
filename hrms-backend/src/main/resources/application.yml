@@ -23,10 +23,10 @@ spring:
       cache-null-values: false
 
   datasource:
-    url: jdbc:postgresql://db.xpjtliwteybzoczamafk.supabase.co:5432/postgres
+    url: ${DB_URL}
     databse: postgres
     username: postgres
-    password: '@Trhhrms@1234'
+    password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 15

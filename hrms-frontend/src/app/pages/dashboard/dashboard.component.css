@@ -1040,89 +1040,6 @@
   transform: translateX(4px);
 }
 
-/* Pending Profile Updates Widget */
-.pending-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.85rem;
-}
-
-.pending-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.85rem 1rem;
-  background: #f8fafc;
-  border-radius: 14px;
-  border: 1px solid #e2e8f0;
-}
-
-.pending-info {
-  display: flex;
-  align-items: center;
-  gap: 0.85rem;
-  flex: 1;
-}
-
-.badge-tag {
-  padding: 0.25rem 0.65rem;
-  border-radius: 8px;
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-}
-
-.badge-tag.purple { background: #f3e8ff; color: #9333ea; }
-
-.pending-details {
-  display: flex;
-  flex-direction: column;
-}
-
-.pending-details strong {
-  font-size: 0.875rem;
-  font-weight: 700;
-  color: #0f172a;
-}
-
-.pending-details span {
-  font-size: 0.75rem;
-  color: #64748b;
-}
-
-.pending-actions {
-  display: flex;
-  gap: 0.4rem;
-  align-items: flex-start;
-  position: relative;
-}
-
-.activity-item.has-actions {
-  align-items: center;
-}
-
-.btn-action {
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
-  border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.875rem;
-  font-weight: 800;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.btn-action.approve { background: #d1fae5; color: #059669; }
-.btn-action.approve:hover { background: #10b981; color: #ffffff; }
-
-.btn-action.reject { background: #fee2e2; color: #dc2626; }
-.btn-action.reject:hover { background: #ef4444; color: #ffffff; }
-
 /* Upcoming Holidays Widget */
 .holiday-list {
   display: flex;
@@ -1212,6 +1129,10 @@
 /* ===== Bottom Grid: Recent Organization Activity ===== */
 .bottom-grid.full-width-activity {
   grid-template-columns: 1fr;
+}
+
+.bottom-grid.full-width-activity > .widget-card:first-child {
+  margin-bottom: 1.5rem;
 }
 
 .activity-feed {
