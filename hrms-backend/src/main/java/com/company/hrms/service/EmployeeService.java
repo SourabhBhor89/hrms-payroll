@@ -18,4 +18,6 @@ public interface EmployeeService {
     EmployeeDto updateEmployee(Long id, CreateEmployeeRequest request);
 
     void deleteEmployee(Long id);
+
+    com.company.hrms.dto.response.NextEmployeeCodeResponse getNextEmployeeCode();
 }

@@ -288,27 +288,11 @@ export class EmployeesComponent implements OnInit {
     }
   }
 
-  generateNextEmployeeCode(): string {
-    const list = this.hrms.employees();
-    let maxNum = list.length;
-    for (const emp of list) {
-      const code = emp.employeeId || emp.id || '';
-      const match = code.match(/\d+/);
-      if (match) {
-        const num = parseInt(match[0], 10);
-        if (num > maxNum) {
-          maxNum = num;
-        }
-      }
-    }
-    return `EMP-${String(maxNum + 1).padStart(3, '0')}`;
-  }
-
   openAddModal() {
     this.showPassword.set(false);
     this.activeTab.set('basic');
     this.newEmp = {
-      employeeCode: this.generateNextEmployeeCode(),
+      employeeCode: '',
       firstName: '',
       lastName: '',
       email: '',
@@ -346,6 +330,16 @@ export class EmployeesComponent implements OnInit {
       referenceDetails: ''
     };
     this.showAddModal.set(true);
+    this.hrms.getNextEmployeeCode().subscribe({
+      next: (res) => {
+        if (res && res.employeeCode) {
+          this.newEmp.employeeCode = res.employeeCode;
+        }
+      },
+      error: (err) => {
+        console.error('Failed to fetch next employee code:', err);
+      }
+    });
   }
 
   saveNewEmployee() {
