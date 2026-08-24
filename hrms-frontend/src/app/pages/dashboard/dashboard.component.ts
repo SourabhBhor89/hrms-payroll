@@ -502,7 +502,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   quickApproveProfileChange(id: number) {
-    this.hrms.approveProfileChangeRequest(id, 'Quick approved from dashboard').subscribe({
+    this.hrms.approveProfileChangeRequest(id, 'Approved from dashboard').subscribe({
       next: () => {
         this.hrms.loadPendingProfileChangeRequests();
         this.hrms.loadMyProfileChangeRequests();

@@ -311,7 +311,7 @@
 
   </div>
 
-  <!-- Middle Grid: Quick Actions, Pending Profile Updates & Upcoming Holidays -->
+  <!-- Middle Grid: Quick Actions & Upcoming Holidays -->
   <div class="middle-grid">
     <!-- Quick Actions Card -->
     <div class="widget-card glass-card">
@@ -357,36 +357,6 @@
           </div>
           <span class="action-arrow">→</span>
         </a>
-      </div>
-    </div>
-
-    <!-- Pending Profile Update Requests Widget -->
-    <div class="widget-card glass-card" *ngIf="canApproveProfileChanges()">
-      <div class="widget-header">
-        <div class="title-with-icon">
-          <span class="w-icon-badge purple">📋</span>
-          <h3>Pending Profile Updates</h3>
-        </div>
-        <a routerLink="/profile-changes" class="link-text">View All →</a>
-      </div>
-      <div class="pending-list">
-        <div class="pending-item" *ngFor="let req of hrms.pendingProfileChangeRequests().slice(0, 3)">
-          <div class="pending-info">
-            <span class="badge-tag purple">{{ getFieldTypeDisplay(req.fieldType) }}</span>
-            <div class="pending-details">
-              <strong>{{ req.employeeName || 'Employee' }}</strong>
-              <span>Wants to update {{ getFieldTypeDisplay(req.fieldType).toLowerCase() }}</span>
-            </div>
-          </div>
-          <div class="pending-actions">
-            <button class="btn-action approve" (click)="quickApproveProfileChange(req.id)" title="Approve">✓</button>
-            <button class="btn-action reject" (click)="promptRejectProfileChange(req.id)" title="Reject">✕</button>
-          </div>
-        </div>
-        <div class="no-records-box" *ngIf="hrms.pendingProfileChangeRequests().length === 0">
-          <div class="empty-icon">✨</div>
-          <span>No pending profile update requests</span>
-        </div>
       </div>
     </div>
 
