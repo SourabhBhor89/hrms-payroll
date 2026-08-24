@@ -306,9 +306,8 @@ export class HrmsService {
 
   refreshAllData() {
     this.loadDashboardSummary();
-    if (this.isAdminOrHrUser()) {
-      this.loadEmployees(0, 10, 'id', 'asc');
-    }
+    // Load employees for all users to support profile data
+    this.loadEmployees(0, 1000, 'id', 'asc');
     this.loadTodayAttendance();
     this.loadAttendance();
     this.loadLeaveTypes();
@@ -468,7 +467,7 @@ export class HrmsService {
         employeeId: e.employeeCode || `EMP-00${e.id || idx + 1}`,
         name: `${e.firstName || ''} ${e.lastName || ''}`.trim() || e.email?.split('@')[0] || 'Employee',
         email: e.email || '',
-        phone: e.phone || '+1 (555) 000-0000',
+        phone: e.phone || '',
         role: e.role === 'ADMIN' ? 'Admin' : (e.role === 'HR' ? 'HR Manager' : (e.role === 'MANAGER' ? 'Manager' : (e.role === 'COORDINATOR' ? 'Coordinator' : 'Employee'))),
         department: e.department || (e.role === 'HR' ? 'Human Resources' : (e.role === 'MANAGER' ? 'Management' : 'Engineering')),
         designation: e.designation || (e.role === 'ADMIN' ? 'Administrator' : 'Software Engineer'),
