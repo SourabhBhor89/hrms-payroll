@@ -59,7 +59,7 @@ export interface Employee {
   };
 }
 
-export type AttendanceStatus = 'Present' | 'Absent' | 'Half Day' | 'WFH' | 'Holiday' | 'Leave' | 'Week Off';
+export type AttendanceStatus = 'Present' | 'Late' | 'Absent' | 'Half Day' | 'WFH' | 'Holiday' | 'Leave' | 'Week Off';
 
 export interface AttendanceRecord {
   id: string;
@@ -248,6 +248,7 @@ export interface CalendarDayEntry {
   isLeave: boolean;
   isWfh: boolean;
   isPresent?: boolean;
+  status?: string;
   leaveTypeCode?: string;
   leaveTypeName?: string;
   totalDays?: number;

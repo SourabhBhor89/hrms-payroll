@@ -368,8 +368,8 @@
 }
 
 .cell-holiday {
-  background: linear-gradient(180deg, rgba(245, 158, 11, 0.05) 0%, rgba(245, 158, 11, 0.01) 100%);
-  border-color: rgba(245, 158, 11, 0.25);
+  background: linear-gradient(180deg, rgba(236, 72, 153, 0.08) 0%, rgba(236, 72, 153, 0.02) 100%);
+  border-color: rgba(236, 72, 153, 0.35);
 }
 
 .cell-wfh {
@@ -385,6 +385,16 @@
 .cell-present {
   background: linear-gradient(180deg, rgba(16, 185, 129, 0.05) 0%, rgba(16, 185, 129, 0.01) 100%);
   border-color: rgba(16, 185, 129, 0.25);
+}
+
+.cell-late {
+  background: linear-gradient(180deg, rgba(249, 115, 22, 0.05) 0%, rgba(249, 115, 22, 0.01) 100%);
+  border-color: rgba(249, 115, 22, 0.25);
+}
+
+.cell-half-day {
+  background: linear-gradient(180deg, rgba(234, 179, 8, 0.05) 0%, rgba(234, 179, 8, 0.01) 100%);
+  border-color: rgba(234, 179, 8, 0.25);
 }
 
 .cell-absent {
@@ -413,9 +423,9 @@
 }
 
 .badge-holiday {
-  background: #fffbeb;
-  color: #b45309;
-  border: 1px solid #fde68a;
+  background: #fdf2f8;
+  color: #db2777;
+  border: 1px solid #fbcfe8;
 }
 
 .badge-wfh {
@@ -434,6 +444,18 @@
   background: #ecfdf5;
   color: #047857;
   border: 1px solid #a7f3d0;
+}
+
+.badge-late {
+  background: #fff7ed;
+  color: #c2410c;
+  border: 1px solid #ffedd5;
+}
+
+.badge-half-day {
+  background: #fefce8;
+  color: #a16207;
+  border: 1px solid #fef08a;
 }
 
 .badge-absent {
@@ -466,10 +488,12 @@
 }
 
 .dot-present { background: #059669; }
+.dot-late { background: #ea580c; }
+.dot-half-day { background: #ca8a04; }
 .dot-absent { background: #e11d48; }
 .dot-leave { background: #9333ea; }
 .dot-wfh { background: #0284c7; }
-.dot-holiday { background: #d97706; }
+.dot-holiday { background: #db2777; }
 .dot-weekend { background: #94a3b8; }
 
 /* Summary Side Panel */

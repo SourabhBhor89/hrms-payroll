@@ -707,6 +707,23 @@ public class LeaveServiceImpl implements LeaveService {
                 monthLeaveTotal += 1.0;
             }
 
+            String dayStatus = null;
+            if (isWfh) {
+                dayStatus = "WFH";
+            } else if (isLeave) {
+                dayStatus = "LEAVE";
+            } else if (isHoliday) {
+                dayStatus = "HOLIDAY";
+            } else if (isWeekend) {
+                dayStatus = "WEEKEND";
+            } else if (att != null && att.getStatus() != null) {
+                dayStatus = att.getStatus().name();
+            } else if (isPresent) {
+                dayStatus = "PRESENT";
+            } else {
+                dayStatus = "ABSENT";
+            }
+
             calendarEntries.add(EmployeeLeaveWfhSummaryDto.CalendarDayEntry.builder()
                     .date(date)
                     .dayOfWeek(dow.getDisplayName(TextStyle.SHORT, Locale.ENGLISH))
@@ -716,6 +733,7 @@ public class LeaveServiceImpl implements LeaveService {
                     .isLeave(isLeave)
                     .isWfh(isWfh)
                     .isPresent(isPresent)
+                    .status(dayStatus)
                     .leaveTypeCode(leaveCode)
                     .leaveTypeName(leaveName)
                     .totalDays(leaveDays)

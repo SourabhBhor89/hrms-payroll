@@ -138,7 +138,9 @@
               [class.cell-holiday]="cell.isHoliday && !cell.isWfh && !cell.isLeave"
               [class.cell-leave]="cell.isLeave"
               [class.cell-wfh]="cell.isWfh"
-              [class.cell-present]="cell.isPresent"
+              [class.cell-late]="(cell.status === 'LATE' || cell.status === 'Late') && !cell.isWfh && !cell.isLeave"
+              [class.cell-half-day]="(cell.status === 'HALF_DAY' || cell.status === 'Half Day') && !cell.isWfh && !cell.isLeave"
+              [class.cell-present]="(cell.status === 'PRESENT' || cell.status === 'Present' || (cell.isPresent && !cell.status)) && cell.status !== 'LATE' && cell.status !== 'Late' && cell.status !== 'HALF_DAY' && cell.status !== 'Half Day' && !cell.isWfh && !cell.isLeave"
               [class.cell-absent]="isAbsent(cell)"
               [class.cell-today]="isToday(cell)"
               (click)="canEdit() ? openEditModal(cell) : null"
@@ -165,7 +167,13 @@
                 <span class="badge badge-leave" *ngIf="cell.isLeave">
                   {{ cell.leaveTypeName || cell.leaveTypeCode || 'Leave' }}
                 </span>
-                <span class="badge badge-present" *ngIf="cell.isPresent">
+                <span class="badge badge-late" *ngIf="(cell.status === 'LATE' || cell.status === 'Late') && !cell.isWfh && !cell.isLeave">
+                  LATE
+                </span>
+                <span class="badge badge-half-day" *ngIf="(cell.status === 'HALF_DAY' || cell.status === 'Half Day') && !cell.isWfh && !cell.isLeave">
+                  HALF DAY
+                </span>
+                <span class="badge badge-present" *ngIf="(cell.status === 'PRESENT' || cell.status === 'Present' || (cell.isPresent && !cell.status)) && cell.status !== 'LATE' && cell.status !== 'Late' && cell.status !== 'HALF_DAY' && cell.status !== 'Half Day' && !cell.isWfh && !cell.isLeave">
                   PRESENT
                 </span>
                 <span class="badge badge-absent" *ngIf="isAbsent(cell)">
@@ -179,6 +187,8 @@
         <!-- Legend -->
         <div class="calendar-legend">
           <div class="legend-item"><span class="legend-dot dot-present"></span> Present</div>
+          <div class="legend-item"><span class="legend-dot dot-late"></span> Late</div>
+          <div class="legend-item"><span class="legend-dot dot-half-day"></span> Half Day</div>
           <div class="legend-item"><span class="legend-dot dot-absent"></span> Absent</div>
           <div class="legend-item"><span class="legend-dot dot-leave"></span> Leave</div>
           <div class="legend-item"><span class="legend-dot dot-wfh"></span> WFH</div>

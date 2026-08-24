@@ -140,6 +140,8 @@ export class EmployeeLeaveWfhComponent implements OnInit {
       this.editStatus.set('WFH');
     } else if (cell.isLeave) {
       this.editStatus.set('LEAVE');
+    } else if (cell.status === 'LATE' || cell.status === 'Late') {
+      this.editStatus.set('PRESENT');
     } else if (cell.isPresent) {
       this.editStatus.set('PRESENT');
     } else {
