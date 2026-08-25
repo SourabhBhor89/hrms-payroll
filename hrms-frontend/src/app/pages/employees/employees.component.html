@@ -72,6 +72,10 @@
 
   <!-- Employee List Table -->
   <div class="table-container glass-card">
+    <div class="employee-list-loader" *ngIf="hrms.isLoading()" role="status" aria-live="polite">
+      <span class="spinner-loader" aria-hidden="true"></span>
+      <span>Loading employees...</span>
+    </div>
     <table class="custom-table">
       <thead>
         <tr>
