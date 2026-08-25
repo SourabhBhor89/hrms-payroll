@@ -28,7 +28,7 @@ public class UserPermissionController {
     private final PermissionService permissionService;
 
     @GetMapping("/{userId}/permissions")
-    @PreAuthorize("hasAnyRole('ADMIN', 'HR')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'HR', 'MANAGER')")
     public ResponseEntity<List<PermissionResponseDto>> getUserPermissions(
             @PathVariable Long userId,
             Authentication authentication
@@ -38,7 +38,7 @@ public class UserPermissionController {
     }
 
     @PutMapping("/{userId}/permissions")
-    @PreAuthorize("hasAnyRole('ADMIN', 'HR')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'HR', 'MANAGER')")
     public ResponseEntity<List<PermissionResponseDto>> replaceUserPermissions(
             @PathVariable Long userId,
             @Valid @RequestBody AssignPermissionsRequest request,
@@ -49,7 +49,7 @@ public class UserPermissionController {
     }
 
     @PostMapping("/{userId}/permissions")
-    @PreAuthorize("hasAnyRole('ADMIN', 'HR')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'HR', 'MANAGER')")
     public ResponseEntity<List<PermissionResponseDto>> addPermissionToUser(
             @PathVariable Long userId,
             @RequestParam Long permissionId,
@@ -60,7 +60,7 @@ public class UserPermissionController {
     }
 
     @DeleteMapping("/{userId}/permissions/{permissionId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'HR')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'HR', 'MANAGER')")
     public ResponseEntity<List<PermissionResponseDto>> removePermissionFromUser(
             @PathVariable Long userId,
             @PathVariable Long permissionId,

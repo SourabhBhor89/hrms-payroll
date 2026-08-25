@@ -9,6 +9,7 @@ public final class CacheNames {
     public static final String LEAVE_TYPES = "leave_types";
     public static final String HOLIDAYS = "holidays";
     public static final String LEAVES = "employee_leaves";
+    public static final String PROFILE_CHANGES = "profile_changes";
 
     private CacheNames() {
     }

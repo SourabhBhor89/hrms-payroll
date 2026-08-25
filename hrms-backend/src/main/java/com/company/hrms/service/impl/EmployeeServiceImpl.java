@@ -1,7 +1,24 @@
 package com.company.hrms.service.impl;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.company.hrms.constants.CacheNames;
 import com.company.hrms.dto.request.CreateEmployeeRequest;
 import com.company.hrms.dto.response.EmployeeDto;
+import com.company.hrms.dto.response.NextEmployeeCodeResponse;
 import com.company.hrms.entity.Employee;
 import com.company.hrms.entity.Role;
 import com.company.hrms.entity.RoleName;
@@ -10,16 +27,12 @@ import com.company.hrms.repository.EmployeeRepository;
 import com.company.hrms.repository.RoleRepository;
 import com.company.hrms.repository.UserRepository;
 import com.company.hrms.service.EmployeeService;
-import lombok.RequiredArgsConstructor;
-import com.company.hrms.constants.CacheNames;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
-import org.springframework.cache.annotation.Caching;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import com.company.hrms.service.Mail_Service.Mail_Sender_Service;
 
-import java.util.List;
+import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.JoinType;
+import jakarta.persistence.criteria.Predicate;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -29,14 +42,61 @@ public class EmployeeServiceImpl implements EmployeeService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
+    private final Mail_Sender_Service mailSenderService; // Inject the Mail_Sender_Service
 
     @Override
     @Transactional(readOnly = true)
-    @Cacheable(value = CacheNames.EMPLOYEES, key = "'all'")
-    public List<EmployeeDto> getAllEmployees() {
-        return employeeRepository.findAll().stream()
-                .map(this::mapToDto)
-                .toList();
+    public Page<EmployeeDto> getAllEmployees(String search, String department, String role, Pageable pageable) {
+        boolean hasSearch = search != null && !search.trim().isEmpty();
+        boolean hasDept = department != null && !department.trim().isEmpty() && !"All".equalsIgnoreCase(department.trim());
+        boolean hasRole = role != null && !role.trim().isEmpty() && !"All".equalsIgnoreCase(role.trim());
+
+        if (!hasSearch && !hasDept && !hasRole) {
+            return employeeRepository.findAll(pageable).map(this::mapToDto);
+        }
+
+        Specification<Employee> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            if (hasSearch) {
+                String term = "%" + search.trim().toLowerCase() + "%";
+                Join<Employee, User> userJoin = root.join("user", JoinType.LEFT);
+
+                Predicate codeMatch = cb.like(cb.lower(root.get("employeeCode")), term);
+                Predicate firstNameMatch = cb.like(cb.lower(root.get("firstName")), term);
+                Predicate lastNameMatch = cb.like(cb.lower(root.get("lastName")), term);
+                Predicate fullNameMatch = cb.like(cb.lower(cb.concat(cb.concat(root.get("firstName"), " "), cb.coalesce(root.get("lastName"), ""))), term);
+                Predicate deptMatch = cb.like(cb.lower(root.get("department")), term);
+                Predicate desigMatch = cb.like(cb.lower(root.get("designation")), term);
+                Predicate emailMatch = cb.like(cb.lower(userJoin.get("email")), term);
+
+                predicates.add(cb.or(codeMatch, firstNameMatch, lastNameMatch, fullNameMatch, deptMatch, desigMatch, emailMatch));
+            }
+
+            if (hasDept) {
+                predicates.add(cb.equal(cb.lower(root.get("department")), department.trim().toLowerCase()));
+            }
+
+            if (hasRole) {
+                Join<Employee, User> userJoin = root.join("user", JoinType.LEFT);
+                Join<User, Role> roleJoin = userJoin.join("role", JoinType.LEFT);
+                String roleSearch = role.trim().toUpperCase();
+                if ("HR MANAGER".equals(roleSearch)) roleSearch = "HR";
+                else if ("ADMINISTRATOR".equals(roleSearch)) roleSearch = "ADMIN";
+
+                try {
+                    RoleName roleNameEnum = RoleName.valueOf(roleSearch);
+                    predicates.add(cb.equal(roleJoin.get("name"), roleNameEnum));
+                } catch (Exception e) {
+                    // Ignore if enum doesn't match
+                }
+            }
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        Page<Employee> employees = employeeRepository.findAll(spec, pageable);
+        return employees.map(this::mapToDto);
     }
 
     @Override
@@ -51,21 +111,19 @@ public class EmployeeServiceImpl implements EmployeeService {
     @Override
     @Transactional
     @CacheEvict(value = CacheNames.EMPLOYEES, key = "'all'")
-    public EmployeeDto createEmployee(CreateEmployeeRequest request) {
-        if (employeeRepository.existsByEmployeeCode(request.getEmployeeCode())) {
+    public EmployeeDto createEmployee(CreateEmployeeRequest request) 
+    {
+        if (employeeRepository.existsByEmployeeCode(request.getEmployeeCode())) 
+        {
             throw new IllegalArgumentException("Employee code already exists: " + request.getEmployeeCode());
         }
 
-        if (userRepository.existsByEmail(request.getEmail())) {
+        if (userRepository.existsByEmail(request.getEmail())) 
+        {
             throw new IllegalArgumentException("Email address already exists: " + request.getEmail());
         }
 
-        RoleName roleName = RoleName.EMPLOYEE;
-        if (request.getRole() != null && request.getRole().equalsIgnoreCase("HR")) {
-            roleName = RoleName.HR;
-        } else if (request.getRole() != null && request.getRole().equalsIgnoreCase("ADMIN")) {
-            roleName = RoleName.ADMIN;
-        }
+        RoleName roleName = resolveRoleName(request.getRole());
 
         Role role = roleRepository.findByName(roleName)
                 .orElseThrow(() -> new IllegalStateException("Role not found: " + request.getRole()));
@@ -99,6 +157,10 @@ public class EmployeeServiceImpl implements EmployeeService {
         employee.setCurrentSalary(request.getCurrentSalary());
         employee.setTechStack(request.getTechStack());
         employee.setEducation(request.getEducation());
+        employee.setTenthQualification(request.getTenthQualification());
+        employee.setTwelfthQualification(request.getTwelfthQualification());
+        employee.setBachelorQualification(request.getBachelorQualification());
+        employee.setHighestQualification(request.getHighestQualification());
         employee.setEmergencyContact1(request.getEmergencyContact1());
         employee.setEmergencyContact2(request.getEmergencyContact2());
         employee.setPhotoUrl(request.getPhotoUrl());
@@ -113,6 +175,16 @@ public class EmployeeServiceImpl implements EmployeeService {
         employee.setUpdatedBy("ADMIN/ HR");
         employee.setActive(true);
         employee = employeeRepository.save(employee);
+
+        // Send email notification to the employee
+        // This mathod accept (to:email, employeeFullName, password)
+        // Logging
+        System.out.println("\n Sending email to: " + user.getEmail());
+
+         mailSenderService.sendEmployeeCredencialMail(user.getEmail(), 
+                                            employee.getFirstName() + " " + employee.getLastName(), 
+                                            pwd);
+
 
         return mapToDto(employee);
     }
@@ -146,12 +218,7 @@ public class EmployeeServiceImpl implements EmployeeService {
         }
 
         if (request.getRole() != null && !request.getRole().isBlank() && employee.getUser() != null) {
-            RoleName roleName = RoleName.EMPLOYEE;
-            if (request.getRole().equalsIgnoreCase("HR") || request.getRole().equalsIgnoreCase("HR Manager")) {
-                roleName = RoleName.HR;
-            } else if (request.getRole().equalsIgnoreCase("ADMIN") || request.getRole().equalsIgnoreCase("Admin")) {
-                roleName = RoleName.ADMIN;
-            }
+            RoleName roleName = resolveRoleName(request.getRole());
             Role role = roleRepository.findByName(roleName).orElse(null);
             if (role != null) {
                 employee.getUser().setRole(role);
@@ -179,6 +246,10 @@ public class EmployeeServiceImpl implements EmployeeService {
         if (request.getCurrentSalary() != null) employee.setCurrentSalary(request.getCurrentSalary());
         if (request.getTechStack() != null) employee.setTechStack(request.getTechStack());
         if (request.getEducation() != null) employee.setEducation(request.getEducation());
+        if (request.getTenthQualification() != null) employee.setTenthQualification(request.getTenthQualification());
+        if (request.getTwelfthQualification() != null) employee.setTwelfthQualification(request.getTwelfthQualification());
+        if (request.getBachelorQualification() != null) employee.setBachelorQualification(request.getBachelorQualification());
+        if (request.getHighestQualification() != null) employee.setHighestQualification(request.getHighestQualification());
         if (request.getEmergencyContact1() != null) employee.setEmergencyContact1(request.getEmergencyContact1());
         if (request.getEmergencyContact2() != null) employee.setEmergencyContact2(request.getEmergencyContact2());
         if (request.getPhotoUrl() != null) employee.setPhotoUrl(request.getPhotoUrl());
@@ -215,6 +286,20 @@ public class EmployeeServiceImpl implements EmployeeService {
         employeeRepository.save(employee);
     }
 
+    private RoleName resolveRoleName(String roleInput) {
+        if (roleInput == null || roleInput.isBlank()) {
+            return RoleName.EMPLOYEE;
+        }
+        String normalized = roleInput.trim().toUpperCase();
+        if ("HR MANAGER".equals(normalized)) return RoleName.HR;
+        if ("ADMINISTRATOR".equals(normalized)) return RoleName.ADMIN;
+        try {
+            return RoleName.valueOf(normalized);
+        } catch (IllegalArgumentException e) {
+            return RoleName.EMPLOYEE;
+        }
+    }
+
     private EmployeeDto mapToDto(Employee emp) {
         User u = emp.getUser();
         return EmployeeDto.builder()
@@ -240,6 +325,10 @@ public class EmployeeServiceImpl implements EmployeeService {
                 .currentSalary(emp.getCurrentSalary())
                 .techStack(emp.getTechStack())
                 .education(emp.getEducation())
+                .tenthQualification(emp.getTenthQualification())
+                .twelfthQualification(emp.getTwelfthQualification())
+                .bachelorQualification(emp.getBachelorQualification())
+                .highestQualification(emp.getHighestQualification())
                 .emergencyContact1(emp.getEmergencyContact1())
                 .emergencyContact2(emp.getEmergencyContact2())
                 .photoUrl(emp.getPhotoUrl())
@@ -251,5 +340,37 @@ public class EmployeeServiceImpl implements EmployeeService {
                 .maritalStatus(emp.getMaritalStatus())
                 .marriageDate(emp.getMarriageDate())
                 .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public NextEmployeeCodeResponse getNextEmployeeCode() {
+        int maxNum = 0;
+        try {
+            Integer maxSuffix = employeeRepository.findMaxEmployeeCodeNumericSuffix();
+            if (maxSuffix != null) {
+                maxNum = maxSuffix;
+            }
+        } catch (Exception e) {
+            List<String> codes = employeeRepository.findAllEmployeeCodes();
+            Pattern digitPattern = Pattern.compile("\\d+");
+            for (String code : codes) {
+                if (code != null) {
+                    Matcher matcher = digitPattern.matcher(code);
+                    if (matcher.find()) {
+                        try {
+                            int num = Integer.parseInt(matcher.group());
+                            if (num > maxNum) {
+                                maxNum = num;
+                            }
+                        } catch (NumberFormatException ex) {
+                            // Ignore numbers exceeding Integer.MAX_VALUE
+                        }
+                    }
+                }
+            }
+        }
+        String nextCode = String.format("EMP-%03d", maxNum + 1);
+        return new NextEmployeeCodeResponse(nextCode);
     }
 }

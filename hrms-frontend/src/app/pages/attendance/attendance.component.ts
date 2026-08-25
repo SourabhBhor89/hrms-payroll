@@ -1,4 +1,4 @@
-import { Component, inject, signal, computed, OnInit } from '@angular/core';
+import { Component, inject, signal, computed, OnInit, effect, untracked } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HrmsService } from '../../core/services/hrms.service';
@@ -42,7 +42,7 @@ export class AttendanceComponent implements OnInit {
     this.hrms.loadTodayAttendance();
     this.hrms.loadAttendance();
     this.hrms.loadRegularizations();
-    if (this.auth.currentRole() === 'Admin' || this.auth.currentRole() === 'HR Manager') {
+    if (this.auth.currentRole() === 'Admin' || this.auth.currentRole() === 'HR Manager' || this.auth.currentRole() === 'Manager') {
       this.hrms.loadDashboardSummary();
     }
     this.hrms.loadLeaves();
@@ -167,7 +167,7 @@ export class AttendanceComponent implements OnInit {
       const liveState = this.hrms.todayAttendanceState();
       if (dateStr === todayStr && (liveState.isClockedIn || liveState.clockIn)) {
         if (!attRecord || status === 'Absent' || status === 'Holiday' || status === 'Week Off') {
-          status = 'Present';
+          status = (liveState.status === 'LATE' || liveState.status === 'Late') ? 'Late' : 'Present';
         }
         if (checkIn === '--' && liveState.clockIn) {
           checkIn = liveState.clockIn;
@@ -236,11 +236,12 @@ export class AttendanceComponent implements OnInit {
         }
       }
 
-      // Check regularization eligibility rules (Admin cannot self-regularize; WFH & Leave days cannot be regularized)
+      // Check regularization eligibility rules (Admin cannot self-regularize; Present, WFH, Leave, Holiday, or Admin-locked days cannot be regularized)
       const isAdminUser = this.auth.currentRole() === 'Admin';
       const minDate = this.minAllowedRegularizationDate();
       const isBeforeMinDate = dateStr < minDate;
-      const canReg = !isAdminUser && isPastOrToday && !isWeekend && !hasApprovedLeaveOrWfh && status !== 'Leave' && status !== 'WFH' && status !== 'Week Off' && status !== 'Holiday' && !isLocked && regStatus !== 'Pending' && regStatus !== 'Approved' && regStatus !== 'Rejected' && !isBeforeMinDate;
+      const isPresentDay = (status as string) === 'Present' || (status as string) === 'PRESENT';
+      const canReg = !isAdminUser && isPastOrToday && !isWeekend && !hasApprovedLeaveOrWfh && !isPresentDay && (status as string) !== 'Leave' && (status as string) !== 'WFH' && (status as string) !== 'Week Off' && (status as string) !== 'Holiday' && !isLocked && regStatus !== 'Pending' && regStatus !== 'Approved' && regStatus !== 'Rejected' && !isBeforeMinDate;
 
       cells.push({
         dateStr,
@@ -300,6 +301,7 @@ export class AttendanceComponent implements OnInit {
   getBadgeClass(status?: AttendanceStatus): string {
     switch (status) {
       case 'Present': return 'badge-success';
+      case 'Late': return 'badge-warning';
       case 'WFH': return 'badge-info';
       case 'Half Day': return 'badge-warning';
       case 'Leave': return 'badge-warning';
@@ -341,18 +343,23 @@ export class AttendanceComponent implements OnInit {
 
   minAllowedRegularizationDate = computed(() => {
     const today = new Date();
-    const prevMonthFirstDay = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-    const yyyy = prevMonthFirstDay.getFullYear();
-    const mm = String(prevMonthFirstDay.getMonth() + 1).padStart(2, '0');
-    const firstDayOfPrevMonthStr = `${yyyy}-${mm}-01`;
+    const dayOfWeek = today.getDay(); // 0 = Sun, 1 = Mon, 2 = Tue, ..., 6 = Sat
+    const diffToMonday = (dayOfWeek + 6) % 7;
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - diffToMonday);
+
+    const yyyy = monday.getFullYear();
+    const mm = String(monday.getMonth() + 1).padStart(2, '0');
+    const dd = String(monday.getDate()).padStart(2, '0');
+    const mondayStr = `${yyyy}-${mm}-${dd}`;
 
     const emp = this.currentEmployee();
     const joiningDateStr = emp?.joinDate;
 
-    if (joiningDateStr && joiningDateStr > firstDayOfPrevMonthStr) {
+    if (joiningDateStr && joiningDateStr > mondayStr) {
       return joiningDateStr;
     }
-    return firstDayOfPrevMonthStr;
+    return mondayStr;
   });
 
   maxAllowedRegularizationDate = computed(() => {
@@ -387,7 +394,7 @@ export class AttendanceComponent implements OnInit {
     const maxDate = this.maxAllowedRegularizationDate();
     if (cell?.dateStr) {
       if (cell.dateStr < minDate) {
-        this.notify.showAlert(`Cannot submit regularization request for a date before ${minDate}.`);
+        this.notify.showAlert(`Regularization requests can only be submitted for the current week (from ${minDate} onwards).`);
         return;
       }
       if (cell.dateStr > maxDate) {
@@ -426,7 +433,7 @@ export class AttendanceComponent implements OnInit {
     const maxDate = this.maxAllowedRegularizationDate();
 
     if (this.regForm.attendanceDate < minDate) {
-      this.notify.showAlert(`Cannot submit regularization request for a date before ${minDate}.`);
+      this.notify.showAlert(`Regularization requests can only be submitted for the current week (from ${minDate} onwards).`);
       return;
     }
     if (this.regForm.attendanceDate > maxDate) {
@@ -548,13 +555,104 @@ export class AttendanceComponent implements OnInit {
   }
 
   canApproveRequests(): boolean {
-    return this.auth.hasPermission('ATTENDANCE_REGULARIZATION_APPROVE') || this.auth.hasPermission('ATTENDANCE_UPDATE') || this.auth.currentRole() === 'Admin' || this.auth.currentRole() === 'HR Manager';
+    const isCoordinator = this.auth.currentRole() === 'Coordinator';
+    const hasReadOnly = this.auth.hasPermission('ATTENDANCE_READ_ONLY');
+    
+    // Coordinators with read-only permission cannot approve requests
+    if (isCoordinator && hasReadOnly) return false;
+    
+    // Admins, HR Managers, and Managers can approve requests
+    if (this.auth.currentRole() === 'Admin' || 
+        this.auth.currentRole() === 'HR Manager' || 
+        this.auth.currentRole() === 'Manager') {
+      return true;
+    }
+    
+    // Users with specific permissions can approve requests
+    return this.auth.hasPermission('ATTENDANCE_REGULARIZATION_APPROVE') || 
+           this.auth.hasPermission('ATTENDANCE_REGULARIZATION_VIEW_ALL') || 
+           this.auth.hasPermission('ATTENDANCE_UPDATE');
+  }
+
+  isReadOnly(): boolean {
+    return this.auth.hasPermission('ATTENDANCE_READ_ONLY');
   }
 
   // Filters for Admin / HR Panel
   activePanelTab = signal<'Pending' | 'Rejected'>('Pending');
   filterDepartment = signal<string>('All');
   searchQuery = signal<string>('');
+
+  panelCurrentPage = signal<number>(1);
+  pageSize = 10;
+
+  paginatedPanelRegularizations = computed(() => {
+    const list = this.filteredRegularizations();
+    const start = (this.panelCurrentPage() - 1) * this.pageSize;
+    return list.slice(start, start + this.pageSize);
+  });
+
+  getPanelPages = computed(() => {
+    const total = this.filteredRegularizations().length;
+    const totalPages = Math.ceil(total / this.pageSize);
+    const pages: number[] = [];
+    for (let i = 1; i <= totalPages; i++) {
+      pages.push(i);
+    }
+    return pages;
+  });
+
+  totalPanelPages = computed(() => {
+    return Math.ceil(this.filteredRegularizations().length / this.pageSize);
+  });
+
+  goToPanelPage(page: number) {
+    const total = this.totalPanelPages();
+    if (page >= 1 && page <= total) {
+      this.panelCurrentPage.set(page);
+    }
+  }
+
+  // History pagination
+  historyCurrentPage = signal<number>(1);
+
+  paginatedMyRegularizations = computed(() => {
+    const list = this.myRegularizations();
+    const start = (this.historyCurrentPage() - 1) * this.pageSize;
+    return list.slice(start, start + this.pageSize);
+  });
+
+  getHistoryPages = computed(() => {
+    const total = this.myRegularizations().length;
+    const totalPages = Math.ceil(total / this.pageSize);
+    const pages: number[] = [];
+    for (let i = 1; i <= totalPages; i++) {
+      pages.push(i);
+    }
+    return pages;
+  });
+
+  totalHistoryPages = computed(() => {
+    return Math.ceil(this.myRegularizations().length / this.pageSize);
+  });
+
+  goToHistoryPage(page: number) {
+    const total = this.totalHistoryPages();
+    if (page >= 1 && page <= total) {
+      this.historyCurrentPage.set(page);
+    }
+  }
+
+  constructor() {
+    effect(() => {
+      this.activePanelTab();
+      this.filterDepartment();
+      this.searchQuery();
+      untracked(() => {
+        this.panelCurrentPage.set(1);
+      });
+    });
+  }
 
   pendingRegularizationsCount = computed(() => {
     return this.hrms.regularizationRequests().filter(r => r.status === 'Pending').length;
@@ -593,15 +691,15 @@ export class AttendanceComponent implements OnInit {
     if (!user) return [];
 
     if (isEmployeeView) {
-      return all;
+      return all.filter(r =>
+        r.employeeId === user.id ||
+        r.employeeCode === user.employeeId ||
+        r.employeeId === user.employeeId ||
+        (r.employeeName && user.name && r.employeeName.toLowerCase().includes(user.name.toLowerCase()))
+      );
     }
 
-    return all.filter(r =>
-      r.employeeId === user.id ||
-      r.employeeCode === user.employeeId ||
-      r.employeeId === user.employeeId ||
-      (r.employeeName && user.name && r.employeeName.toLowerCase().includes(user.name.toLowerCase()))
-    );
+    return all;
   });
 
   pendingApprovals = computed(() => {
@@ -718,7 +816,7 @@ export class AttendanceComponent implements OnInit {
 
   daysPresentCount = computed(() => {
     return this.calendarGrid().filter(cell =>
-      !cell.otherMonth && (cell.status === 'Present' || cell.status === 'Half Day' || cell.regularizationStatus === 'Approved')
+      !cell.otherMonth && (cell.status === 'Present' || cell.status === 'Late' || cell.status === 'Half Day' || cell.regularizationStatus === 'Approved')
     ).length;
   });
 
@@ -769,7 +867,7 @@ export class AttendanceComponent implements OnInit {
   totalHoursWorked = computed(() => {
     let total = 0;
     this.calendarGrid().forEach(cell => {
-      if (!cell.otherMonth && (cell.status === 'Present' || cell.status === 'Half Day' || cell.status === 'WFH' || cell.regularizationStatus === 'Approved')) {
+      if (!cell.otherMonth && (cell.status === 'Present' || cell.status === 'Late' || cell.status === 'Half Day' || cell.status === 'WFH' || cell.regularizationStatus === 'Approved')) {
         total += this.calculateCellHours(cell);
       }
     });
@@ -782,7 +880,7 @@ export class AttendanceComponent implements OnInit {
   statDetailTitle = signal<string>('');
 
   openStatDetailModal(category: 'PRESENT' | 'WFH' | 'LEAVE') {
-    if (this.auth.currentRole() !== 'Admin' && this.auth.currentRole() !== 'HR Manager') {
+    if (this.auth.currentRole() !== 'Admin' && this.auth.currentRole() !== 'HR Manager' && this.auth.currentRole() !== 'Manager') {
       return;
     }
     this.statDetailCategory.set(category);
@@ -868,7 +966,7 @@ export class AttendanceComponent implements OnInit {
               avatar: r.avatar || empInfo?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
               department: empInfo?.department || 'Staff',
               designation: empInfo?.designation || 'Staff Member',
-              status: r.status === 'Half Day' ? 'Half Day' : 'Present',
+              status: r.status === 'Half Day' ? 'Half Day' : (r.status === 'Late' ? 'Late' : 'Present'),
               details: `${inTime}${outTime}`
             });
           }

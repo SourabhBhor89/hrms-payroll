@@ -36,6 +36,10 @@ public class EmployeeDto {
     private String currentSalary;
     private String techStack;
     private String education;
+    private String tenthQualification;
+    private String twelfthQualification;
+    private String bachelorQualification;
+    private String highestQualification;
     private String emergencyContact1;
     private String emergencyContact2;
     private String photoUrl;

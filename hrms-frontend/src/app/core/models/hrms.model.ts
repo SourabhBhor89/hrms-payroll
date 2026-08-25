@@ -1,4 +1,4 @@
-export type UserRole = 'Admin' | 'HR Manager' | 'Team Lead' | 'Employee';
+export type UserRole = 'Admin' | 'HR Manager' | 'Team Lead' | 'Employee' | 'Manager' | 'Coordinator';
 
 export interface User {
   id: string;
@@ -37,6 +37,10 @@ export interface Employee {
   currentSalary?: string;
   techStack?: string;
   education?: string;
+  tenthQualification?: string;
+  twelfthQualification?: string;
+  bachelorQualification?: string;
+  highestQualification?: string;
   emergencyContact1?: string;
   emergencyContact2?: string;
   photoUrl?: string;
@@ -55,7 +59,7 @@ export interface Employee {
   };
 }
 
-export type AttendanceStatus = 'Present' | 'Absent' | 'Half Day' | 'WFH' | 'Holiday' | 'Leave' | 'Week Off';
+export type AttendanceStatus = 'Present' | 'Late' | 'Absent' | 'Half Day' | 'WFH' | 'Holiday' | 'Leave' | 'Week Off';
 
 export interface AttendanceRecord {
   id: string;
@@ -225,3 +229,58 @@ export interface RegularizationRequest {
   notes?: string;
 }
 
+export interface EmployeeSearchResult {
+  id: number;
+  employeeCode: string;
+  name: string;
+  department?: string;
+  designation?: string;
+  email?: string;
+  avatar?: string;
+}
+
+export interface CalendarDayEntry {
+  date: string;
+  dayOfWeek: string;
+  isWeekend: boolean;
+  isHoliday: boolean;
+  holidayTitle?: string;
+  isLeave: boolean;
+  isWfh: boolean;
+  isPresent?: boolean;
+  status?: string;
+  leaveTypeCode?: string;
+  leaveTypeName?: string;
+  totalDays?: number;
+}
+
+export interface LeaveTypeSummary {
+  leaveTypeId: number;
+  leaveTypeCode: string;
+  leaveTypeName: string;
+  monthTakenDays: number;
+  balanceDays: number | string;
+  defaultDaysPerYear: number;
+  paid: boolean;
+}
+
+export interface EmployeeLeaveWfhSummary {
+  employeeId: number;
+  employeeCode: string;
+  employeeName: string;
+  department?: string;
+  designation?: string;
+  email?: string;
+
+  selectedYear: number;
+  selectedMonth: number;
+
+  monthLeaveTakenTotal: number;
+  monthWfhTakenTotal: number;
+
+  ytdLeaveTakenTotal: number;
+  ytdWfhTakenTotal: number;
+
+  calendarEntries: CalendarDayEntry[];
+  leaveTypeSummaries: LeaveTypeSummary[];
+}

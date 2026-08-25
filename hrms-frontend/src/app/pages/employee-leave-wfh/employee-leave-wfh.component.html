@@ -1,0 +1,345 @@
+<div class="employee-leave-wfh-page">
+  <!-- Hero Header Banner -->
+  <div class="page-hero-banner mb-4">
+    <div class="hero-main">
+      <div class="hero-badge">
+        <span class="pulse-dot"></span>
+        <span>HRMS Workforce Portal &bull; Analytics & Reports</span>
+      </div>
+      <h2>Employee Leave & WFH Report</h2>
+      <p class="subtitle">Search and inspect employee leave applications, work-from-home requests, and balances.</p>
+    </div>
+  </div>
+
+  <!-- Top Search & Month Filter Controls Bar -->
+  <div class="controls-card glass-card">
+    <div class="search-section" #searchInput>
+      <label class="control-label">Search Employee</label>
+      <div class="search-input-wrapper">
+        <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+        </svg>
+        <input 
+          type="text" 
+          class="search-input" 
+          placeholder="Search by Employee ID or Name..." 
+          [value]="searchQuery()" 
+          (input)="onSearchInput($event)"
+          (focus)="searchResults().length > 0 && showDropdown.set(true)"
+        />
+        <div class="spinner-small" *ngIf="isSearching()"></div>
+      </div>
+
+      <!-- Typeahead Dropdown -->
+      <div class="search-dropdown glass-card" *ngIf="showDropdown()">
+        <div 
+          *ngFor="let emp of searchResults()" 
+          class="search-dropdown-item" 
+          (click)="selectEmployee(emp)">
+          <div class="emp-avatar">{{ emp.name.charAt(0) }}</div>
+          <div class="emp-details">
+            <span class="emp-name">{{ emp.name }}</span>
+            <span class="emp-meta">{{ emp.employeeCode }} &bull; {{ emp.department || 'N/A' }} ({{ emp.designation || 'N/A' }})</span>
+          </div>
+        </div>
+        <div class="no-results" *ngIf="searchResults().length === 0 && !isSearching()">
+          No matching employees found.
+        </div>
+      </div>
+    </div>
+
+    <!-- Month/Year Filter (Top-Right) -->
+    <div class="date-filter-section">
+      <div class="filter-group">
+        <label class="control-label">Month</label>
+        <select [ngModel]="selectedMonth()" (ngModelChange)="onMonthChange($event)" class="select-input">
+          <option *ngFor="let m of monthsList" [value]="m.value">{{ m.label }}</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label class="control-label">Year</label>
+        <select [ngModel]="selectedYear()" (ngModelChange)="onYearChange($event)" class="select-input">
+          <option *ngFor="let y of yearsList" [value]="y">{{ y }}</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Initial / Empty Selection State -->
+  <div class="empty-selection-card glass-card" *ngIf="!selectedEmployee()">
+    <div class="empty-icon">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+        <path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+      </svg>
+    </div>
+    <h3>Select an Employee</h3>
+    <p>Search for an employee by ID or Name above to view their Leave & WFH calendar and summary.</p>
+  </div>
+
+  <!-- Loading Indicator -->
+  <div class="loading-state glass-card" *ngIf="selectedEmployee() && isLoadingSummary()">
+    <div class="spinner-large"></div>
+    <p>Loading Leave & WFH data for {{ selectedEmployee()?.name }}...</p>
+  </div>
+
+  <!-- Error State -->
+  <div class="error-state glass-card" *ngIf="selectedEmployee() && errorMessage()">
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+    </svg>
+    <p>{{ errorMessage() }}</p>
+    <button class="retry-btn" (click)="loadSummaryData()">Retry</button>
+  </div>
+
+  <!-- Main Report Dashboard View -->
+  <div class="report-content" *ngIf="selectedEmployee() && !isLoadingSummary() && summaryData() as summary">
+    <!-- Selected Employee Badge Banner -->
+    <div class="employee-header-card glass-card">
+      <div class="emp-profile">
+        <div class="emp-profile-avatar">{{ summary.employeeName.charAt(0) }}</div>
+        <div class="emp-profile-info">
+          <h3>{{ summary.employeeName }}</h3>
+          <p>{{ summary.employeeCode }} &bull; {{ summary.department || 'N/A' }} &bull; {{ summary.designation || 'N/A' }}</p>
+        </div>
+      </div>
+      <div class="report-month-tag">
+        <span>Report Month: <strong>{{ getSelectedMonthName() }}</strong></span>
+      </div>
+    </div>
+
+    <!-- Calendar & Summary Layout Grid -->
+    <div class="dashboard-grid">
+      <!-- Calendar Section (Left Side) -->
+      <div class="calendar-section glass-card">
+        <div class="calendar-header">
+          <h4>Activity Calendar &mdash; {{ getSelectedMonthName() }}</h4>
+        </div>
+
+        <div class="calendar-grid-wrapper">
+          <!-- Weekday Headers -->
+          <div class="calendar-days-header">
+            <div *ngFor="let day of weekDays" class="weekday-cell" [class.weekend-header]="day === 'Sat' || day === 'Sun'">
+              {{ day }}
+            </div>
+          </div>
+
+          <!-- Calendar Days Grid -->
+          <div class="calendar-cells-grid">
+            <!-- Empty Padding Cells -->
+            <div *ngFor="let pad of paddingCells" class="calendar-cell pad-cell"></div>
+
+            <!-- Actual Month Days -->
+            <div 
+              *ngFor="let cell of summary.calendarEntries" 
+              class="calendar-cell"
+              [class.clickable-cell]="canEdit()"
+              [class.cell-weekend]="cell.isWeekend"
+              [class.cell-holiday]="cell.isHoliday && !cell.isWfh && !cell.isLeave"
+              [class.cell-leave]="cell.isLeave"
+              [class.cell-wfh]="cell.isWfh"
+              [class.cell-late]="(cell.status === 'LATE' || cell.status === 'Late') && !cell.isWfh && !cell.isLeave"
+              [class.cell-half-day]="(cell.status === 'HALF_DAY' || cell.status === 'Half Day') && !cell.isWfh && !cell.isLeave"
+              [class.cell-present]="(cell.status === 'PRESENT' || cell.status === 'Present' || (cell.isPresent && !cell.status)) && cell.status !== 'LATE' && cell.status !== 'Late' && cell.status !== 'HALF_DAY' && cell.status !== 'Half Day' && !cell.isWfh && !cell.isLeave"
+              [class.cell-absent]="isAbsent(cell)"
+              [class.cell-today]="isToday(cell)"
+              (click)="canEdit() ? openEditModal(cell) : null"
+              [title]="canEdit() ? 'Click to edit status for this day' : ''">
+              
+              <div class="cell-top">
+                <span class="day-number">{{ getDayNumber(cell.date) }}</span>
+                <div class="cell-top-right">
+                  <span class="today-tag" *ngIf="isToday(cell)">Today</span>
+                  <span class="day-code" *ngIf="cell.isWeekend">W-Off</span>
+                  <svg *ngIf="canEdit()" class="edit-cell-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                  </svg>
+                </div>
+              </div>
+
+              <div class="cell-badges">
+                <span class="badge badge-holiday" *ngIf="cell.isHoliday && !cell.isWfh && !cell.isLeave" [title]="cell.holidayTitle">
+                  {{ cell.holidayTitle || 'Holiday' }}
+                </span>
+                <span class="badge badge-wfh" *ngIf="cell.isWfh">
+                  WFH
+                </span>
+                <span class="badge badge-leave" *ngIf="cell.isLeave">
+                  {{ cell.leaveTypeName || cell.leaveTypeCode || 'Leave' }}
+                </span>
+                <span class="badge badge-late" *ngIf="(cell.status === 'LATE' || cell.status === 'Late') && !cell.isWfh && !cell.isLeave">
+                  LATE
+                </span>
+                <span class="badge badge-half-day" *ngIf="(cell.status === 'HALF_DAY' || cell.status === 'Half Day') && !cell.isWfh && !cell.isLeave">
+                  HALF DAY
+                </span>
+                <span class="badge badge-present" *ngIf="(cell.status === 'PRESENT' || cell.status === 'Present' || (cell.isPresent && !cell.status)) && cell.status !== 'LATE' && cell.status !== 'Late' && cell.status !== 'HALF_DAY' && cell.status !== 'Half Day' && !cell.isWfh && !cell.isLeave">
+                  PRESENT
+                </span>
+                <span class="badge badge-absent" *ngIf="isAbsent(cell)">
+                  ABSENT
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Legend -->
+        <div class="calendar-legend">
+          <div class="legend-item"><span class="legend-dot dot-present"></span> Present</div>
+          <div class="legend-item"><span class="legend-dot dot-late"></span> Late</div>
+          <div class="legend-item"><span class="legend-dot dot-half-day"></span> Half Day</div>
+          <div class="legend-item"><span class="legend-dot dot-absent"></span> Absent</div>
+          <div class="legend-item"><span class="legend-dot dot-leave"></span> Leave</div>
+          <div class="legend-item"><span class="legend-dot dot-wfh"></span> WFH</div>
+          <div class="legend-item"><span class="legend-dot dot-holiday"></span> Holiday</div>
+          <div class="legend-item"><span class="legend-dot dot-weekend"></span> Weekend</div>
+        </div>
+      </div>
+
+      <!-- Right Side Summary Table & Totals -->
+      <div class="summary-side-panel">
+        <!-- Leave Balance / Monthly Breakdown Table -->
+        <div class="summary-table-card glass-card">
+          <h4>Monthly Leave & WFH Summary</h4>
+          <table class="summary-table">
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th class="text-center">Taken (Month)</th>
+                <th class="text-right">Remaining</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let item of summary.leaveTypeSummaries">
+                <td>
+                  <span class="type-name">{{ item.leaveTypeName }}</span>
+                  <span class="type-code">({{ item.leaveTypeCode }})</span>
+                </td>
+                <td class="text-center font-bold">
+                  {{ item.monthTakenDays }}
+                </td>
+                <td class="text-right">
+                  <span class="balance-tag" *ngIf="item.defaultDaysPerYear > 0">
+                    {{ item.balanceDays }}
+                  </span>
+                  <span class="unlimited-tag" *ngIf="item.defaultDaysPerYear === 0">
+                    N/A
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Monthly & Year-To-Date Totals Card -->
+        <div class="totals-card glass-card">
+          <div class="total-block">
+            <span class="total-title">Current Month Totals</span>
+            <div class="total-stats">
+              <div class="stat-pill leave-pill">
+                <span class="stat-num">{{ summary.monthLeaveTakenTotal }}</span>
+                <span class="stat-lbl">Leave Days</span>
+              </div>
+              <div class="stat-pill wfh-pill">
+                <span class="stat-num">{{ summary.monthWfhTakenTotal }}</span>
+                <span class="stat-lbl">WFH Days</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="total-divider"></div>
+
+          <div class="total-block">
+            <span class="total-title">{{ summary.selectedYear }} Year-to-Date (YTD)</span>
+            <div class="total-stats">
+              <div class="stat-pill leave-pill-dark">
+                <span class="stat-num">{{ summary.ytdLeaveTakenTotal }}</span>
+                <span class="stat-lbl">Leave Days YTD</span>
+              </div>
+              <div class="stat-pill wfh-pill-dark">
+                <span class="stat-num">{{ summary.ytdWfhTakenTotal }}</span>
+                <span class="stat-lbl">WFH Days YTD</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Day Status Modal Overlay -->
+  <div class="modal-backdrop" *ngIf="showEditModal()">
+    <div class="edit-modal glass-card">
+      <div class="modal-header">
+        <div>
+          <h3>Edit Day Status</h3>
+          <p class="modal-subtitle" *ngIf="selectedDayCell() as cell">
+            {{ selectedEmployee()?.name }} &bull; {{ cell.date }}
+          </p>
+        </div>
+        <button class="close-btn" (click)="closeEditModal()">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Status for Date</label>
+          <div class="status-options-grid">
+            <label class="status-option-card" [class.active]="editStatus() === 'PRESENT'">
+              <input type="radio" name="dayStatus" value="PRESENT" [ngModel]="editStatus()" (ngModelChange)="editStatus.set($event)" />
+              <span class="status-indicator dot-present"></span>
+              <span class="status-text">Present</span>
+            </label>
+
+            <label class="status-option-card" [class.active]="editStatus() === 'ABSENT'">
+              <input type="radio" name="dayStatus" value="ABSENT" [ngModel]="editStatus()" (ngModelChange)="editStatus.set($event)" />
+              <span class="status-indicator dot-absent"></span>
+              <span class="status-text">Absent</span>
+            </label>
+
+            <label class="status-option-card" [class.active]="editStatus() === 'WFH'">
+              <input type="radio" name="dayStatus" value="WFH" [ngModel]="editStatus()" (ngModelChange)="editStatus.set($event)" />
+              <span class="status-indicator dot-wfh"></span>
+              <span class="status-text">Work From Home (WFH)</span>
+            </label>
+
+            <label class="status-option-card" [class.active]="editStatus() === 'LEAVE'">
+              <input type="radio" name="dayStatus" value="LEAVE" [ngModel]="editStatus()" (ngModelChange)="editStatus.set($event)" />
+              <span class="status-indicator dot-leave"></span>
+              <span class="status-text">Leave</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Leave Type Selection when status is LEAVE -->
+        <div class="form-group" *ngIf="editStatus() === 'LEAVE'">
+          <label class="form-label">Select Leave Type</label>
+          <select [ngModel]="editLeaveTypeId()" (ngModelChange)="editLeaveTypeId.set($event)" class="select-input modal-select">
+            <option *ngFor="let lt of availableLeaveTypes" [value]="lt.id">
+              {{ lt.name }} ({{ lt.code }})
+            </option>
+          </select>
+        </div>
+
+        <!-- Optional Reason / Remarks -->
+        <div class="form-group">
+          <label class="form-label">Reason / Remarks (Optional)</label>
+          <textarea 
+            class="textarea-input" 
+            placeholder="Enter reason or admin note for status change..." 
+            [ngModel]="editReason()" 
+            (ngModelChange)="editReason.set($event)"
+            rows="3"></textarea>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-secondary" (click)="closeEditModal()" [disabled]="isSavingStatus()">Cancel</button>
+        <button class="btn-primary" (click)="saveDayStatus()" [disabled]="isSavingStatus()">
+          <span class="spinner-small" *ngIf="isSavingStatus()"></span>
+          <span *ngIf="!isSavingStatus()">Save Changes</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

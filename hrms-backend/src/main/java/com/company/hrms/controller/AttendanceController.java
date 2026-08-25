@@ -16,6 +16,10 @@ import com.company.hrms.repository.UserRepository;
 import com.company.hrms.service.AttendanceCalculationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -57,7 +61,11 @@ public class AttendanceController {
             Authentication authentication,
             @RequestParam(required = false) Integer year,
             @RequestParam(required = false) Integer month,
-            @RequestParam(required = false) Long employeeId
+            @RequestParam(required = false) Long employeeId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "date") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir
     ) {
         try {
             String email = authentication.getName();
@@ -73,19 +81,23 @@ public class AttendanceController {
             boolean isAdminOrHr = authentication != null && authentication.getAuthorities().stream()
                     .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ADMIN") ||
                             a.getAuthority().equals("ROLE_HR") || a.getAuthority().equals("HR") ||
+                            a.getAuthority().equals("ROLE_MANAGER") || a.getAuthority().equals("MANAGER") ||
                             a.getAuthority().equals("ATTENDANCE_REGULARIZATION_VIEW_ALL") ||
                             a.getAuthority().equals("ATTENDANCE_UPDATE"));
 
+            Sort sort = sortDir.equalsIgnoreCase("desc") ? Sort.by(sortBy).descending() : Sort.by(sortBy).ascending();
+            Pageable pageable = PageRequest.of(page, size, sort);
+
             List<Attendance> records;
             if (employeeId != null) {
-                records = attendanceRepository.findByEmployeeIdAndDateBetween(employeeId, start, end);
+                records = attendanceRepository.findByEmployeeIdAndDateBetween(employeeId, start, end, pageable).getContent();
             } else if (isAdminOrHr) {
-                records = attendanceRepository.findByDateBetween(start, end);
+                records = attendanceRepository.findByDateBetween(start, end, pageable).getContent();
             } else if (user != null) {
                 Employee emp = getOrCreateEmployee(user);
-                records = attendanceRepository.findByEmployeeIdAndDateBetween(emp.getId(), start, end);
+                records = attendanceRepository.findByEmployeeIdAndDateBetween(emp.getId(), start, end, pageable).getContent();
             } else {
-                records = attendanceRepository.findByDateBetween(start, end);
+                records = attendanceRepository.findByDateBetween(start, end, pageable).getContent();
             }
 
             List<Long> attIds = records.stream().map(Attendance::getId).filter(java.util.Objects::nonNull).collect(Collectors.toList());

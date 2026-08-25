@@ -19,8 +19,49 @@ export class LeavesComponent implements OnInit {
   auth = inject(AuthService);
   notify = inject(NotificationService);
 
-  activeTab: 'my_leaves' | 'pending_approvals' = 'my_leaves';
-  filterStatus: string = 'All';
+  currentPage = signal<number>(1);
+  pageSize = 10;
+
+  private _activeTab: 'my_leaves' | 'pending_approvals' = 'my_leaves';
+  get activeTab() { return this._activeTab; }
+  set activeTab(val: 'my_leaves' | 'pending_approvals') {
+    this._activeTab = val;
+    this.currentPage.set(1);
+  }
+
+  private _filterStatus: string = 'All';
+  get filterStatus() { return this._filterStatus; }
+  set filterStatus(val: string) {
+    this._filterStatus = val;
+    this.currentPage.set(1);
+  }
+
+  paginatedRequests(): LeaveRequest[] {
+    const list = this.filteredRequests();
+    const start = (this.currentPage() - 1) * this.pageSize;
+    return list.slice(start, start + this.pageSize);
+  }
+
+  getLeavePages(): number[] {
+    const total = this.filteredRequests().length;
+    const totalPages = Math.ceil(total / this.pageSize);
+    const pages: number[] = [];
+    for (let i = 1; i <= totalPages; i++) {
+      pages.push(i);
+    }
+    return pages;
+  }
+
+  getTotalLeavePages(): number {
+    return Math.ceil(this.filteredRequests().length / this.pageSize);
+  }
+
+  goToLeavePage(page: number) {
+    const totalPages = this.getTotalLeavePages();
+    if (page >= 1 && page <= totalPages) {
+      this.currentPage.set(page);
+    }
+  }
 
   // Modal Signals
   showModal = signal<boolean>(false);
@@ -46,13 +87,26 @@ export class LeavesComponent implements OnInit {
     if (this.canApprove()) {
       this.hrms.loadPendingLeaveApprovals();
     }
-    if (this.auth.currentRole() === 'Admin') {
+    // Admin users always see pending_approvals tab
+    if (this.isAdmin()) {
       this.activeTab = 'pending_approvals';
     }
+    
+    // Debug: log leave requests after loading
+    setTimeout(() => {
+      console.log('Leave requests after load:', this.hrms.leaveRequests());
+      console.log('Current user:', this.auth.currentUser());
+      console.log('Active tab:', this.activeTab);
+      console.log('Filtered requests:', this.filteredRequests());
+    }, 1000);
   }
 
   canApprove(): boolean {
-    return this.auth.hasPermission('LEAVE_APPROVE');
+    return this.auth.hasPermission('LEAVE_APPROVE') || this.auth.hasPermission('LEAVE_VIEW_ALL');
+  }
+
+  isReadOnly(): boolean {
+    return this.auth.hasPermission('LEAVE_READ_ONLY') && !this.isAdmin();
   }
 
   isAdmin(): boolean {
@@ -90,24 +144,60 @@ export class LeavesComponent implements OnInit {
   }
 
   filteredRequests(): LeaveRequest[] {
-    const isAdminOrHr = this.auth.currentRole() === 'Admin' || this.auth.currentRole() === 'HR Manager';
+    const isAdminOrHr = this.auth.currentRole() === 'Admin' || this.auth.currentRole() === 'HR Manager' || this.auth.currentRole() === 'Manager' || this.auth.currentRole() === 'Coordinator';
 
     let sourceList: LeaveRequest[] = [];
 
-    if (this.activeTab === 'pending_approvals') {
+    // For admin users, show all leave requests (approvals pending view)
+    if (this.isAdmin()) {
       sourceList = [...this.hrms.leaveRequests()];
-      if (sourceList.length === 0) {
+    } else if (this.activeTab === 'pending_approvals') {
+      // For coordinators, show all leaves (not just pending) like HR/Admin/Manager
+      if (isAdminOrHr) {
+        sourceList = [...this.hrms.leaveRequests()];
+      } else {
         sourceList = [...this.hrms.pendingLeaveApprovals()];
       }
     } else {
-      if (isAdminOrHr) {
-        const currentUserEmail = this.auth.currentUser()?.email;
-        sourceList = this.hrms.leaveRequests().filter(r =>
-          currentUserEmail && (r.employeeCode === currentUserEmail || r.employeeName === this.auth.currentUser()?.name)
-        );
-      } else {
-        sourceList = [...this.hrms.leaveRequests()];
-      }
+      const currentUserEmail = this.auth.currentUser()?.email;
+      const currentUserName = this.auth.currentUser()?.name?.trim();
+      
+      console.log('Filtering for current user:', { currentUserEmail, currentUserName });
+      console.log('Available leave requests:', this.hrms.leaveRequests());
+      
+      // Get current user's employee record for better matching
+      const currentUserEmployee = this.hrms.employees().find(e => 
+        e.email === currentUserEmail || e.name === currentUserName
+      );
+      
+      sourceList = this.hrms.leaveRequests().filter(r => {
+        const requestName = r.employeeName?.trim() || '';
+        const requestCode = r.employeeCode?.trim() || '';
+        
+        // Match by employee ID if we have the current user's employee record
+        const idMatch = currentUserEmployee && r.employeeId && String(r.employeeId) === currentUserEmployee.id;
+        
+        // Match by email (employeeCode might contain email in some systems)
+        const emailMatch = currentUserEmail && requestCode === currentUserEmail;
+        
+        // Match by name (with trimming and case-insensitive comparison)
+        const nameMatch = currentUserName && requestName.toLowerCase() === currentUserName.toLowerCase();
+        
+        // Match by employee code if we have the current user's employee record
+        const codeMatch = currentUserEmployee && requestCode === currentUserEmployee.employeeId;
+        
+        console.log('Request filtering check:', { 
+          request: r.employeeName, 
+          requestCode,
+          idMatch, 
+          emailMatch, 
+          nameMatch,
+          codeMatch,
+          currentUserEmployeeId: currentUserEmployee?.id
+        });
+        
+        return idMatch || emailMatch || nameMatch || codeMatch;
+      });
     }
 
     let result = sourceList;
@@ -174,10 +264,20 @@ export class LeavesComponent implements OnInit {
     if (this.formData.startDate && this.formData.endDate) {
       const start = new Date(this.formData.startDate);
       const end = new Date(this.formData.endDate);
+
       if (end >= start) {
-        const diffTime = Math.abs(end.getTime() - start.getTime());
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-        this.formData.totalDays = diffDays;
+        // Calculate total days excluding weekends
+        let totalDays = 0;
+        const current = new Date(start);
+        while (current <= end) {
+          const dayOfWeek = current.getDay();
+          // Exclude weekends (Saturday = 6, Sunday = 0)
+          if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+            totalDays++;
+          }
+          current.setDate(current.getDate() + 1);
+        }
+        this.formData.totalDays = totalDays;
       }
     }
   }

@@ -1,15 +1,20 @@
 <div class="leaves-page">
-  <!-- Header -->
-  <div class="page-header">
-    <div>
+  <!-- Hero Header Banner -->
+  <div class="page-hero-banner mb-4">
+    <div class="hero-main">
+      <div class="hero-badge">
+        <span class="pulse-dot"></span>
+        <span>HRMS Workforce Portal &bull; Leave & WFH Management</span>
+      </div>
       <h2>Leave Requests & Allocations</h2>
       <p class="subtitle">View leave balances, submit leave applications, and manage employee approvals.</p>
     </div>
-
-    <button class="btn btn-primary" (click)="openApplyModal()" *ngIf="!isAdmin()">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      Apply for Leave
-    </button>
+    <div class="hero-actions" *ngIf="!isAdmin()">
+      <button class="btn btn-primary btn-hero-action" (click)="openApplyModal()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        <span>Apply for Leave</span>
+      </button>
+    </div>
   </div>
 
   <!-- Dynamic Leave Balances Cards -->
@@ -60,8 +65,8 @@
           </span>
         </button>
       </div>
-      <h3 *ngIf="isAdmin()">Approvals Pending</h3>
       <h3 *ngIf="!canApprove()">My Leave Applications</h3>
+      <h3 *ngIf="isAdmin()">Approvals Pending</h3>
 
       <div class="filter-pills">
         <button class="pill-btn" [class.active]="filterStatus === 'All'" (click)="filterStatus = 'All'">All</button>
@@ -81,12 +86,13 @@
           <th>Duration</th>
           <th>Reason</th>
           <th>Applied On</th>
+          <th *ngIf="activeTab === 'pending_approvals' || isAdmin()">Reviewed By</th>
           <th>Status</th>
           <th>Actions</th>
         </tr>
       </thead>
       <tbody>
-        <tr *ngFor="let req of filteredRequests()">
+        <tr *ngFor="let req of paginatedRequests()">
           <td>
             <div class="user-cell">
               <img [src]="req.employeeAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'" class="table-avatar" />
@@ -109,6 +115,11 @@
             </div>
           </td>
           <td>{{ req.appliedOn || 'N/A' }}</td>
+          <td *ngIf="activeTab === 'pending_approvals' || isAdmin()">
+            <span *ngIf="req.approvedByName">{{ req.approvedByName }}</span>
+            <span *ngIf="!req.approvedByName && (req.status === 'PENDING' || req.status === 'Pending')" class="text-muted">-</span>
+            <span *ngIf="!req.approvedByName && req.status !== 'PENDING' && req.status !== 'Pending'" class="text-muted">Unknown</span>
+          </td>
           <td>
             <span class="badge" [ngClass]="getStatusBadgeClass(req.status)">
               {{ getStatusDisplay(req.status) }}
@@ -118,8 +129,8 @@
             <!-- Approval Actions for Managers -->
             <div class="action-buttons" *ngIf="activeTab === 'pending_approvals'">
               <ng-container *ngIf="req.status === 'PENDING' || req.status === 'Pending'">
-                <button class="btn btn-success btn-sm" (click)="approve(req.id)">Approve</button>
-                <button class="btn btn-danger btn-sm" (click)="promptReject(req.id)">Reject</button>
+                <button class="btn btn-success btn-sm" (click)="approve(req.id)" [disabled]="isReadOnly()">Approve</button>
+                <button class="btn btn-danger btn-sm" (click)="promptReject(req.id)" [disabled]="isReadOnly()">Reject</button>
               </ng-container>
               <span *ngIf="req.status !== 'PENDING' && req.status !== 'Pending'" class="action-done">
                 {{ getStatusDisplay(req.status) }}
@@ -139,12 +150,38 @@
           </td>
         </tr>
         <tr *ngIf="filteredRequests().length === 0">
-          <td colspan="8" class="text-center py-4 text-muted">
+          <td [attr.colspan]="(activeTab === 'pending_approvals' || isAdmin()) ? 9 : 8" class="text-center py-4 text-muted">
             No leave requests found for selected filter.
           </td>
         </tr>
       </tbody>
     </table>
+
+    <!-- Pagination Controls -->
+    <div class="pagination-bar" *ngIf="getTotalLeavePages() > 1">
+      <div class="pagination-info">
+        Showing <strong>{{ (currentPage() - 1) * pageSize + 1 }}</strong> to <strong>{{ currentPage() * pageSize < filteredRequests().length ? currentPage() * pageSize : filteredRequests().length }}</strong> of <strong>{{ filteredRequests().length }}</strong> entries
+      </div>
+      <div class="pagination-buttons">
+        <button class="btn btn-pagination btn-icon" [disabled]="currentPage() === 1" (click)="goToLeavePage(1)" title="First Page">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg>
+        </button>
+        <button class="btn btn-pagination btn-icon" [disabled]="currentPage() === 1" (click)="goToLeavePage(currentPage() - 1)" title="Previous Page">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        
+        <button *ngFor="let page of getLeavePages()" class="btn btn-pagination page-num" [class.active]="currentPage() === page" (click)="goToLeavePage(page)">
+          {{ page }}
+        </button>
+
+        <button class="btn btn-pagination btn-icon" [disabled]="currentPage() === getTotalLeavePages()" (click)="goToLeavePage(currentPage() + 1)" title="Next Page">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+        <button class="btn btn-pagination btn-icon" [disabled]="currentPage() === getTotalLeavePages()" (click)="goToLeavePage(getTotalLeavePages())" title="Last Page">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>
+        </button>
+      </div>
+    </div>
   </div>
 
   <!-- Apply / Edit Leave Modal Form -->

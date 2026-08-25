@@ -14,7 +14,9 @@ import {
   Holiday,
   Timesheet,
   RegularizationRequest,
-  RegularizationStatus
+  RegularizationStatus,
+  EmployeeSearchResult,
+  EmployeeLeaveWfhSummary
 } from '../models/hrms.model';
 
 export interface DashboardSummary {
@@ -97,6 +99,17 @@ export class HrmsService {
   holidays = signal<Holiday[]>([]);
   timesheets = signal<Timesheet[]>([]);
   regularizationRequests = signal<RegularizationRequest[]>([]);
+  profileChangeRequests = signal<any[]>([]);
+  pendingProfileChangeRequests = signal<any[]>([]);
+  allProfileChangeRequests = signal<any[]>([]);
+  
+  // Pagination state
+  employeePagination = signal<{ totalElements: number; totalPages: number; currentPage: number; pageSize: number }>({
+    totalElements: 0,
+    totalPages: 0,
+    currentPage: 0,
+    pageSize: 10
+  });
   dashboardSummary = signal<DashboardSummary>({
     totalEmployees: 0,
     presentToday: 0,
@@ -147,11 +160,13 @@ export class HrmsService {
     clockOut: string;
     isClockedIn: boolean;
     isClockedOut: boolean;
+    status?: string;
   }>({
     clockIn: '',
     clockOut: '',
     isClockedIn: false,
-    isClockedOut: false
+    isClockedOut: false,
+    status: ''
   });
 
   todayClockInTime = computed(() => {
@@ -292,7 +307,7 @@ export class HrmsService {
   refreshAllData() {
     this.loadDashboardSummary();
     if (this.isAdminOrHrUser()) {
-      this.loadEmployees();
+      this.loadEmployees(0, 10, 'id', 'asc');
     }
     this.loadTodayAttendance();
     this.loadAttendance();
@@ -301,6 +316,11 @@ export class HrmsService {
     this.loadPendingLeaveApprovals();
     this.loadHolidays();
     this.loadRegularizations();
+    this.loadMyProfileChangeRequests();
+    if (this.isAdminOrHrUser()) {
+      this.loadAllProfileChangeRequests(); // Load all for filtering support
+      this.loadPendingProfileChangeRequests(); // Also load pending for dashboard
+    }
   }
 
   clearState() {
@@ -358,7 +378,8 @@ export class HrmsService {
           clockIn: inStr,
           clockOut: outStr,
           isClockedIn: inState,
-          isClockedOut: outState
+          isClockedOut: outState,
+          status: res.status || ''
         });
 
         if (inStr) this.clockInTime.set(inStr);
@@ -390,7 +411,7 @@ export class HrmsService {
     try {
       const user = JSON.parse(raw);
       const role = user?.role;
-      return role === 'Admin' || role === 'ADMIN' || role === 'HR Manager' || role === 'HR';
+      return role === 'Admin' || role === 'ADMIN' || role === 'HR Manager' || role === 'HR' || role === 'Manager' || role === 'MANAGER';
     } catch {
       return false;
     }
@@ -423,21 +444,33 @@ export class HrmsService {
   }
 
   // Employees API
-  loadEmployees() {
+  loadEmployees(page: number = 0, size: number = 10, sortBy: string = 'id', sortDir: string = 'asc', search: string = '', department: string = 'All', role: string = 'All') {
     this.isLoading.set(true);
-    this.http.get<any[]>('/api/v1/employees').pipe(
-      catchError(() => of([]))
+    const params: any = { page, size, sortBy, sortDir };
+    if (search && search.trim()) {
+      params.search = search.trim();
+    }
+    if (department && department !== 'All') {
+      params.department = department;
+    }
+    if (role && role !== 'All') {
+      params.role = role;
+    }
+    
+    this.http.get<any>('/api/v1/employees', { params }).pipe(
+      catchError(() => of({ content: [], totalElements: 0, totalPages: 0, number: 0, size: 10 }))
     ).subscribe(data => {
       this.isLoading.set(false);
-      const mapped: Employee[] = data.map((e, idx) => ({
+      const content = data.content || [];
+      const mapped: Employee[] = content.map((e: any, idx: number) => ({
         id: String(e.id || idx + 1),
         userId: e.userId ? String(e.userId) : undefined,
         employeeId: e.employeeCode || `EMP-00${e.id || idx + 1}`,
         name: `${e.firstName || ''} ${e.lastName || ''}`.trim() || e.email?.split('@')[0] || 'Employee',
         email: e.email || '',
         phone: e.phone || '+1 (555) 000-0000',
-        role: e.role === 'ADMIN' ? 'Admin' : (e.role === 'HR' ? 'HR Manager' : 'Employee'),
-        department: e.department || (e.role === 'HR' ? 'Human Resources' : 'Engineering'),
+        role: e.role === 'ADMIN' ? 'Admin' : (e.role === 'HR' ? 'HR Manager' : (e.role === 'MANAGER' ? 'Manager' : (e.role === 'COORDINATOR' ? 'Coordinator' : 'Employee'))),
+        department: e.department || (e.role === 'HR' ? 'Human Resources' : (e.role === 'MANAGER' ? 'Management' : 'Engineering')),
         designation: e.designation || (e.role === 'ADMIN' ? 'Administrator' : 'Software Engineer'),
         joinDate: e.joiningDate || '2023-01-15',
         dateOfBirth: e.dateOfBirth,
@@ -454,6 +487,10 @@ export class HrmsService {
         currentSalary: e.currentSalary,
         techStack: e.techStack,
         education: e.education,
+        tenthQualification: e.tenthQualification,
+        twelfthQualification: e.twelfthQualification,
+        bachelorQualification: e.bachelorQualification,
+        highestQualification: e.highestQualification,
         emergencyContact1: e.emergencyContact1,
         emergencyContact2: e.emergencyContact2,
         photoUrl: e.photoUrl,
@@ -468,12 +505,22 @@ export class HrmsService {
       }));
 
       this.employees.set(mapped);
+      this.employeePagination.set({
+        totalElements: data.totalElements || 0,
+        totalPages: data.totalPages || 0,
+        currentPage: data.number || 0,
+        pageSize: data.size || 10
+      });
     });
+  }
+
+  getNextEmployeeCode(): Observable<{ employeeCode: string }> {
+    return this.http.get<{ employeeCode: string }>('/api/v1/employees/next-code');
   }
 
   addEmployee(newEmp: any): Observable<any> {
     return this.http.post<any>('/api/v1/employees', {
-      employeeCode: newEmp.employeeCode || `EMP-00${this.employees().length + 1}`,
+      employeeCode: newEmp.employeeCode,
       firstName: newEmp.firstName,
       lastName: newEmp.lastName,
       email: newEmp.email,
@@ -497,6 +544,11 @@ export class HrmsService {
       currentSalary: newEmp.currentSalary,
       techStack: newEmp.techStack,
       education: newEmp.education,
+      tenthQualification: newEmp.tenthQualification,
+      twelfthQualification: newEmp.twelfthQualification,
+      bachelorQualification: newEmp.bachelorQualification,
+      hasHighestQualification: newEmp.hasHighestQualification,
+      highestQualification: newEmp.hasHighestQualification ? newEmp.highestQualification : '',
       emergencyContact1: newEmp.emergencyContact1,
       emergencyContact2: newEmp.emergencyContact2,
       photoUrl: newEmp.photoUrl,
@@ -505,7 +557,7 @@ export class HrmsService {
       referenceDetails: newEmp.referenceDetails
     }).pipe(
       tap(() => {
-        this.loadEmployees();
+        this.loadEmployees(0, 10, 'id', 'asc');
       })
     );
   }
@@ -535,6 +587,11 @@ export class HrmsService {
       currentSalary: emp.currentSalary,
       techStack: emp.techStack,
       education: emp.education,
+      tenthQualification: emp.tenthQualification,
+      twelfthQualification: emp.twelfthQualification,
+      bachelorQualification: emp.bachelorQualification,
+      hasHighestQualification: emp.hasHighestQualification,
+      highestQualification: emp.hasHighestQualification ? emp.highestQualification : '',
       emergencyContact1: emp.emergencyContact1,
       emergencyContact2: emp.emergencyContact2,
       photoUrl: emp.photoUrl,
@@ -543,7 +600,7 @@ export class HrmsService {
       referenceDetails: emp.referenceDetails
     }).pipe(
       tap(() => {
-        this.loadEmployees();
+        this.loadEmployees(0, 10, 'id', 'asc');
       })
     );
   }
@@ -551,7 +608,7 @@ export class HrmsService {
   deleteEmployee(id: string): Observable<any> {
     return this.http.delete(`/api/v1/employees/${id}`).pipe(
       tap(() => {
-        this.loadEmployees();
+        this.loadEmployees(0, 10, 'id', 'asc');
       })
     );
   }
@@ -613,12 +670,13 @@ export class HrmsService {
           const clockOutTime = outDt ? outDt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '--';
           const hoursStr = a.totalHours != null ? `${a.totalHours} hrs` : '--';
           let statusStr: AttendanceStatus = 'Present';
-          if (a.status === 'LATE') statusStr = 'Present';
-          else if (a.status === 'HALF_DAY') statusStr = 'Half Day';
-          else if (a.status === 'ABSENT') statusStr = 'Absent';
-          else if (a.status === 'LEAVE') statusStr = 'Leave';
-          else if (a.status === 'HOLIDAY') statusStr = 'Holiday';
-          else if (a.status === 'WEEKEND') statusStr = 'Week Off';
+          if (a.status === 'LATE' || a.status === 'Late') statusStr = 'Late';
+          else if (a.status === 'PRESENT' || a.status === 'Present') statusStr = 'Present';
+          else if (a.status === 'HALF_DAY' || a.status === 'Half Day') statusStr = 'Half Day';
+          else if (a.status === 'ABSENT' || a.status === 'Absent') statusStr = 'Absent';
+          else if (a.status === 'LEAVE' || a.status === 'Leave') statusStr = 'Leave';
+          else if (a.status === 'HOLIDAY' || a.status === 'Holiday') statusStr = 'Holiday';
+          else if (a.status === 'WEEKEND' || a.status === 'Week Off') statusStr = 'Week Off';
           else if (a.status === 'WFH') statusStr = 'WFH';
 
           return {
@@ -765,9 +823,11 @@ export class HrmsService {
     this.http.get<any>('/api/v1/leaves', { params }).pipe(
       catchError(() => of(null))
     ).subscribe(res => {
-      if (res && res.leaves) {
-        if (res.leaveBalances) {
-          // Convert BigDecimal values to numbers for proper display
+      console.log('Leave API Response:', res);
+      
+      if (res) {
+        // Process leave balances
+        if (res.leaveBalances && Array.isArray(res.leaveBalances)) {
           const mappedBalances: EmployeeLeaveBalanceDetail[] = res.leaveBalances.map((b: any) => ({
             leaveTypeId: b.leaveTypeId,
             leaveTypeCode: b.leaveTypeCode,
@@ -787,31 +847,42 @@ export class HrmsService {
             this.initializeLeaveBalances();
           }
         }
-        const mapped: LeaveRequest[] = res.leaves.map((l: any, idx: number) => ({
-          id: l.id || idx + 1,
-          employeeId: l.employeeId,
-          employeeName: l.employeeName || res.employeeName || 'Employee',
-          employeeCode: l.employeeCode || res.employeeCode || '',
-          employeeAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-          department: res.department || 'Engineering',
-          leaveTypeId: l.leaveTypeId,
-          leaveType: l.leaveTypeName || 'Leave',
-          leaveTypeName: l.leaveTypeName,
-          leaveTypeCode: l.leaveTypeCode,
-          startDate: l.startDate,
-          endDate: l.endDate,
-          totalDays: l.totalDays || 1,
-          reason: l.reason || '',
-          status: l.status || 'PENDING',
-          approvedBy: l.approvedBy,
-          approvedByName: l.approvedByName,
-          approvedAt: l.approvedAt,
-          rejectionReason: l.rejectionReason,
-          appliedOn: l.createdAt ? String(l.createdAt).split('T')[0] : '',
-          createdAt: l.createdAt,
-          updatedAt: l.updatedAt
-        }));
-        this.leaveRequests.set(mapped);
+        
+        // Process leave requests
+        if (res.leaves && Array.isArray(res.leaves)) {
+          const mapped: LeaveRequest[] = res.leaves.map((l: any, idx: number) => ({
+            id: l.id || idx + 1,
+            employeeId: l.employeeId,
+            employeeName: (l.employeeName || res.employeeName || 'Employee').trim(),
+            employeeCode: l.employeeCode || res.employeeCode || '',
+            employeeAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+            department: res.department || 'Engineering',
+            leaveTypeId: l.leaveTypeId,
+            leaveType: l.leaveTypeName || 'Leave',
+            leaveTypeName: l.leaveTypeName,
+            leaveTypeCode: l.leaveTypeCode,
+            startDate: l.startDate,
+            endDate: l.endDate,
+            totalDays: l.totalDays || 1,
+            reason: l.reason || '',
+            status: l.status || 'PENDING',
+            approvedBy: l.approvedBy,
+            approvedByName: l.approvedByName,
+            approvedAt: l.approvedAt,
+            rejectionReason: l.rejectionReason,
+            appliedOn: l.createdAt ? String(l.createdAt).split('T')[0] : '',
+            createdAt: l.createdAt,
+            updatedAt: l.updatedAt
+          }));
+          this.leaveRequests.set(mapped);
+          console.log('Processed leave requests:', mapped);
+        } else {
+          console.log('No leaves array in response');
+          this.leaveRequests.set([]);
+        }
+      } else {
+        console.log('Response is null or undefined');
+        this.leaveRequests.set([]);
       }
     });
   }
@@ -838,6 +909,115 @@ export class HrmsService {
     }
     return 0;
   }
+
+  // Profile Change Request API
+  createProfileChangeRequest(request: { fieldType: string; newValue: string; reason: string }): Observable<any> {
+    return this.http.post<any>('/api/v1/profile-changes', request).pipe(
+      tap(() => {
+        this.loadMyProfileChangeRequests();
+      })
+    );
+  }
+
+  loadMyProfileChangeRequests() {
+    console.log('Loading my profile change requests...');
+    this.http.get<any[]>('/api/v1/profile-changes/my-requests').pipe(
+      catchError((error) => {
+        console.error('Failed to load my-requests, trying all endpoint:', error);
+        // Fallback to all requests endpoint
+        return this.http.get<any>('/api/v1/profile-changes');
+      }),
+      catchError((error) => {
+        console.error('All endpoints failed:', error);
+        return of([]);
+      })
+    ).subscribe(data => {
+      console.log('My profile change requests loaded:', data);
+      // Handle different response formats
+      const requests = Array.isArray(data) ? data : (data?.content || data?.data || []);
+      this.profileChangeRequests.set(requests);
+    });
+  }
+
+  loadPendingProfileChangeRequests() {
+    this.http.get<any>('/api/v1/profile-changes/pending', { params: { page: 0, size: 10 } }).pipe(
+      catchError(() => of({ content: [] }))
+    ).subscribe(data => {
+      this.pendingProfileChangeRequests.set(data?.content || []);
+    });
+  }
+
+  loadAllProfileChangeRequests() {
+    console.log('Loading all profile change requests...');
+    // Use the main endpoint which now returns all requests for HR/Manager/Admin
+    this.http.get<any[]>('/api/v1/profile-changes').pipe(
+      catchError((error) => {
+        console.error('Main endpoint failed with error:', error);
+        console.log('Trying /all endpoint as fallback');
+        return this.http.get<any>('/api/v1/profile-changes/all', { params: { page: 0, size: 100, sortBy: 'submittedAt', sortDir: 'desc' } });
+      }),
+      catchError((error) => {
+        console.error('All endpoints failed with error:', error);
+        console.log('Returning empty array');
+        return of([]);
+      })
+    ).subscribe(data => {
+      console.log('All profile change requests from API:', data);
+      console.log('Data type:', typeof data);
+      console.log('Is array:', Array.isArray(data));
+      console.log('Has content property:', data?.content);
+      
+      // Handle different response formats
+      let requests: any[] = [];
+      if (Array.isArray(data)) {
+        requests = data;
+      } else if (data?.content && Array.isArray(data.content)) {
+        requests = data.content;
+      } else if (data?.data && Array.isArray(data.data)) {
+        requests = data.data;
+      }
+      
+      console.log('Extracted requests:', requests);
+      console.log('Number of requests:', requests.length);
+      if (requests.length > 0) {
+        console.log('Sample request:', requests[0]);
+      }
+      
+      this.allProfileChangeRequests.set(requests);
+      // Also update pendingProfileChangeRequests with pending items for backward compatibility
+      const pendingItems = requests.filter((req: any) => 
+        (req.status || '').toUpperCase() === 'PENDING' || (req.status || '').toUpperCase() === 'Pending'
+      );
+      this.pendingProfileChangeRequests.set(pendingItems);
+      console.log('Pending items filtered:', pendingItems);
+    });
+  }
+
+  approveProfileChangeRequest(id: number, remarks?: string): Observable<any> {
+    return this.http.post<any>(`/api/v1/profile-changes/${id}/approve`, remarks).pipe(
+      tap(() => {
+        this.loadPendingProfileChangeRequests();
+      })
+    );
+  }
+
+  rejectProfileChangeRequest(id: number, remarks?: string): Observable<any> {
+    return this.http.post<any>(`/api/v1/profile-changes/${id}/reject`, remarks).pipe(
+      tap(() => {
+        this.loadPendingProfileChangeRequests();
+      })
+    );
+  }
+
+  cancelProfileChangeRequest(id: number): Observable<any> {
+    return this.http.post<any>(`/api/v1/profile-changes/${id}/cancel`, {}).pipe(
+      tap(() => {
+        this.loadMyProfileChangeRequests();
+      })
+    );
+  }
+
+  pendingProfileChangeRequestsCount = computed(() => this.pendingProfileChangeRequests().length);
 
   loadPendingLeaveApprovals() {
     this.http.get<any[]>('/api/v1/leaves/approvals/pending').pipe(
@@ -1109,6 +1289,38 @@ export class HrmsService {
         this.loadAttendance();
       });
     }
+  }
+
+  // Employee Leave & WFH Report APIs
+  searchEmployees(query: string): Observable<EmployeeSearchResult[]> {
+    return this.http.get<EmployeeSearchResult[]>(`/api/v1/leaves/employee-search?query=${encodeURIComponent(query)}`);
+  }
+
+  getEmployeeLeaveWfhSummary(employeeId: number | string, year?: number, month?: number): Observable<EmployeeLeaveWfhSummary> {
+    let url = `/api/v1/leaves/employee-summary/${employeeId}`;
+    const params: string[] = [];
+    if (year) params.push(`year=${year}`);
+    if (month) params.push(`month=${month}`);
+    if (params.length > 0) {
+      url += '?' + params.join('&');
+    }
+    return this.http.get<EmployeeLeaveWfhSummary>(url);
+  }
+
+  updateEmployeeDayStatus(payload: {
+    employeeId: number | string;
+    date: string;
+    status: string;
+    leaveTypeId?: number;
+    reason?: string;
+  }): Observable<any> {
+    return this.http.put<any>('/api/v1/leaves/employee-status', payload).pipe(
+      catchError(err => {
+        const msg = err?.error?.message || err?.error?.error || 'Failed to update day status.';
+        this.notify.showAlert(msg);
+        return of(null);
+      })
+    );
   }
 
 }

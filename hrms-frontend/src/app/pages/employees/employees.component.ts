@@ -1,6 +1,7 @@
 import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { HrmsService } from '../../core/services/hrms.service';
 import { AuthService } from '../../core/services/auth.service';
 import { Employee, UserRole } from '../../core/models/hrms.model';
@@ -15,15 +16,101 @@ import { Employee, UserRole } from '../../core/models/hrms.model';
 export class EmployeesComponent implements OnInit {
   hrms = inject(HrmsService);
   auth = inject(AuthService);
+  router = inject(Router);
 
   ngOnInit() {
-    this.hrms.loadEmployees();
+    this.loadEmployeesPage();
   }
 
   viewMode = signal<'grid' | 'table'>('grid');
-  searchQuery = '';
-  selectedDept = 'All';
-  selectedRoleFilter = 'All';
+
+  currentPage = signal<number>(0);
+  pageSize = 10;
+  sortBy = signal<string>('id');
+  sortDir = signal<string>('asc');
+
+  private searchTimeout: any = null;
+  private _searchQuery = '';
+  get searchQuery() { return this._searchQuery; }
+  set searchQuery(val: string) {
+    this._searchQuery = val;
+    this.currentPage.set(0);
+    if (this.searchTimeout) {
+      clearTimeout(this.searchTimeout);
+    }
+    this.searchTimeout = setTimeout(() => {
+      this.loadEmployeesPage();
+    }, 750);
+  }
+
+  private _selectedDept = 'All';
+  get selectedDept() { return this._selectedDept; }
+  set selectedDept(val: string) {
+    this._selectedDept = val;
+    this.currentPage.set(0);
+    this.loadEmployeesPage();
+  }
+
+  private _selectedRoleFilter = 'All';
+  get selectedRoleFilter() { return this._selectedRoleFilter; }
+  set selectedRoleFilter(val: string) {
+    this._selectedRoleFilter = val;
+    this.currentPage.set(0);
+    this.loadEmployeesPage();
+  }
+
+  toggleSort(columnKey: string) {
+    if (this.sortBy() === columnKey) {
+      this.sortDir.set(this.sortDir() === 'asc' ? 'desc' : 'asc');
+    } else {
+      this.sortBy.set(columnKey);
+      this.sortDir.set('asc');
+    }
+    this.currentPage.set(0);
+    this.loadEmployeesPage();
+  }
+
+  paginatedEmployees() {
+    return this.hrms.employees();
+  }
+
+  loadEmployeesPage() {
+    let sortField = this.sortBy();
+    if (sortField === 'employeeId') {
+      sortField = 'employeeCode';
+    }
+    this.hrms.loadEmployees(
+      this.currentPage(),
+      this.pageSize,
+      sortField,
+      this.sortDir(),
+      this.searchQuery,
+      this.selectedDept,
+      this.selectedRoleFilter
+    );
+  }
+
+  getEmployeePages(): number[] {
+    const pagination = this.hrms.employeePagination();
+    const totalPages = pagination.totalPages;
+    const pages: number[] = [];
+    for (let i = 0; i < totalPages; i++) {
+      pages.push(i);
+    }
+    return pages;
+  }
+
+  getTotalEmployeePages(): number {
+    return this.hrms.employeePagination().totalPages;
+  }
+
+  goToEmployeePage(page: number) {
+    const totalPages = this.getTotalEmployeePages();
+    if (page >= 0 && page < totalPages) {
+      this.currentPage.set(page);
+      this.loadEmployeesPage();
+    }
+  }
 
   showAddModal = signal<boolean>(false);
   isEditMode = signal<boolean>(false);
@@ -61,6 +148,11 @@ export class EmployeesComponent implements OnInit {
     currentSalary: '',
     techStack: '',
     education: '',
+    tenthQualification: '',
+    twelfthQualification: '',
+    bachelorQualification: '',
+    hasHighestQualification: false,
+    highestQualification: '',
     emergencyContact1: '',
     emergencyContact2: '',
     photoUrl: '',
@@ -103,26 +195,33 @@ export class EmployeesComponent implements OnInit {
   };
 
   filteredEmployees() {
-    const list = this.hrms.employees().filter(e => {
-      const matchSearch = e.name.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
-        e.email.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
-        e.designation.toLowerCase().includes(this.searchQuery.toLowerCase());
-      const matchDept = this.selectedDept === 'All' || e.department === this.selectedDept;
-      const matchRole = this.selectedRoleFilter === 'All' || e.role === this.selectedRoleFilter;
-      return matchSearch && matchDept && matchRole;
-    });
-
-    return list.sort((a, b) => {
-      const aTerminated = a.status === 'Terminated';
-      const bTerminated = b.status === 'Terminated';
-      if (aTerminated && !bTerminated) return 1;
-      if (!aTerminated && bTerminated) return -1;
-      return 0;
-    });
+    // With server-side pagination, we return the current page data
+    // Client-side filtering is disabled for now since backend handles pagination
+    return this.hrms.employees();
   }
 
   canManage(): boolean {
     return this.auth.hasPermission('EMPLOYEE_MANAGEMENT_CREATE') || this.auth.hasPermission('EMPLOYEE_MANAGEMENT_UPDATE');
+  }
+
+  canViewEmployeeLeaveWfh(): boolean {
+    const role = (this.auth.currentRole() || '').toUpperCase();
+    return role === 'ADMIN' || role === 'HR MANAGER' || role === 'HR' || role === 'MANAGER' || role === 'COORDINATOR';
+  }
+
+  onEmployeeClick(emp: Employee) {
+    if (this.canViewEmployeeLeaveWfh()) {
+      this.router.navigate(['/employee-leave-wfh'], {
+        queryParams: {
+          employeeId: emp.id,
+          employeeCode: emp.employeeId,
+          name: emp.name,
+          department: emp.department,
+          designation: emp.designation,
+          avatar: emp.avatar
+        }
+      });
+    }
   }
 
   togglePasswordVisibility() {
@@ -156,6 +255,12 @@ export class EmployeesComponent implements OnInit {
     }
   }
 
+  onHighestQualificationToggle() {
+    if (!this.newEmp.hasHighestQualification) {
+      this.newEmp.highestQualification = '';
+    }
+  }
+
   onEditFresherToggle() {
     if (this.editEmp.isFresher) {
       this.editEmp.totalExperience = '0';
@@ -183,27 +288,11 @@ export class EmployeesComponent implements OnInit {
     }
   }
 
-  generateNextEmployeeCode(): string {
-    const list = this.hrms.employees();
-    let maxNum = list.length;
-    for (const emp of list) {
-      const code = emp.employeeId || emp.id || '';
-      const match = code.match(/\d+/);
-      if (match) {
-        const num = parseInt(match[0], 10);
-        if (num > maxNum) {
-          maxNum = num;
-        }
-      }
-    }
-    return `EMP-${String(maxNum + 1).padStart(3, '0')}`;
-  }
-
   openAddModal() {
     this.showPassword.set(false);
     this.activeTab.set('basic');
     this.newEmp = {
-      employeeCode: this.generateNextEmployeeCode(),
+      employeeCode: '',
       firstName: '',
       lastName: '',
       email: '',
@@ -228,6 +317,11 @@ export class EmployeesComponent implements OnInit {
       currentSalary: '',
       techStack: '',
       education: '',
+      tenthQualification: '',
+      twelfthQualification: '',
+      bachelorQualification: '',
+      hasHighestQualification: false,
+      highestQualification: '',
       emergencyContact1: '',
       emergencyContact2: '',
       photoUrl: '',
@@ -236,6 +330,16 @@ export class EmployeesComponent implements OnInit {
       referenceDetails: ''
     };
     this.showAddModal.set(true);
+    this.hrms.getNextEmployeeCode().subscribe({
+      next: (res) => {
+        if (res && res.employeeCode) {
+          this.newEmp.employeeCode = res.employeeCode;
+        }
+      },
+      error: (err) => {
+        console.error('Failed to fetch next employee code:', err);
+      }
+    });
   }
 
   saveNewEmployee() {
@@ -265,6 +369,8 @@ export class EmployeesComponent implements OnInit {
     let roleCode = 'EMPLOYEE';
     if (emp.role === 'Admin') roleCode = 'ADMIN';
     else if (emp.role === 'HR Manager') roleCode = 'HR';
+    else if (emp.role === 'Manager') roleCode = 'MANAGER';
+    else if (emp.role === 'Coordinator') roleCode = 'COORDINATOR';
     else if (typeof emp.role === 'string') roleCode = emp.role.toUpperCase();
 
     this.editEmp = {
@@ -292,6 +398,11 @@ export class EmployeesComponent implements OnInit {
       currentSalary: emp.currentSalary || '',
       techStack: emp.techStack || '',
       education: emp.education || '',
+      tenthQualification: emp.tenthQualification || '',
+      twelfthQualification: emp.twelfthQualification || '',
+      bachelorQualification: emp.bachelorQualification || '',
+      hasHighestQualification: !!emp.highestQualification,
+      highestQualification: emp.highestQualification || '',
       emergencyContact1: emp.emergencyContact1 || '',
       emergencyContact2: emp.emergencyContact2 || '',
       photoUrl: emp.photoUrl || emp.avatar || '',
@@ -321,7 +432,7 @@ export class EmployeesComponent implements OnInit {
           this.isSaving.set(false);
           this.isEditMode.set(false);
           this.editingEmployeeId.set(null);
-          
+
           // Update selectedEmployee signal if viewing
           const updatedInList = this.hrms.employees().find(e => e.id === id);
           if (updatedInList) {

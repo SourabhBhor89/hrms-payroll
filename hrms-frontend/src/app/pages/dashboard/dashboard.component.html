@@ -1,154 +1,373 @@
 <div class="dashboard-page">
-  <!-- Welcome Header -->
-  <div class="welcome-header">
-    <div>
-      <h1>Good day, {{ auth.currentUser()?.name }}!</h1>
-      <p class="subtitle">Here is what is happening across your organization today.</p>
-    </div>
-    <div class="header-actions">
-      <span class="role-pill">Active View: <strong>{{ auth.currentRole() }}</strong></span>
-    </div>
-  </div>
-
-  <!-- KPI Summary Cards -->
-  <div *ngIf="auth.currentRole() != 'Employee'" class="kpi-grid">
-    <div class="kpi-card glass-card">
-      <div class="kpi-icon blue">👥</div>
-      <div class="kpi-data">
-        <span class="kpi-title">Total Workforce</span>
-        <span class="kpi-value">{{ hrms.totalEmployeesCount() }}</span>
-        <span class="kpi-trend positive">↑ +2 this month</span>
+  <!-- Hero Welcome Banner -->
+  <div class="hero-banner">
+    <div class="hero-content">
+      <div class="greeting-badge">
+        <span class="pulse-dot"></span>
+        <span>HRMS Workspace Portal</span>
       </div>
+      <h1>{{ greetingMessage }}, {{ auth.currentUser()?.name || 'User' }}! <span class="wave-emoji">👋</span></h1>
+      <p class="hero-subtitle">Here is a real-time overview of your workforce activities and schedule for today.</p>
     </div>
-
-    <div class="kpi-card glass-card">
-      <div class="kpi-icon emerald">🕒</div>
-      <div class="kpi-data">
-        <span class="kpi-title">Attendance Rate</span>
-        <span class="kpi-value">{{ hrms.attendanceRateFormatted() }}</span>
-        <span class="kpi-sub">{{ hrms.presentTodayCount() }} of {{ hrms.totalEmployeesCount() }} present today</span>
-      </div>
-    </div>
-
-    <div class="kpi-card glass-card">
-      <div class="kpi-icon amber">🌴</div>
-      <div class="kpi-data">
-        <span class="kpi-title">On Leave Today</span>
-        <span class="kpi-value">{{ hrms.onLeaveTodayCount() }}</span>
-        <span class="kpi-sub">Out of {{ hrms.totalEmployeesCount() }} staff</span>
-      </div>
-    </div>
-
-    <div class="kpi-card glass-card">
-      <div class="kpi-icon purple">⏳</div>
-      <div class="kpi-data">
-        <span class="kpi-title">Pending Approvals</span>
-        <span class="kpi-value">{{ hrms.pendingLeavesCount()}}</span>
-        <!-- <span class="kpi-trend warning">{{ hrms.pendingLeavesCount() }} Leaves • {{ hrms.pendingTimesheetsCount() }}
-          Timesheets</span> -->
-      </div>
-    </div>
-  </div>
-
-  <!-- Today's Punch Panel -->
-  <div class="today-panel glass-card" *ngIf="auth.currentRole() === 'HR Manager' || auth.currentRole() === 'Employee'">
-    <div class="today-info">
-      <div class="today-date-label">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-          <line x1="16" y1="2" x2="16" y2="6" />
-          <line x1="8" y1="2" x2="8" y2="6" />
-          <line x1="3" y1="10" x2="21" y2="10" />
+    <div class="hero-meta">
+      <div class="meta-pill">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <polyline points="12 6 12 12 16 14"/>
         </svg>
-        <span>Today — {{ todayDate }}</span>
+        <span>{{ todayDate }}</span>
+      </div>
+      <div class="role-badge">
+        <span class="role-dot"></span>
+        <span>Active View: <strong>{{ auth.currentRole() }}</strong></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- KPI Summary Cards (Admin / HR / Manager View) -->
+  <div *ngIf="auth.currentRole() !== 'Employee'" class="kpi-grid">
+    <!-- Workforce Card -->
+    <div class="kpi-card glass-card blue">
+      <div class="kpi-icon-wrapper blue">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+          <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+      </div>
+      <div class="kpi-info">
+        <span class="kpi-label">Total Workforce</span>
+        <div class="kpi-value-row">
+          <span class="kpi-number">{{ hrms.totalEmployeesCount() }}</span>
+          <span class="kpi-chip positive">Active</span>
+        </div>
+        <div class="kpi-bar-bg"><div class="kpi-bar-fill blue" style="width: 100%;"></div></div>
+        <span class="kpi-subtext">Total active staff members</span>
+      </div>
+    </div>
+
+    <!-- Attendance Rate Card -->
+    <div class="kpi-card glass-card emerald">
+      <div class="kpi-icon-wrapper emerald">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+          <polyline points="22 4 12 14.01 9 11.01"/>
+        </svg>
+      </div>
+      <div class="kpi-info">
+        <span class="kpi-label">Attendance Rate</span>
+        <div class="kpi-value-row">
+          <span class="kpi-number">{{ hrms.attendanceRateFormatted() }}</span>
+          <span class="kpi-chip success">Today</span>
+        </div>
+        <div class="kpi-bar-bg"><div class="kpi-bar-fill emerald" [style.width]="hrms.attendanceRateFormatted()"></div></div>
+        <span class="kpi-subtext">{{ hrms.presentTodayCount() }} of {{ hrms.totalEmployeesCount() }} present today</span>
+      </div>
+    </div>
+
+    <!-- On Leave Today Card -->
+    <div class="kpi-card glass-card amber">
+      <div class="kpi-icon-wrapper amber">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+          <line x1="16" y1="2" x2="16" y2="6"/>
+          <line x1="8" y1="2" x2="8" y2="6"/>
+          <line x1="3" y1="10" x2="21" y2="10"/>
+        </svg>
+      </div>
+      <div class="kpi-info">
+        <span class="kpi-label">On Leave / WFH Today</span>
+        <div class="kpi-value-row">
+          <span class="kpi-number">{{ hrms.onLeaveTodayCount() }}</span>
+          <span class="kpi-chip warning">Staff</span>
+        </div>
+        <div class="kpi-bar-bg"><div class="kpi-bar-fill amber" style="width: 40%;"></div></div>
+        <span class="kpi-subtext">Absence & WFH requests</span>
+      </div>
+    </div>
+
+    <!-- Pending Approvals Card -->
+    <div class="kpi-card glass-card purple">
+      <div class="kpi-icon-wrapper purple">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <circle cx="12" cy="12" r="10"/>
+          <polyline points="12 6 12 12 16 14"/>
+        </svg>
+      </div>
+      <div class="kpi-info">
+        <span class="kpi-label">Pending Approvals</span>
+        <div class="kpi-value-row">
+          <span class="kpi-number">{{ hrms.pendingLeavesCount() + hrms.pendingProfileChangeRequestsCount() }}</span>
+          <span class="kpi-chip info">Review</span>
+        </div>
+        <div class="kpi-bar-bg"><div class="kpi-bar-fill purple" style="width: 60%;"></div></div>
+        <span class="kpi-subtext">{{ hrms.pendingLeavesCount() }} Leaves • {{ hrms.pendingProfileChangeRequestsCount() }} Profile Updates</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Today's Attendance / Interactive Punch Panel -->
+  <div class="today-panel glass-card" *ngIf="auth.currentRole() === 'HR Manager' || auth.currentRole() === 'Employee' || auth.currentRole() === 'Manager'">
+
+    <!-- Top Header Bar: Title, Live Digital Clock & Interactive Status Badge -->
+    <div class="punch-header-bar">
+      <div class="header-left">
+        <div class="panel-date-tag">
+          <div class="calendar-icon-badge">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+              <line x1="16" y1="2" x2="16" y2="6"/>
+              <line x1="8" y1="2" x2="8" y2="6"/>
+              <line x1="3" y1="10" x2="21" y2="10"/>
+            </svg>
+          </div>
+          <div class="date-clock-group">
+            <span class="panel-title">Attendance Counter &bull; {{ todayDate }}</span>
+            <span class="live-clock-badge">
+              <span class="live-pulse"></span>
+              <span class="clock-time">{{ liveTime() }}</span>
+            </span>
+          </div>
+        </div>
       </div>
 
-      <div class="punch-times">
-        <div class="punch-time-item">
-          <span class="punch-label">Check In</span>
-          <span class="punch-value" [class.active]="hrms.todayClockInTime()">
-            {{ hrms.todayClockInTime() || '--:--' }}
+      <div class="header-right">
+        <!-- Interactive Status Pill Badge -->
+        <div class="status-pill-badge"
+             [class.status-active]="hrms.isClockedInComputed()"
+             [class.status-completed]="hrms.isClockedOutToday()"
+             [class.status-wfh]="hrms.isOnLeaveOrWfhToday()"
+             [class.status-idle]="!hrms.isClockedInComputed() && !hrms.isClockedOutToday() && !hrms.isOnLeaveOrWfhToday()">
+          <span class="status-dot"></span>
+          <span>
+            {{ hrms.isOnLeaveOrWfhToday() ? 'On Approved WFH / Leave' :
+               (hrms.isClockedOutToday() ? 'Shift Completed' :
+               (hrms.isClockedInComputed() ? 'Live Shift Active' : 'Ready to Check In')) }}
           </span>
         </div>
-        <div class="punch-separator">→</div>
-        <div class="punch-time-item">
-          <span class="punch-label">Check Out</span>
-          <span class="punch-value" [class.active]="hrms.todayClockOutTime()">
-            {{ hrms.todayClockOutTime() || '--:--' }}
-          </span>
+      </div>
+    </div>
+
+    <!-- Quick Toast Feedback Banner -->
+    <div class="toast-feedback-banner" *ngIf="toastMessage()">
+      <span class="toast-icon">✨</span>
+      <span>{{ toastMessage() }}</span>
+    </div>
+
+    <!-- Main Content Layout: Live Metric Tiles & Action Buttons -->
+    <div class="punch-main-content">
+
+      <!-- Live Metrics Grid -->
+      <div class="punch-stats-grid">
+
+        <!-- Tile 1: Check In Time -->
+        <div class="stat-tile" [class.active-tile]="hrms.todayClockInTime()">
+          <div class="tile-icon checkin-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <circle cx="12" cy="12" r="10" />
+              <polyline points="12 8 12 12 14 14" />
+            </svg>
+          </div>
+          <div class="tile-details">
+            <span class="tile-label">Check In Time</span>
+            <div class="tile-value-row">
+              <span class="tile-val" [class.highlight]="hrms.todayClockInTime()">{{ hrms.todayClockInTime() || '--:--' }}</span>
+              <span class="tile-subchip success" *ngIf="hrms.todayClockInTime()">Recorded</span>
+            </div>
+          </div>
         </div>
-        <div class="punch-separator">|</div>
-        <div class="punch-time-item">
-          <span class="punch-label">Duration</span>
-          <span class="punch-value duration">{{ getWorkDuration() }}</span>
+
+        <!-- Tile 2: Live Worked Duration -->
+        <div class="stat-tile duration-tile" [class.ticking]="hrms.isClockedInComputed()">
+          <div class="tile-icon duration-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+            </svg>
+          </div>
+          <div class="tile-details">
+            <span class="tile-label">{{ hrms.isClockedInComputed() ? 'Live Worked Duration' : 'Total Duration' }}</span>
+            <div class="tile-value-row">
+              <span class="tile-val timer-val" [class.active-timer]="hrms.isClockedInComputed()">
+                {{ formattedLiveDuration() }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tile 3: Check Out Time -->
+        <div class="stat-tile" [class.active-tile]="hrms.todayClockOutTime()">
+          <div class="tile-icon checkout-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+          </div>
+          <div class="tile-details">
+            <span class="tile-label">Check Out Time</span>
+            <div class="tile-value-row">
+              <span class="tile-val" [class.highlight]="hrms.todayClockOutTime()">{{ hrms.todayClockOutTime() || '--:--' }}</span>
+              <span class="tile-subchip info" *ngIf="hrms.todayClockOutTime()">Completed</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tile 4: Daily Shift Goal -->
+        <div class="stat-tile goal-tile">
+          <div class="tile-icon goal-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M12 6v6l4 2"/>
+            </svg>
+          </div>
+          <div class="tile-details">
+            <span class="tile-label">Daily Shift Goal</span>
+            <div class="tile-value-row">
+              <span class="tile-val highlight-purple">{{ getShiftProgressPercent() }}%</span>
+              <span class="tile-subtext">{{ getRemainingShiftTime() }}</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Action Buttons Column -->
+      <div class="punch-action-column">
+        <div class="action-buttons-group">
+
+          <button class="btn-punch check-in-btn"
+                  (click)="handleCheckIn()"
+                  [disabled]="hrms.isClockedInComputed() || hrms.isClockedOutToday() || hrms.isOnLeaveOrWfhToday()"
+                  [class.is-done]="hrms.todayClockInTime() || hrms.isClockedOutToday() || hrms.isOnLeaveOrWfhToday()">
+            <div class="btn-glow"></div>
+            <div class="btn-content">
+              <span class="btn-icon-wrapper">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 8 12 14 14" />
+                </svg>
+              </span>
+              <div class="btn-text-group">
+                <span class="btn-sublabel">Clock In</span>
+                <span class="btn-maintext">
+                  {{ hrms.isOnLeaveOrWfhToday() ? 'On WFH / Leave' : (hrms.isClockedOutToday() ? 'Checked In ✓' : (hrms.isClockedInComputed() ? 'Checked In ✓' : 'Check In')) }}
+                </span>
+              </div>
+            </div>
+          </button>
+
+          <button class="btn-punch check-out-btn"
+                  (click)="handleCheckOut()"
+                  [disabled]="!hrms.isClockedInComputed() || hrms.isOnLeaveOrWfhToday()"
+                  [class.is-done]="hrms.todayClockOutTime()"
+                  [class.pulse-checkout]="hrms.isClockedInComputed() && !hrms.todayClockOutTime()">
+            <div class="btn-glow"></div>
+            <div class="btn-content">
+              <span class="btn-icon-wrapper">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                  <polyline points="16 17 21 12 16 7" />
+                  <line x1="21" y1="12" x2="9" y2="12" />
+                </svg>
+              </span>
+              <div class="btn-text-group">
+                <span class="btn-sublabel">Clock Out</span>
+                <span class="btn-maintext">
+                  {{ hrms.todayClockOutTime() ? 'Checked Out ✓' : 'Check Out' }}
+                </span>
+              </div>
+            </div>
+          </button>
+
+        </div>
+
+        <div class="punch-location-tag">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+            <circle cx="12" cy="10" r="3"/>
+          </svg>
+          <span>HRMS Web Portal &bull; Auto-Verified</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Live Shift Completion Progress Bar -->
+    <div class="shift-progress-wrapper">
+      <div class="progress-info-row">
+        <span class="progress-title">Standard 9.0 Hours Shift Progress</span>
+        <span class="progress-pct" [title]="'Total Worked Duration: ' + formattedLiveDuration()">{{ getShiftProgressPercent() }}% Completed</span>
+      </div>
+      <div class="progress-track" [title]="'Total Logged: ' + formattedLiveDuration() + ' / 9h 00m standard shift goal'">
+        <div class="progress-hover-tooltip">
+          <span>⏱️ <strong>Total Logged:</strong> {{ formattedLiveDuration() }} ({{ getShiftProgressPercent() }}% of 9.0h shift)</span>
+        </div>
+        <div class="progress-bar-fill" [style.width.%]="getShiftProgressPercent()" [class.animated-stripes]="hrms.isClockedInComputed()">
+          <div class="progress-glow"></div>
         </div>
       </div>
     </div>
 
-    <div class="punch-actions">
-      <button class="btn-punch check-in" (click)="checkIn()" [disabled]="hrms.isClockedInComputed() || hrms.isClockedOutToday() || hrms.isOnLeaveOrWfhToday()"
-        [class.done]="hrms.todayClockInTime() || hrms.isClockedOutToday() || hrms.isOnLeaveOrWfhToday()">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <circle cx="12" cy="12" r="10" />
-          <polyline points="12 8 12 12 14 14" />
-        </svg>
-        {{ hrms.isOnLeaveOrWfhToday() ? 'On WFH / Leave' : (hrms.isClockedOutToday() ? 'Completed ✓' : (hrms.isClockedInComputed() ? 'Checked In ✓' : 'Check In')) }}
-      </button>
-
-      <button class="btn-punch check-out" (click)="checkOut()" [disabled]="!hrms.isClockedInComputed() || hrms.isOnLeaveOrWfhToday()"
-        [class.done]="hrms.todayClockOutTime()">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-          <polyline points="16 17 21 12 16 7" />
-          <line x1="21" y1="12" x2="9" y2="12" />
-        </svg>
-        {{ hrms.todayClockOutTime() ? 'Checked Out ✓' : 'Check Out' }}
-      </button>
-    </div>
   </div>
 
-  <!-- Middle Grid: Live Punch Widget & Quick Actions -->
+  <!-- Middle Grid: Quick Actions & Upcoming Holidays -->
   <div class="middle-grid">
-    <!-- Quick Shortcut Actions -->
+    <!-- Quick Actions Card -->
     <div class="widget-card glass-card">
       <div class="widget-header">
-        <h3>Quick Actions</h3>
+        <div class="title-with-icon">
+          <span class="w-icon-badge blue">⚡</span>
+          <h3>Quick Shortcuts</h3>
+        </div>
       </div>
       <div class="quick-actions-list">
         <a routerLink="/leaves" class="action-item" *ngIf="auth.currentRole() !== 'Admin'">
-          <span class="action-icon">📝</span>
+          <div class="action-icon-bg emerald">📝</div>
           <div class="action-text">
             <strong>Apply for Leave</strong>
-            <span>Submit casual or sick leave request</span>
+            <span>Submit casual, paid or WFH leave request</span>
           </div>
-          <span class="arrow">→</span>
+          <span class="action-arrow">→</span>
         </a>
 
-        <!-- <a routerLink="/timesheets" class="action-item">
-          <span class="action-icon">⏱️</span>
+        <a routerLink="/attendance" class="action-item">
+          <div class="action-icon-bg sky">📅</div>
           <div class="action-text">
-            <strong>Log Weekly Timesheet</strong>
-            <span>Record task and project hours</span>
+            <strong>Attendance Calendar</strong>
+            <span>View monthly punches & regularization</span>
           </div>
-          <span class="arrow">→</span>
-        </a> -->
+          <span class="action-arrow">→</span>
+        </a>
 
         <a routerLink="/employees" class="action-item" *ngIf="canAddEmployee()">
-          <span class="action-icon">➕</span>
+          <div class="action-icon-bg purple">👤</div>
           <div class="action-text">
             <strong>Add New Employee</strong>
-            <span>Register staff to organization</span>
+            <span>Register new staff to organization</span>
           </div>
-          <span class="arrow">→</span>
+          <span class="action-arrow">→</span>
+        </a>
+
+        <a routerLink="/profile-changes" class="action-item" *ngIf="canApproveProfileChanges()">
+          <div class="action-icon-bg amber">🔔</div>
+          <div class="action-text">
+            <strong>Profile Updates</strong>
+            <span>Review employee profile change requests</span>
+          </div>
+          <span class="action-arrow">→</span>
         </a>
       </div>
     </div>
 
-    <!-- Upcoming Company Holidays Widget -->
+    <!-- Upcoming Holidays Widget -->
     <div class="widget-card glass-card">
       <div class="widget-header">
-        <h3>Upcoming Holidays</h3>
-        <a routerLink="/holidays" class="link-text">View All</a>
+        <div class="title-with-icon">
+          <span class="w-icon-badge amber">🎉</span>
+          <h3>Upcoming Holidays</h3>
+        </div>
+        <a routerLink="/holidays" class="link-text">View All →</a>
       </div>
       <div class="holiday-list">
         <div class="holiday-item" *ngFor="let h of hrms.holidays().slice(0, 3)">
@@ -160,31 +379,295 @@
             <strong>{{ h.title }}</strong>
             <span>{{ h.day }} • {{ h.type }}</span>
           </div>
-          <span class="badge badge-success" *ngIf="h.isUpcoming">Upcoming</span>
+          <span class="chip-upcoming" *ngIf="h.isUpcoming">Upcoming</span>
+        </div>
+        <div class="no-records-box" *ngIf="hrms.holidays().length === 0">
+          <div class="empty-icon">🏖️</div>
+          <span>No upcoming holidays scheduled</span>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Bottom Grid: Recent Activity Feed (ADMIN & HR ONLY) -->
-  <div class="bottom-grid full-width-activity" *ngIf="auth.currentRole() === 'Admin' || auth.currentRole() === 'HR Manager'">
-    <!-- Recent Activity Feed -->
+  <!-- Bottom Grid: Recent Organization Activity Feed -->
+  <div class="bottom-grid full-width-activity" *ngIf="auth.currentRole() === 'Admin' || auth.currentRole() === 'HR Manager' || auth.currentRole() === 'Manager'">
     <div class="widget-card glass-card">
       <div class="widget-header">
-        <h3>Recent Organization Activity</h3>
+        <div class="title-with-icon">
+          <span class="w-icon-badge emerald">🚀</span>
+          <h3>Recent Organization Activity</h3>
+        </div>
       </div>
       <div class="activity-feed">
         <div class="activity-item" *ngFor="let item of recentActivities()">
-          <img [src]="item.avatar" [alt]="item.name" class="activity-avatar" />
+          <div class="avatar-wrapper">
+            <img [src]="item.avatar" [alt]="item.name" class="activity-avatar" />
+            <span class="active-badge-dot"></span>
+          </div>
           <div class="activity-content">
-            <p><strong>{{ item.name }}</strong> {{ item.text }}</p>
-            <span class="time-ago">{{ item.time }}</span>
+            <p><strong class="user-name">{{ item.name }}</strong> {{ item.text }}</p>
+            <span class="time-ago">🕒 {{ item.time }}</span>
           </div>
         </div>
 
-        <div class="no-records-box" *ngIf="recentActivities().length === 0" style="padding: 1.5rem; text-align: center; color: var(--text-muted, #64748b); font-size: 0.875rem;">
-          No recent organization activity recorded yet.
+        <div class="no-records-box" *ngIf="recentActivities().length === 0">
+          <div class="empty-icon">📊</div>
+          <span>No recent organization activity recorded yet.</span>
         </div>
+      </div>
+    </div>
+
+    <!-- Profile Update Requests with Tabs (Admin/HR/Manager only) -->
+    <div class="widget-card glass-card" *ngIf="canApproveProfileChanges()">
+      <div class="widget-header">
+        <h3>Profile Update Requests</h3>
+        <a routerLink="/profile-changes" class="link-text">View All</a>
+      </div>
+
+      <!-- Tabs -->
+      <div class="tabs-container">
+        <button class="tab-btn" [class.active]="activeProfileTab() === 'my-requests'" (click)="setProfileTab('my-requests')">
+          My Requests
+        </button>
+        <button class="tab-btn" [class.active]="activeProfileTab() === 'approvals'" (click)="setProfileTab('approvals')">
+          Profile Change Approval
+        </button>
+      </div>
+
+      <!-- My Requests Tab - Shows only current user's pending requests -->
+      <div class="tab-content" *ngIf="activeProfileTab() === 'my-requests'">
+        <table class="custom-table">
+          <thead>
+            <tr>
+              <th>Applicant</th>
+              <th>Field Type</th>
+              <th>Old Value</th>
+              <th>New Value</th>
+              <th>Reason</th>
+              <th>Submitted On</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let req of getMyPendingRequests()">
+              <td>
+                <div class="user-cell">
+                  <img [src]="req.employeeAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'" class="table-avatar" />
+                  <div>
+                    <strong>You</strong>
+                    <span class="sub-text">My Request</span>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <span class="badge badge-purple">{{ getFieldTypeDisplay(req.fieldType) }}</span>
+              </td>
+              <td><code>{{ req.oldValue || 'N/A' }}</code></td>
+              <td><code>{{ req.newValue }}</code></td>
+              <td>{{ req.reason || 'No reason provided' }}</td>
+              <td>{{ req.submittedAt ? req.submittedAt.split('T')[0] : 'N/A' }}</td>
+              <td>
+                <span class="badge badge-warning">Pending</span>
+              </td>
+              <td>
+                <div class="action-buttons">
+                  <button class="btn btn-outline-danger" (click)="cancelProfileChangeRequest(req.id)">Cancel</button>
+                </div>
+              </td>
+            </tr>
+            <tr *ngIf="getMyPendingRequests().length === 0">
+              <td colspan="8" class="text-center py-4 text-muted">
+                No pending profile update requests found
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Pagination -->
+        <div class="pagination-container" *ngIf="getProfileChangeTotalPages() > 1">
+          <div class="pagination-info">
+            Page {{ profileChangeCurrentPage() + 1 }} of {{ getProfileChangeTotalPages() }}
+            ({{ getMyPendingRequestsTotal() }} total requests)
+          </div>
+          <div class="pagination-controls">
+            <button class="btn btn-sm btn-secondary" (click)="goToProfileChangePage(profileChangeCurrentPage() - 1)" [disabled]="profileChangeCurrentPage() === 0">Previous</button>
+            <button class="btn btn-sm" [class.btn-primary]="page === profileChangeCurrentPage()" [class.btn-secondary]="page !== profileChangeCurrentPage()" *ngFor="let page of getProfileChangePages()" (click)="goToProfileChangePage(page)">{{ page + 1 }}</button>
+            <button class="btn btn-sm btn-secondary" (click)="goToProfileChangePage(profileChangeCurrentPage() + 1)" [disabled]="profileChangeCurrentPage() === getProfileChangeTotalPages() - 1">Next</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Profile Change Approval Tab - Shows other employees' pending requests -->
+      <div class="tab-content" *ngIf="activeProfileTab() === 'approvals'">
+        <table class="custom-table">
+          <thead>
+            <tr>
+              <th>Applicant</th>
+              <th>Field Type</th>
+              <th>Old Value</th>
+              <th>New Value</th>
+              <th>Reason</th>
+              <th>Submitted On</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let req of getOtherEmployeesPendingRequests()">
+              <td>
+                <div class="user-cell">
+                  <img [src]="req.employeeAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'" class="table-avatar" />
+                  <div>
+                    <strong>{{ req.employeeName || 'Employee' }}</strong>
+                    <span class="sub-text" *ngIf="req.employeeCode">{{ req.employeeCode }}</span>
+                    <span class="sub-text" *ngIf="!req.employeeCode">Staff</span>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <span class="badge badge-purple">{{ getFieldTypeDisplay(req.fieldType) }}</span>
+              </td>
+              <td><code>{{ req.oldValue || 'N/A' }}</code></td>
+              <td><code>{{ req.newValue }}</code></td>
+              <td>{{ req.reason || 'No reason provided' }}</td>
+              <td>{{ req.submittedAt ? req.submittedAt.split('T')[0] : 'N/A' }}</td>
+              <td>
+                <span class="badge badge-warning">Pending</span>
+              </td>
+              <td>
+                <div class="action-buttons">
+                  <button class="btn btn-success" (click)="quickApproveProfileChange(req.id)">Approve</button>
+                  <button class="btn btn-danger" (click)="promptRejectProfileChange(req.id)">Reject</button>
+                </div>
+              </td>
+            </tr>
+            <tr *ngIf="getOtherEmployeesPendingRequests().length === 0">
+              <td colspan="8" class="text-center py-4 text-muted">
+                No pending profile update requests found
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Pagination -->
+        <div class="pagination-container" *ngIf="getProfileChangeTotalPages() > 1">
+          <div class="pagination-info">
+            Page {{ profileChangeCurrentPage() + 1 }} of {{ getProfileChangeTotalPages() }}
+            ({{ getOtherEmployeesPendingRequestsTotal() }} total requests)
+          </div>
+          <div class="pagination-controls">
+            <button class="btn btn-sm btn-secondary" (click)="goToProfileChangePage(profileChangeCurrentPage() - 1)" [disabled]="profileChangeCurrentPage() === 0">Previous</button>
+            <button class="btn btn-sm" [class.btn-primary]="page === profileChangeCurrentPage()" [class.btn-secondary]="page !== profileChangeCurrentPage()" *ngFor="let page of getProfileChangePages()" (click)="goToProfileChangePage(page)">{{ page + 1 }}</button>
+            <button class="btn btn-sm btn-secondary" (click)="goToProfileChangePage(profileChangeCurrentPage() + 1)" [disabled]="profileChangeCurrentPage() === getProfileChangeTotalPages() - 1">Next</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- My Profile Update Requests (EMPLOYEES & COORDINATORS) -->
+  <div class="bottom-grid full-width-activity" *ngIf="auth.currentRole() === 'Employee' || auth.currentRole() === 'Coordinator'">
+    <div class="widget-card glass-card">
+      <div class="widget-header">
+        <h3>My Profile Update Requests</h3>
+        <a routerLink="/profile-changes" class="link-text">View All</a>
+      </div>
+      <table class="custom-table">
+        <thead>
+          <tr>
+            <th>Applicant</th>
+            <th>Field Type</th>
+            <th>Old Value</th>
+            <th>New Value</th>
+            <th>Reason</th>
+            <th>Submitted On</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let req of getEmployeePendingRequests()">
+            <td>
+              <div class="user-cell">
+                <img [src]="req.employeeAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'" class="table-avatar" />
+                <div>
+                  <strong>You</strong>
+                  <span class="sub-text">My Request</span>
+                </div>
+              </div>
+            </td>
+            <td>
+              <span class="badge badge-purple">{{ getFieldTypeDisplay(req.fieldType) }}</span>
+            </td>
+            <td><code>{{ req.oldValue || 'N/A' }}</code></td>
+            <td><code>{{ req.newValue }}</code></td>
+            <td>{{ req.reason || 'No reason provided' }}</td>
+            <td>{{ req.submittedAt ? req.submittedAt.split('T')[0] : 'N/A' }}</td>
+            <td>
+              <span class="badge badge-warning">Pending</span>
+            </td>
+            <td>
+              <div class="action-buttons">
+                <button class="btn btn-outline-danger" (click)="cancelProfileChangeRequest(req.id)">Cancel</button>
+              </div>
+            </td>
+          </tr>
+          <tr *ngIf="getEmployeePendingRequests().length === 0">
+            <td colspan="8" class="text-center py-4 text-muted">
+              No pending profile update requests found
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Pagination -->
+      <div class="pagination-container" *ngIf="getProfileChangeTotalPages() > 1">
+        <div class="pagination-info">
+          Page {{ profileChangeCurrentPage() + 1 }} of {{ getProfileChangeTotalPages() }}
+          ({{ getEmployeePendingRequestsTotal() }} total requests)
+        </div>
+        <div class="pagination-controls">
+          <button class="btn btn-sm btn-secondary" (click)="goToProfileChangePage(profileChangeCurrentPage() - 1)" [disabled]="profileChangeCurrentPage() === 0">Previous</button>
+          <button class="btn btn-sm" [class.btn-primary]="page === profileChangeCurrentPage()" [class.btn-secondary]="page !== profileChangeCurrentPage()" *ngFor="let page of getProfileChangePages()" (click)="goToProfileChangePage(page)">{{ page + 1 }}</button>
+          <button class="btn btn-sm btn-secondary" (click)="goToProfileChangePage(profileChangeCurrentPage() + 1)" [disabled]="profileChangeCurrentPage() === getProfileChangeTotalPages() - 1">Next</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Profile Change Rejection Modal -->
+  <div class="modal-backdrop" *ngIf="showRejectModal()">
+    <div class="modal-content glass-card">
+      <div class="modal-header">
+        <h3>Reject Profile Change Request</h3>
+        <button class="close-btn" (click)="cancelRejectProfileChange()">✕</button>
+      </div>
+      <p class="sub-text">Please provide a reason for rejecting this profile change request.</p>
+
+      <form (ngSubmit)="confirmRejectProfileChange()" class="modal-form">
+        <div class="form-group">
+          <label class="form-label">Rejection Reason</label>
+          <textarea class="form-textarea" rows="3" [(ngModel)]="rejectionReasonInput" name="rejectionReasonInput" placeholder="Explain why this request is rejected..." required></textarea>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" (click)="cancelRejectProfileChange()">Cancel</button>
+          <button type="submit" class="btn btn-danger">Confirm Rejection</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Profile Change Cancellation Modal -->
+  <div class="modal-backdrop" *ngIf="showCancelModal()">
+    <div class="modal-content">
+      <h3>Cancel Profile Change Request</h3>
+      <p class="sub-text">Are you sure you want to cancel this profile change request?</p>
+
+      <div class="modal-actions mt-4">
+        <button type="button" class="btn btn-secondary" (click)="cancelCancelModal()">Cancel</button>
+        <button type="button" class="btn btn-danger" (click)="confirmCancelProfileChange()">Confirm Cancellation</button>
       </div>
     </div>
   </div>

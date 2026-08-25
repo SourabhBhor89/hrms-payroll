@@ -19,6 +19,7 @@ import com.company.hrms.repository.UserRepository;
 import com.company.hrms.service.AttendanceCalculationService;
 import com.company.hrms.service.AttendanceRegularizationService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -59,9 +60,26 @@ public class AttendanceRegularizationServiceImpl implements AttendanceRegulariza
             throw new IllegalArgumentException("Cannot submit regularization request for a date before date of joining (" + employee.getJoiningDate() + ").");
         }
 
-        LocalDate firstDayOfPreviousMonth = now.minusMonths(1).withDayOfMonth(1);
-        if (date.isBefore(firstDayOfPreviousMonth)) {
-            throw new IllegalArgumentException("Cannot submit regularization request for a date before the 1st of previous month (" + firstDayOfPreviousMonth + ").");
+        // Restrict to current week only
+        LocalDate startOfWeek = now.minusDays(now.getDayOfWeek().getValue() - 1); // Monday
+        LocalDate endOfWeek = startOfWeek.plusDays(6); // Sunday
+        if (date.isBefore(startOfWeek)) {
+            throw new IllegalArgumentException("Cannot submit regularization request for dates before the current week (" + startOfWeek + " to " + endOfWeek + ").");
+        }
+
+        // Limit to max 5 regularizations per month
+        LocalDate firstDayOfMonth = now.withDayOfMonth(1);
+        List<AttendanceRegularization> monthlyRegularizations = regularizationRepository
+                .findByEmployeeIdAndSubmittedAtBetween(
+                        employee.getId(),
+                        firstDayOfMonth.atStartOfDay(),
+                        now.atTime(23, 59, 59)
+                );
+        long monthlyCount = monthlyRegularizations.stream()
+                .filter(r -> r.getStatus() != RegularizationStatus.CANCELLED)
+                .count();
+        if (monthlyCount >= 5) {
+            throw new IllegalArgumentException("Monthly limit of 5 regularization requests has been reached. You cannot submit more requests this month.");
         }
 
         // 2. Fetch or create base attendance record for date
@@ -165,6 +183,21 @@ public class AttendanceRegularizationServiceImpl implements AttendanceRegulariza
 
     @Override
     @Transactional(readOnly = true)
+    public List<AttendanceRegularizationDto> getMyRegularizations(String userEmail, Pageable pageable) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseGet(() -> userRepository.findByEmailAndActiveTrue(userEmail)
+                        .orElseThrow(() -> new IllegalArgumentException("User not found: " + userEmail)));
+
+        Employee employee = getOrCreateEmployee(user);
+
+        return regularizationRepository.findByEmployeeIdOrderBySubmittedAtDesc(employee.getId(), pageable)
+                .stream()
+                .map(this::mapToDto)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public AttendanceRegularizationDto getRegularizationById(Long id, String userEmail) {
         AttendanceRegularization reg = regularizationRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Regularization request not found with ID: " + id));
@@ -193,6 +226,25 @@ public class AttendanceRegularizationServiceImpl implements AttendanceRegulariza
     @Transactional(readOnly = true)
     public List<AttendanceRegularizationDto> getAllRegularizations(String status, String department, Long employeeId, LocalDate startDate, LocalDate endDate) {
         List<AttendanceRegularization> list = regularizationRepository.findAllByOrderBySubmittedAtDesc();
+
+        return list.stream()
+                .filter(r -> status == null || status.equalsIgnoreCase("ALL") || r.getStatus().name().equalsIgnoreCase(status))
+                .filter(r -> employeeId == null || r.getEmployee().getId().equals(employeeId))
+                .filter(r -> {
+                    if (startDate == null && endDate == null) return true;
+                    LocalDate attDate = r.getAttendance().getDate();
+                    if (startDate != null && attDate.isBefore(startDate)) return false;
+                    if (endDate != null && attDate.isAfter(endDate)) return false;
+                    return true;
+                })
+                .map(this::mapToDto)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AttendanceRegularizationDto> getAllRegularizations(String status, String department, Long employeeId, LocalDate startDate, LocalDate endDate, Pageable pageable) {
+        List<AttendanceRegularization> list = regularizationRepository.findAllByOrderBySubmittedAtDesc(pageable).getContent();
 
         return list.stream()
                 .filter(r -> status == null || status.equalsIgnoreCase("ALL") || r.getStatus().name().equalsIgnoreCase(status))

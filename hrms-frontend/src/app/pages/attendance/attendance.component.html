@@ -1,22 +1,26 @@
 <div class="attendance-page">
-  <div class="page-header">
-    <div>
+  <!-- Hero Header Banner -->
+  <div class="page-hero-banner mb-4">
+    <div class="hero-main">
+      <div class="hero-badge">
+        <span class="pulse-dot"></span>
+        <span>HRMS Workforce Portal &bull; Attendance Log</span>
+      </div>
       <h2>Attendance Calendar</h2>
-      <p class="subtitle">Track daily clock-ins, working hours, and submit regularization requests for missing or late
-        punches.</p>
+      <p class="subtitle">Track daily clock-ins, working hours, and submit regularization requests for missing or late punches.</p>
     </div>
-    <div class="month-selector">
-      <button class="btn btn-secondary btn-sm" (click)="prevMonth()">‹ Prev</button>
-      <span class="month-label">{{ monthLabel }}</span>
-      <button class="btn btn-secondary btn-sm" (click)="nextMonth()">Next ›</button>
-    </div>
-    <div class="header-actions" *ngIf="auth.currentRole() !== 'Admin'">
-      <button class="btn btn-primary btn-sm" (click)="openRegModal()">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <div class="hero-actions">
+      <div class="month-selector" style="display: flex; align-items: center; gap: 0.5rem; background: rgba(255,255,255,0.1); padding: 0.35rem 0.75rem; border-radius: 12px; border: 1px solid rgba(255,255,255,0.2);">
+        <button class="btn btn-secondary btn-sm" style="background: rgba(255,255,255,0.15); color: #fff; border: none;" (click)="prevMonth()">‹ Prev</button>
+        <span class="month-label" style="font-weight: 700; font-size: 0.85rem; color: #fff; min-width: 110px; text-align: center;">{{ monthLabel }}</span>
+        <button class="btn btn-secondary btn-sm" style="background: rgba(255,255,255,0.15); color: #fff; border: none;" (click)="nextMonth()">Next ›</button>
+      </div>
+      <button class="btn btn-primary btn-hero-action" (click)="openRegModal()" *ngIf="auth.currentRole() !== 'Admin'">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
           <circle cx="12" cy="12" r="10" />
           <polyline points="12 6 12 12 16 14" />
         </svg>
-        Regularize Attendance
+        <span>Regularize Attendance</span>
       </button>
     </div>
   </div>
@@ -80,14 +84,14 @@
 
   <!-- Stat Summary Grid -->
   <div class="stats-grid">
-    <div class="stat-card glass-card" [class.clickable]="auth.currentRole() === 'Admin' || auth.currentRole() === 'HR Manager'" (click)="openStatDetailModal('PRESENT')">
+    <div class="stat-card glass-card" [class.clickable]="auth.currentRole() === 'Admin' || auth.currentRole() === 'HR Manager' || auth.currentRole() === 'Manager'" (click)="openStatDetailModal('PRESENT')">
       <div class="stat-icon present-icon">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
           <polyline points="22 4 12 14.01 9 11.01" />
         </svg>
       </div>
-      <ng-container *ngIf="auth.currentRole() === 'Admin' || auth.currentRole() === 'HR Manager'; else employeeDaysPresent">
+      <ng-container *ngIf="auth.currentRole() === 'Admin' || auth.currentRole() === 'HR Manager' || auth.currentRole() === 'Manager'; else employeeDaysPresent">
         <span class="stat-label">Present Today</span>
         <span class="stat-value text-emerald">{{ presentTodayCount() }} {{ presentTodayCount() === 1 ? 'Employee' : 'Employees' }}</span>
         <span class="stat-sub">Employees & HR Clocked In &bull; <strong class="click-hint">View List →</strong></span>
@@ -99,14 +103,14 @@
       </ng-template>
     </div>
 
-    <div class="stat-card glass-card" [class.clickable]="auth.currentRole() === 'Admin' || auth.currentRole() === 'HR Manager'" (click)="openStatDetailModal('WFH')">
+    <div class="stat-card glass-card" [class.clickable]="auth.currentRole() === 'Admin' || auth.currentRole() === 'HR Manager' || auth.currentRole() === 'Manager'" (click)="openStatDetailModal('WFH')">
       <div class="stat-icon wfh-icon">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
           <polyline points="9 22 9 12 15 12 15 22" />
         </svg>
       </div>
-      <ng-container *ngIf="auth.currentRole() === 'Admin' || auth.currentRole() === 'HR Manager'; else employeeWfhCard">
+      <ng-container *ngIf="auth.currentRole() === 'Admin' || auth.currentRole() === 'HR Manager' || auth.currentRole() === 'Manager'; else employeeWfhCard">
         <span class="stat-label">Work From Home Today</span>
         <span class="stat-value text-sky">{{ wfhTodayCount() }} {{ wfhTodayCount() === 1 ? 'Employee' : 'Employees' }}</span>
         <span class="stat-sub">Employees on WFH Today &bull; <strong class="click-hint">View List →</strong></span>
@@ -118,7 +122,7 @@
       </ng-template>
     </div>
 
-    <div class="stat-card glass-card" [class.clickable]="auth.currentRole() === 'Admin' || auth.currentRole() === 'HR Manager'" (click)="openStatDetailModal('LEAVE')">
+    <div class="stat-card glass-card" [class.clickable]="auth.currentRole() === 'Admin' || auth.currentRole() === 'HR Manager' || auth.currentRole() === 'Manager'" (click)="openStatDetailModal('LEAVE')">
       <div class="stat-icon leave-icon">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
@@ -127,7 +131,7 @@
           <line x1="3" y1="10" x2="21" y2="10" />
         </svg>
       </div>
-      <ng-container *ngIf="auth.currentRole() === 'Admin' || auth.currentRole() === 'HR Manager'; else employeeRegCard">
+      <ng-container *ngIf="auth.currentRole() === 'Admin' || auth.currentRole() === 'HR Manager' || auth.currentRole() === 'Manager'; else employeeRegCard">
         <span class="stat-label">On Leave Today</span>
         <span class="stat-value text-amber">{{ leaveTodayCount() }} {{ leaveTodayCount() === 1 ? 'Employee' : 'Employees' }}</span>
         <span class="stat-sub">Employees on Leave Today &bull; <strong class="click-hint">View List →</strong></span>
@@ -158,6 +162,7 @@
       <h3>{{ monthLabel }} — Attendance Grid</h3>
       <div class="legend" *ngIf="auth.currentRole() !== 'Admin'">
         <span class="legend-item"><span class="dot present"></span> Present</span>
+        <span class="legend-item"><span class="dot late"></span> Late</span>
         <span class="legend-item"><span class="dot wfh"></span> WFH</span>
         <span class="legend-item"><span class="dot leave"></span> Leave</span>
         <span class="legend-item"><span class="dot holiday"></span> Holiday</span>
@@ -289,7 +294,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let req of filteredRegularizations()">
+          <tr *ngFor="let req of paginatedPanelRegularizations()">
             <td>
               <div class="user-cell">
                 <img [src]="req.employeeAvatar" [alt]="req.employeeName" class="table-avatar" />
@@ -329,8 +334,8 @@
             </td>
             <td>
               <div class="action-buttons" *ngIf="req.status === 'Pending'">
-                <button class="btn btn-success btn-sm" (click)="openReviewModal(req, 'APPROVE')">Approve</button>
-                <button class="btn btn-danger btn-sm" (click)="openReviewModal(req, 'REJECT')">Reject</button>
+                <button class="btn btn-success btn-sm" (click)="openReviewModal(req, 'APPROVE')" [disabled]="!canApproveRequests()">Approve</button>
+                <button class="btn btn-danger btn-sm" (click)="openReviewModal(req, 'REJECT')" [disabled]="!canApproveRequests()">Reject</button>
               </div>
               <div class="review-info" *ngIf="req.status === 'Rejected'">
                 <span class="remarks-text" style="color: var(--danger, #ef4444); font-weight: 600; display: block;">
@@ -344,6 +349,32 @@
           </tr>
         </tbody>
       </table>
+
+      <!-- Pagination Controls -->
+      <div class="pagination-bar" *ngIf="totalPanelPages() > 1">
+        <div class="pagination-info">
+          Showing <strong>{{ (panelCurrentPage() - 1) * pageSize + 1 }}</strong> to <strong>{{ panelCurrentPage() * pageSize < filteredRegularizations().length ? panelCurrentPage() * pageSize : filteredRegularizations().length }}</strong> of <strong>{{ filteredRegularizations().length }}</strong> requests
+        </div>
+        <div class="pagination-buttons">
+          <button type="button" class="btn btn-pagination btn-icon" [disabled]="panelCurrentPage() === 1" (click)="goToPanelPage(1)" title="First Page">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg>
+          </button>
+          <button type="button" class="btn btn-pagination btn-icon" [disabled]="panelCurrentPage() === 1" (click)="goToPanelPage(panelCurrentPage() - 1)" title="Previous Page">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          
+          <button type="button" *ngFor="let page of getPanelPages()" class="btn btn-pagination page-num" [class.active]="panelCurrentPage() === page" (click)="goToPanelPage(page)">
+            {{ page }}
+          </button>
+
+          <button type="button" class="btn btn-pagination btn-icon" [disabled]="panelCurrentPage() === totalPanelPages()" (click)="goToPanelPage(panelCurrentPage() + 1)" title="Next Page">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+          <button type="button" class="btn btn-pagination btn-icon" [disabled]="panelCurrentPage() === totalPanelPages()" (click)="goToPanelPage(totalPanelPages())" title="Last Page">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>
+          </button>
+        </div>
+      </div>
     </div>
     <div class="no-records-box" *ngIf="filteredRegularizations().length > 0 === false">
       No {{ activePanelTab() === 'Pending' ? 'pending' : 'rejected' }} regularization requests match the selected filters.
@@ -370,7 +401,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let req of myRegularizations()">
+          <tr *ngFor="let req of paginatedMyRegularizations()">
             <td><code>{{ req.date }}</code></td>
             <td>
               <div class="time-badges-container">
@@ -396,7 +427,7 @@
             </td>
             <td><span class="remarks-text">{{ (req.status === 'Approved' || req.status === 'Rejected') ? (req.reviewRemarks || '--') : '' }}</span></td>
             <td>
-              <button class="btn btn-secondary btn-sm" *ngIf="req.status === 'Pending'" (click)="openCancelModal(req)">
+              <button type="button" class="btn btn-secondary btn-sm" *ngIf="req.status === 'Pending'" (click)="openCancelModal(req)">
                 Cancel
               </button>
               <span class="sub-text" *ngIf="req.status !== 'Pending'">--</span>
@@ -404,6 +435,32 @@
           </tr>
         </tbody>
       </table>
+
+      <!-- Pagination Controls -->
+      <div class="pagination-bar" *ngIf="totalHistoryPages() > 1">
+        <div class="pagination-info">
+          Showing <strong>{{ (historyCurrentPage() - 1) * pageSize + 1 }}</strong> to <strong>{{ historyCurrentPage() * pageSize < myRegularizations().length ? historyCurrentPage() * pageSize : myRegularizations().length }}</strong> of <strong>{{ myRegularizations().length }}</strong> entries
+        </div>
+        <div class="pagination-buttons">
+          <button type="button" class="btn btn-pagination btn-icon" [disabled]="historyCurrentPage() === 1" (click)="goToHistoryPage(1)" title="First Page">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg>
+          </button>
+          <button type="button" class="btn btn-pagination btn-icon" [disabled]="historyCurrentPage() === 1" (click)="goToHistoryPage(historyCurrentPage() - 1)" title="Previous Page">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          
+          <button type="button" *ngFor="let page of getHistoryPages()" class="btn btn-pagination page-num" [class.active]="historyCurrentPage() === page" (click)="goToHistoryPage(page)">
+            {{ page }}
+          </button>
+
+          <button type="button" class="btn btn-pagination btn-icon" [disabled]="historyCurrentPage() === totalHistoryPages()" (click)="goToHistoryPage(historyCurrentPage() + 1)" title="Next Page">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+          <button type="button" class="btn btn-pagination btn-icon" [disabled]="historyCurrentPage() === totalHistoryPages()" (click)="goToHistoryPage(totalHistoryPages())" title="Last Page">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>
+          </button>
+        </div>
+      </div>
     </div>
     <div class="no-records-box" *ngIf="myRegularizations().length === 0">
       No regularization requests submitted yet.

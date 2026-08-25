@@ -5,6 +5,11 @@ import { finalize } from 'rxjs/operators';
 
 export const loaderInterceptor: HttpInterceptorFn = (req, next) => {
   const loaderService = inject(LoaderService);
+  const isEmployeeListRequest = req.method === 'GET' && req.url.replace(/\/$/, '').endsWith('/api/v1/employees');
+
+  if (isEmployeeListRequest) {
+    return next(req);
+  }
 
   // Show the loader when request starts
   loaderService.show();

@@ -3,6 +3,7 @@ package com.company.hrms.service;
 import com.company.hrms.dto.request.CreateRegularizationRequest;
 import com.company.hrms.dto.request.ReviewRegularizationRequest;
 import com.company.hrms.dto.response.AttendanceRegularizationDto;
+import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -13,11 +14,15 @@ public interface AttendanceRegularizationService {
 
     List<AttendanceRegularizationDto> getMyRegularizations(String userEmail);
 
+    List<AttendanceRegularizationDto> getMyRegularizations(String userEmail, Pageable pageable);
+
     AttendanceRegularizationDto getRegularizationById(Long id, String userEmail);
 
     AttendanceRegularizationDto cancelRegularization(Long id, String userEmail);
 
     List<AttendanceRegularizationDto> getAllRegularizations(String status, String department, Long employeeId, LocalDate startDate, LocalDate endDate);
+
+    List<AttendanceRegularizationDto> getAllRegularizations(String status, String department, Long employeeId, LocalDate startDate, LocalDate endDate, Pageable pageable);
 
     AttendanceRegularizationDto approveRegularization(Long id, String reviewerEmail, ReviewRegularizationRequest request);
 

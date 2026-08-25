@@ -6,6 +6,10 @@ import com.company.hrms.dto.response.AttendanceRegularizationDto;
 import com.company.hrms.service.AttendanceRegularizationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -75,20 +79,50 @@ public class AttendanceRegularizationController {
             @RequestParam(required = false) String department,
             @RequestParam(required = false) Long employeeId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
-        boolean canViewAll = authentication != null && authentication.getAuthorities().stream()
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "submittedAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir) {
+        // Check if user has approval permissions or is admin/HR/manager
+        boolean hasApprovalPermissions = authentication != null && authentication.getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().equals("ATTENDANCE_REGULARIZATION_VIEW_ALL") ||
                                a.getAuthority().equals("ATTENDANCE_REGULARIZATION_APPROVE") ||
                                a.getAuthority().equals("ATTENDANCE_UPDATE") ||
                                a.getAuthority().equals("ROLE_ADMIN") ||
                                a.getAuthority().equals("ADMIN") ||
                                a.getAuthority().equals("ROLE_HR") ||
-                               a.getAuthority().equals("HR"));
-        if (!canViewAll && authentication != null) {
-            return ResponseEntity.ok(regularizationService.getMyRegularizations(authentication.getName()));
+                               a.getAuthority().equals("HR") ||
+                               a.getAuthority().equals("ROLE_MANAGER") ||
+                               a.getAuthority().equals("MANAGER"));
+        
+        // Check if user is coordinator with read-only permission
+        boolean isCoordinatorReadOnly = authentication != null && authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ATTENDANCE_READ_ONLY")) &&
+                authentication.getAuthorities().stream()
+                .noneMatch(a -> a.getAuthority().equals("ROLE_ADMIN") || 
+                                  a.getAuthority().equals("ADMIN") ||
+                                  a.getAuthority().equals("ROLE_HR") ||
+                                  a.getAuthority().equals("HR") ||
+                                  a.getAuthority().equals("ROLE_MANAGER") ||
+                                  a.getAuthority().equals("MANAGER"));
+        
+        Sort sort = sortDir.equalsIgnoreCase("desc") ? Sort.by(sortBy).descending() : Sort.by(sortBy).ascending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+        
+        // Coordinators with read-only cannot view all requests
+        if (isCoordinatorReadOnly) {
+            return ResponseEntity.ok(regularizationService.getMyRegularizations(authentication.getName(), pageable));
         }
+        
+        // Users without approval permissions can only see their own requests
+        if (!hasApprovalPermissions && authentication != null) {
+            return ResponseEntity.ok(regularizationService.getMyRegularizations(authentication.getName(), pageable));
+        }
+        
+        // Users with approval permissions can view all requests
         List<AttendanceRegularizationDto> list = regularizationService.getAllRegularizations(status, department,
-                employeeId, startDate, endDate);
+                employeeId, startDate, endDate, pageable);
         return ResponseEntity.ok(list);
     }
 
