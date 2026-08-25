@@ -61,23 +61,23 @@
     </div>
 
     <div class="punch-actions">
-      <button class="btn-punch check-in" (click)="checkIn()" [disabled]="hrms.isClockedInComputed() || hrms.isClockedOutToday() || hrms.isOnLeaveOrWfhToday()"
+      <button class="btn-punch check-in" (click)="checkIn()" [disabled]="hrms.isPunchLoading() || hrms.isClockedInComputed() || hrms.isClockedOutToday() || hrms.isOnLeaveOrWfhToday()"
         [class.done]="hrms.todayClockInTime() || hrms.isClockedOutToday() || hrms.isOnLeaveOrWfhToday()">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
           <circle cx="12" cy="12" r="10" />
           <polyline points="12 8 12 12 14 14" />
         </svg>
-        {{ hrms.isOnLeaveOrWfhToday() ? 'On WFH / Leave' : (hrms.isClockedOutToday() ? 'Completed ✓' : (hrms.isClockedInComputed() ? 'Checked In ✓' : 'Check In')) }}
+        {{ hrms.isPunchLoading() && !hrms.isClockedInComputed() ? 'Getting Location...' : (hrms.isOnLeaveOrWfhToday() ? 'On WFH / Leave' : (hrms.isClockedOutToday() ? 'Completed ✓' : (hrms.isClockedInComputed() ? 'Checked In ✓' : 'Check In'))) }}
       </button>
 
-      <button class="btn-punch check-out" (click)="checkOut()" [disabled]="!hrms.isClockedInComputed() || hrms.isOnLeaveOrWfhToday()"
+      <button class="btn-punch check-out" (click)="checkOut()" [disabled]="hrms.isPunchLoading() || !hrms.isClockedInComputed() || hrms.isOnLeaveOrWfhToday()"
         [class.done]="hrms.todayClockOutTime()">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
           <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
           <polyline points="16 17 21 12 16 7" />
           <line x1="21" y1="12" x2="9" y2="12" />
         </svg>
-        {{ hrms.todayClockOutTime() ? 'Checked Out ✓' : 'Check Out' }}
+        {{ hrms.isPunchLoading() && hrms.isClockedInComputed() ? 'Getting Location...' : (hrms.todayClockOutTime() ? 'Checked Out ✓' : 'Check Out') }}
       </button>
     </div>
   </div> -->

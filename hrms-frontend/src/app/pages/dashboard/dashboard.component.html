@@ -238,7 +238,7 @@
 
           <button class="btn-punch check-in-btn"
                   (click)="handleCheckIn()"
-                  [disabled]="hrms.isClockedInComputed() || hrms.isClockedOutToday() || hrms.isOnLeaveOrWfhToday()"
+                  [disabled]="hrms.isPunchLoading() || hrms.isClockedInComputed() || hrms.isClockedOutToday() || hrms.isOnLeaveOrWfhToday()"
                   [class.is-done]="hrms.todayClockInTime() || hrms.isClockedOutToday() || hrms.isOnLeaveOrWfhToday()">
             <div class="btn-glow"></div>
             <div class="btn-content">
@@ -251,7 +251,7 @@
               <div class="btn-text-group">
                 <span class="btn-sublabel">Clock In</span>
                 <span class="btn-maintext">
-                  {{ hrms.isOnLeaveOrWfhToday() ? 'On WFH / Leave' : (hrms.isClockedOutToday() ? 'Checked In ✓' : (hrms.isClockedInComputed() ? 'Checked In ✓' : 'Check In')) }}
+                  {{ hrms.isPunchLoading() && !hrms.isClockedInComputed() ? 'Getting Location...' : (hrms.isOnLeaveOrWfhToday() ? 'On WFH / Leave' : (hrms.isClockedOutToday() ? 'Checked In ✓' : (hrms.isClockedInComputed() ? 'Checked In ✓' : 'Check In'))) }}
                 </span>
               </div>
             </div>
@@ -259,7 +259,7 @@
 
           <button class="btn-punch check-out-btn"
                   (click)="handleCheckOut()"
-                  [disabled]="!hrms.isClockedInComputed() || hrms.isOnLeaveOrWfhToday()"
+                  [disabled]="hrms.isPunchLoading() || !hrms.isClockedInComputed() || hrms.isOnLeaveOrWfhToday()"
                   [class.is-done]="hrms.todayClockOutTime()"
                   [class.pulse-checkout]="hrms.isClockedInComputed() && !hrms.todayClockOutTime()">
             <div class="btn-glow"></div>
@@ -274,7 +274,7 @@
               <div class="btn-text-group">
                 <span class="btn-sublabel">Clock Out</span>
                 <span class="btn-maintext">
-                  {{ hrms.todayClockOutTime() ? 'Checked Out ✓' : 'Check Out' }}
+                  {{ hrms.isPunchLoading() && hrms.isClockedInComputed() ? 'Getting Location...' : (hrms.todayClockOutTime() ? 'Checked Out ✓' : 'Check Out') }}
                 </span>
               </div>
             </div>
