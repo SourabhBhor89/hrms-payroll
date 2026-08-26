@@ -30,6 +30,7 @@ export interface DashboardSummary {
 }
 
 import { NotificationService } from './notification.service';
+import { GeolocationService } from './geolocation.service';
 
 @Injectable({
   providedIn: 'root'
@@ -37,6 +38,9 @@ import { NotificationService } from './notification.service';
 export class HrmsService {
   private http = inject(HttpClient);
   private notify = inject(NotificationService);
+  private geoService = inject(GeolocationService);
+
+  isPunchLoading = signal<boolean>(false);
 
 
 
@@ -1243,51 +1247,88 @@ export class HrmsService {
 
   // Clock Widget Actions
   toggleClockIn() {
-    if (this.isOnLeaveOrWfhToday()) {
-      alert('Clock In and Clock Out are disabled for today because you are on approved Work From Home (WFH) or Leave.');
+    if (this.isPunchLoading()) {
       return;
     }
+
+    if (this.isOnLeaveOrWfhToday()) {
+      this.notify.showAlert('Clock In and Clock Out are disabled for today because you are on approved Work From Home (WFH) or Leave.', 'Action Disabled', 'info');
+      return;
+    }
+
     if (this.isClockedOutToday()) {
       return;
     }
-    if (!this.isClockedInComputed()) {
-      const now = new Date();
-      const formattedTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      this.isClockedIn.set(true);
-      this.clockInTime.set(formattedTime);
-      this.clockDurationSeconds.set(0);
-      this.saveClockState(formattedTime, undefined);
 
-      this.http.post('/api/v1/attendance/clock-in', {}).pipe(catchError(() => of(null))).subscribe(() => {
-        this.loadTodayAttendance();
-        this.loadAttendance();
-      });
+    const isClockingInNow = !this.isClockedInComputed();
 
-      if (!this.timerInterval) {
-        this.timerInterval = setInterval(() => {
-          this.clockDurationSeconds.update(s => s + 1);
-        }, 1000);
-      }
-    } else {
-      this.isClockedIn.set(false);
-      if (this.timerInterval) {
-        clearInterval(this.timerInterval);
-        this.timerInterval = null;
-      }
-      this.http.post<any>('/api/v1/attendance/clock-out', {}).pipe(catchError(() => of(null))).subscribe((res) => {
-        let timeStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-        if (res && res.time) {
-          const dt = this.parseDateTime(res.time);
-          if (dt) {
-            timeStr = dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    this.isPunchLoading.set(true);
+
+    this.geoService.getCurrentPosition().then(coords => {
+      const payload = {
+        latitude: coords.latitude,
+        longitude: coords.longitude
+      };
+
+      if (isClockingInNow) {
+        const now = new Date();
+        const formattedTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+        this.http.post<any>('/api/v1/attendance/clock-in', payload).subscribe({
+          next: (res) => {
+            this.isClockedIn.set(true);
+            this.clockInTime.set(formattedTime);
+            this.clockDurationSeconds.set(0);
+            this.saveClockState(formattedTime, undefined);
+
+            if (!this.timerInterval) {
+              this.timerInterval = setInterval(() => {
+                this.clockDurationSeconds.update(s => s + 1);
+              }, 1000);
+            }
+            this.loadTodayAttendance();
+            this.loadAttendance();
+            this.isPunchLoading.set(false);
+          },
+          error: (err) => {
+            this.isPunchLoading.set(false);
+            const errMsg = err?.error?.message || err?.error?.error || 'Failed to clock in. Please try again.';
+            this.notify.showAlert(errMsg, 'Clock In Restricted', 'error');
           }
+        });
+      } else {
+        if (this.timerInterval) {
+          clearInterval(this.timerInterval);
+          this.timerInterval = null;
         }
-        this.clockOutTimeSignal.set(timeStr);
-        this.saveClockState(this.clockInTime() || undefined, timeStr);
-        this.loadTodayAttendance();
-        this.loadAttendance();
-      });
-    }
+
+        this.http.post<any>('/api/v1/attendance/clock-out', payload).subscribe({
+          next: (res) => {
+            let timeStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+            if (res && res.time) {
+              const dt = this.parseDateTime(res.time);
+              if (dt) {
+                timeStr = dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+              }
+            }
+            this.isClockedIn.set(false);
+            this.clockOutTimeSignal.set(timeStr);
+            this.saveClockState(this.clockInTime() || undefined, timeStr);
+            this.loadTodayAttendance();
+            this.loadAttendance();
+            this.isPunchLoading.set(false);
+          },
+          error: (err) => {
+            this.isPunchLoading.set(false);
+            const errMsg = err?.error?.message || err?.error?.error || 'Failed to clock out. Please try again.';
+            this.notify.showAlert(errMsg, 'Clock Out Restricted', 'error');
+          }
+        });
+      }
+    }).catch(geoError => {
+      this.isPunchLoading.set(false);
+      this.notify.showAlert(geoError, 'Location Required', 'error');
+    });
   }
 
   // Employee Leave & WFH Report APIs

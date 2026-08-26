@@ -41,6 +41,10 @@ import java.util.stream.Collectors;
 
 import org.springframework.transaction.annotation.Transactional;
 
+import com.company.hrms.dto.request.AttendancePunchRequest;
+import com.company.hrms.service.AttendanceService;
+import org.springframework.web.bind.annotation.RequestBody;
+
 @Slf4j
 @RestController
 @RequestMapping("/api/v1/attendance")
@@ -53,6 +57,7 @@ public class AttendanceController {
     private final AttendanceRegularizationRepository regularizationRepository;
     private final AttendanceCalculationService calculationService;
     private final LeaveRepository leaveRepository;
+    private final AttendanceService attendanceService;
 
     @GetMapping
     @PreAuthorize("hasAuthority('ATTENDANCE_VIEW')")
@@ -196,115 +201,22 @@ public class AttendanceController {
 
     @PostMapping({"", "/clock-in"})
     @PreAuthorize("hasAuthority('ATTENDANCE_CREATE')")
-    public ResponseEntity<Map<String, Object>> clockIn(Authentication authentication) {
-        try {
-            String email = authentication.getName();
-            User user = userRepository.findByEmail(email)
-                    .orElseGet(() -> userRepository.findByEmailAndActiveTrue(email).orElse(null));
-
-            if (user == null) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "User not found"));
-            }
-            Employee emp = getOrCreateEmployee(user);
-
-            LocalDate today = LocalDate.now();
-            List<Leave> activeLeaves = leaveRepository.findByEmployeeId(emp.getId());
-            boolean isOnLeaveOrWfh = activeLeaves.stream().anyMatch(l -> {
-                boolean isApproved = l.getStatus() == Leave.LeaveStatus.APPROVED;
-                if (!isApproved || l.getStartDate() == null || l.getEndDate() == null) return false;
-                return !today.isBefore(l.getStartDate()) && !today.isAfter(l.getEndDate());
-            });
-
-            if (isOnLeaveOrWfh) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body(Map.of("error", "Clock in and clock out are disabled for today because you are on approved Work From Home (WFH) or Leave."));
-            }
-
-            Attendance att = attendanceRepository.findByEmployeeIdAndDate(emp.getId(), today)
-                    .orElseGet(() -> {
-                        Attendance a = new Attendance();
-                        a.setEmployee(emp);
-                        a.setDate(today);
-                        a.setCreatedBy(email);
-                        return a;
-                    });
-
-            if (att.getClockOut() != null) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body(Map.of("error", "You have already clocked out for today"));
-            }
-
-            att.setClockIn(LocalDateTime.now());
-            att.setClockOut(null); // Keep clockOut null on check-in
-            att.setStatus(calculationService.calculateStatus(att.getClockIn(), att.getClockOut(), att.getStatus()));
-            att.setTotalHours(calculationService.calculateWorkingHours(att.getClockIn(), att.getClockOut()));
-            att.setUpdatedBy(email);
-            att = attendanceRepository.save(att);
-
-            return ResponseEntity.ok(Map.of(
-                    "message", "Clocked in successfully",
-                    "time", att.getClockIn().toString(),
-                    "status", att.getStatus().name()
-            ));
-        } catch (Exception e) {
-            log.error("Error in clockIn", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Failed to clock in: " + e.getMessage()));
-        }
+    public ResponseEntity<Map<String, Object>> clockIn(
+            Authentication authentication,
+            @RequestBody(required = false) AttendancePunchRequest request) {
+        String email = authentication.getName();
+        Map<String, Object> result = attendanceService.clockIn(email, request);
+        return ResponseEntity.ok(result);
     }
 
     @PostMapping("/clock-out")
-    @PutMapping("/clock-out")
     @PreAuthorize("hasAuthority('ATTENDANCE_CREATE')")
-    public ResponseEntity<Map<String, Object>> clockOut(Authentication authentication) {
-        try {
-            String email = authentication.getName();
-            User user = userRepository.findByEmail(email)
-                    .orElseGet(() -> userRepository.findByEmailAndActiveTrue(email).orElse(null));
-
-            if (user == null) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "User not found"));
-            }
-            Employee emp = getOrCreateEmployee(user);
-
-            LocalDate today = LocalDate.now();
-            List<Leave> activeLeaves = leaveRepository.findByEmployeeId(emp.getId());
-            boolean isOnLeaveOrWfh = activeLeaves.stream().anyMatch(l -> {
-                boolean isApproved = l.getStatus() == Leave.LeaveStatus.APPROVED;
-                if (!isApproved || l.getStartDate() == null || l.getEndDate() == null) return false;
-                return !today.isBefore(l.getStartDate()) && !today.isAfter(l.getEndDate());
-            });
-
-            if (isOnLeaveOrWfh) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body(Map.of("error", "Clock in and clock out are disabled for today because you are on approved Work From Home (WFH) or Leave."));
-            }
-            Attendance att = attendanceRepository.findByEmployeeIdAndDate(emp.getId(), today)
-                    .orElseGet(() -> {
-                        Attendance a = new Attendance();
-                        a.setEmployee(emp);
-                        a.setDate(today);
-                        a.setClockIn(LocalDateTime.now().minusHours(8));
-                        a.setCreatedBy(email);
-                        return a;
-                    });
-
-            att.setClockOut(LocalDateTime.now());
-            att.setTotalHours(calculationService.calculateWorkingHours(att.getClockIn(), att.getClockOut()));
-            att.setStatus(calculationService.calculateStatus(att.getClockIn(), att.getClockOut(), att.getStatus()));
-            att.setUpdatedBy(email);
-            att = attendanceRepository.save(att);
-
-            return ResponseEntity.ok(Map.of(
-                    "message", "Clocked out successfully",
-                    "time", att.getClockOut().toString(),
-                    "status", att.getStatus().name()
-            ));
-        } catch (Exception e) {
-            log.error("Error in clockOut", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Failed to clock out: " + e.getMessage()));
-        }
+    public ResponseEntity<Map<String, Object>> clockOut(
+            Authentication authentication,
+            @RequestBody(required = false) AttendancePunchRequest request) {
+        String email = authentication.getName();
+        Map<String, Object> result = attendanceService.clockOut(email, request);
+        return ResponseEntity.ok(result);
     }
 
     private Employee getOrCreateEmployee(User user) {

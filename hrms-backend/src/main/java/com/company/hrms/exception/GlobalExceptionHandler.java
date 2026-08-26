@@ -14,6 +14,20 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(GeofenceException.class)
+    public ResponseEntity<Map<String, Object>> handleGeofence(GeofenceException ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("error", ex.getErrorCode() != null ? ex.getErrorCode() : "OUTSIDE_GEOFENCE");
+        body.put("message", ex.getMessage());
+        if (ex.getDistanceMeters() != null) {
+            body.put("calculatedDistanceMeters", Math.round(ex.getDistanceMeters() * 100.0) / 100.0);
+        }
+        if (ex.getAllowedRadiusMeters() != null) {
+            body.put("allowedRadiusMeters", ex.getAllowedRadiusMeters());
+        }
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException ex) {
         Map<String, Object> body = new HashMap<>();
