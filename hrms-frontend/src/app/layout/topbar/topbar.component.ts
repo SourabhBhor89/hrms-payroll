@@ -58,13 +58,13 @@ export class TopbarComponent {
     const userCode = (user.employeeId || '').toLowerCase().trim();
     const userId = String(user.id || '').trim();
 
-    console.log('=== Employee Matching Debug ===');
-    console.log('Current user:', user);
-    console.log('Available employees:', employees);
-    console.log('User email:', userEmail);
-    console.log('User name:', userName);
-    console.log('User employeeId:', userCode);
-    console.log('User id:', userId);
+//     console.log('=== Employee Matching Debug ===');
+//     console.log('Current user:', user);
+//     console.log('Available employees:', employees);
+//     console.log('User email:', userEmail);
+//     console.log('User name:', userName);
+//     console.log('User employeeId:', userCode);
+//     console.log('User id:', userId);
 
     // Log all available employeeIds for debugging
     const availableEmployeeIds = employees.map(e => e.employeeId);
@@ -167,7 +167,7 @@ export class TopbarComponent {
     const user = this.auth.currentUser();
     const employees = this.hrms.employees();
     let employee = this.currentEmployee();
-    
+
     console.log('=== Profile Modal Debug ===');
     console.log('User data:', user);
     console.log('Employee data:', employee);

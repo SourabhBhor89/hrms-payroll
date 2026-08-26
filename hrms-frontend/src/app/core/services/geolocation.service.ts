@@ -25,6 +25,14 @@ export class GeolocationService {
 
       navigator.geolocation.getCurrentPosition(
         (position: GeolocationPosition) => {
+          if (position.coords.accuracy && position.coords.accuracy > 3000) {
+            console.warn(`[GeolocationService] Low accuracy location detected (${Math.round(position.coords.accuracy)}m). The browser is using IP geolocation fallback.`);
+            return reject(
+              `Low accuracy location detected (accuracy: ${Math.round(position.coords.accuracy / 1000)}km). ` +
+              `Your browser is providing IP-based location fallback instead of precise device location. ` +
+              `Please enable 'Use precise location' in Chrome site permissions and turn on Windows Location Services.`
+            );
+          }
           resolve({
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,

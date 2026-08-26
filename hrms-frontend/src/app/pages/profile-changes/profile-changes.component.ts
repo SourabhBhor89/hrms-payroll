@@ -40,15 +40,15 @@ export class ProfileChangesComponent implements OnInit {
     if (this.canApprove()) {
       this.hrms.loadAllProfileChangeRequests(); // Load all for filtering
       this.hrms.loadMyProfileChangeRequests(); // Load own requests too
-      
+
       // Debug: log profile change requests after loading
       setTimeout(() => {
-        console.log('All profile change requests:', this.hrms.allProfileChangeRequests());
-        console.log('My profile change requests:', this.hrms.profileChangeRequests());
-        console.log('Current user:', this.auth.currentUser());
-        console.log('Active tab:', this.activeTab);
-        console.log('Active filter:', this.activeFilter);
-        console.log('Filtered requests:', this.filteredRequests());
+//         console.log('All profile change requests:', this.hrms.allProfileChangeRequests());
+//         console.log('My profile change requests:', this.hrms.profileChangeRequests());
+//         console.log('Current user:', this.auth.currentUser());
+//         console.log('Active tab:', this.activeTab);
+//         console.log('Active filter:', this.activeFilter);
+//         console.log('Filtered requests:', this.filteredRequests());
       }, 1000);
     } else {
       this.hrms.loadMyProfileChangeRequests();
@@ -56,15 +56,15 @@ export class ProfileChangesComponent implements OnInit {
   }
 
   canApprove(): boolean {
-    const result = this.auth.hasPermission('EMPLOYEE_MANAGEMENT_UPDATE') || 
+    const result = this.auth.hasPermission('EMPLOYEE_MANAGEMENT_UPDATE') ||
            this.auth.hasPermission('LEAVE_APPROVE') ||
            this.auth.currentRole() === 'Admin' ||
            this.auth.currentRole() === 'HR Manager' ||
            this.auth.currentRole() === 'Manager';
-    console.log('canApprove check:', result);
-    console.log('Current role:', this.auth.currentRole());
-    console.log('Has EMPLOYEE_MANAGEMENT_UPDATE:', this.auth.hasPermission('EMPLOYEE_MANAGEMENT_UPDATE'));
-    console.log('Has LEAVE_APPROVE:', this.auth.hasPermission('LEAVE_APPROVE'));
+//     console.log('canApprove check:', result);
+//     console.log('Current role:', this.auth.currentRole());
+//     console.log('Has EMPLOYEE_MANAGEMENT_UPDATE:', this.auth.hasPermission('EMPLOYEE_MANAGEMENT_UPDATE'));
+//     console.log('Has LEAVE_APPROVE:', this.auth.hasPermission('LEAVE_APPROVE'));
     return result;
   }
 
