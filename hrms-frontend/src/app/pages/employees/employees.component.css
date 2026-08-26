@@ -463,6 +463,32 @@
 }
 
 /* Spinner Loader & Centering */
+.table-container {
+  position: relative;
+}
+
+.employee-list-loader {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  min-height: 180px;
+  background: color-mix(in srgb, var(--bg-surface, #ffffff) 78%, transparent);
+  color: var(--text-main);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.employee-list-loader .spinner-loader {
+  width: 1.1rem;
+  height: 1.1rem;
+  border-width: 3px;
+  color: var(--primary, #6366f1);
+}
+
 .modal-actions .btn {
   display: inline-flex;
   align-items: center;

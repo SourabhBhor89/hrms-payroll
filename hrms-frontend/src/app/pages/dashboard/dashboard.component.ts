@@ -17,6 +17,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   hrms = inject(HrmsService);
 
   // Live ticking clock & toast signals
+  nowDate = signal<Date>(new Date());
   liveTime = signal<string>('');
   toastMessage = signal<string | null>(null);
   private liveTimerInterval: any = null;
@@ -27,7 +28,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   rejectionReasonInput: string = '';
 
   get greetingMessage(): string {
-    const hour = new Date().getHours();
+    const hour = this.nowDate().getHours();
     if (hour < 12) return 'Good morning';
     if (hour < 17) return 'Good afternoon';
     return 'Good evening';
@@ -73,6 +74,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   updateLiveTime() {
     const now = new Date();
+    this.nowDate.set(now);
     this.liveTime.set(now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
   }
 
@@ -135,13 +137,54 @@ export class DashboardComponent implements OnInit, OnDestroy {
   checkOutTime = signal<string>('');
   todayDate = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
 
-  formattedTimer(): string {
-    const totalSecs = this.hrms.clockDurationSeconds();
-    const hrs = Math.floor(totalSecs / 3600);
-    const mins = Math.floor((totalSecs % 3600) / 60);
-    const secs = totalSecs % 60;
-    return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  }
+  getElapsedSeconds = computed(() => {
+    const now = this.nowDate();
+    const inStr = this.hrms.todayClockInTime();
+    if (!inStr || inStr === '--') return 0;
+
+    const outStr = this.hrms.todayClockOutTime();
+
+    const parseTimeToDate = (timeStr: string): Date | null => {
+      try {
+        const todayYMD = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+        let d = new Date(`${todayYMD} ${timeStr}`);
+        if (!isNaN(d.getTime())) return d;
+
+        const match = timeStr.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?$/i);
+        if (match) {
+          let hrs = parseInt(match[1], 10);
+          const mins = parseInt(match[2], 10);
+          const secs = match[3] ? parseInt(match[3], 10) : 0;
+          const ampm = match[4]?.toUpperCase();
+          if (ampm === 'PM' && hrs < 12) hrs += 12;
+          if (ampm === 'AM' && hrs === 12) hrs = 0;
+          d = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hrs, mins, secs);
+          if (!isNaN(d.getTime())) return d;
+        }
+        return null;
+      } catch (_) {
+        return null;
+      }
+    };
+
+    const inTime = parseTimeToDate(inStr);
+    if (!inTime) return this.hrms.clockDurationSeconds();
+
+    const outTime = (outStr && outStr !== '--') ? parseTimeToDate(outStr) : now;
+    if (!outTime) return this.hrms.clockDurationSeconds();
+
+    const diffSec = Math.floor((outTime.getTime() - inTime.getTime()) / 1000);
+    return diffSec > 0 ? diffSec : 0;
+  });
+
+  formattedLiveDuration = computed(() => {
+    const secs = this.getElapsedSeconds();
+    if (secs === 0) return '00h 00m 00s';
+    const hrs = Math.floor(secs / 3600);
+    const mins = Math.floor((secs % 3600) / 60);
+    const s = secs % 60;
+    return `${hrs.toString().padStart(2, '0')}h ${mins.toString().padStart(2, '0')}m ${s.toString().padStart(2, '0')}s`;
+  });
 
   canAddEmployee(): boolean {
     return this.auth.hasPermission('EMPLOYEE_MANAGEMENT_CREATE');
@@ -175,67 +218,15 @@ export class DashboardComponent implements OnInit, OnDestroy {
     setTimeout(() => this.toastMessage.set(null), 4000);
   }
 
-  getElapsedSeconds(): number {
-    // Consume liveTime signal to trigger reactive change detection every second
-    const _tick = this.liveTime();
-
-    const inStr = this.hrms.todayClockInTime();
-    if (!inStr || inStr === '--') return 0;
-
-    const outStr = this.hrms.todayClockOutTime();
-    const now = new Date();
-
-    const parseTimeToDate = (timeStr: string): Date | null => {
-      try {
-        const todayYMD = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
-        let d = new Date(`${todayYMD} ${timeStr}`);
-        if (!isNaN(d.getTime())) return d;
-
-        const match = timeStr.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?$/i);
-        if (match) {
-          let hrs = parseInt(match[1], 10);
-          const mins = parseInt(match[2], 10);
-          const secs = match[3] ? parseInt(match[3], 10) : 0;
-          const ampm = match[4]?.toUpperCase();
-          if (ampm === 'PM' && hrs < 12) hrs += 12;
-          if (ampm === 'AM' && hrs === 12) hrs = 0;
-          d = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hrs, mins, secs);
-          if (!isNaN(d.getTime())) return d;
-        }
-        return null;
-      } catch (_) {
-        return null;
-      }
-    };
-
-    const inTime = parseTimeToDate(inStr);
-    if (!inTime) return this.hrms.clockDurationSeconds();
-
-    const outTime = (outStr && outStr !== '--') ? parseTimeToDate(outStr) : now;
-    if (!outTime) return this.hrms.clockDurationSeconds();
-
-    const diffSec = Math.floor((outTime.getTime() - inTime.getTime()) / 1000);
-    return diffSec > 0 ? diffSec : 0;
-  }
-
-  formattedLiveDuration(): string {
-    const secs = this.getElapsedSeconds();
-    if (secs === 0) return '00h 00m 00s';
-    const hrs = Math.floor(secs / 3600);
-    const mins = Math.floor((secs % 3600) / 60);
-    const s = secs % 60;
-    return `${hrs.toString().padStart(2, '0')}h ${mins.toString().padStart(2, '0')}m ${s.toString().padStart(2, '0')}s`;
-  }
-
-  getShiftProgressPercent(): number {
+  getShiftProgressPercent = computed(() => {
     const secs = this.getElapsedSeconds();
     if (secs === 0) return 0;
     const targetSecs = 9 * 3600; // 9 Hours standard day
     const pct = Math.min(100, Math.round((secs / targetSecs) * 100));
     return pct;
-  }
+  });
 
-  getRemainingShiftTime(): string {
+  getRemainingShiftTime = computed(() => {
     const secs = this.getElapsedSeconds();
     const targetSecs = 9 * 3600;
     if (secs >= targetSecs) return 'Goal Reached 🎉';
@@ -243,21 +234,22 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const hrs = Math.floor(remSecs / 3600);
     const mins = Math.floor((remSecs % 3600) / 60);
     return `${hrs}h ${mins}m left`;
-  }
+  });
 
-  getWorkDuration(): string {
+  getWorkDuration = computed(() => {
     const inStr = this.hrms.todayClockInTime();
     if (!inStr || inStr === '--') return '--';
     const outStr = this.hrms.todayClockOutTime();
-    const todayStr = new Date().toISOString().split('T')[0];
+    const now = this.nowDate();
+    const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
     const inTime = new Date(`${todayStr} ${inStr}`);
-    const outTime = (outStr && outStr !== '--') ? new Date(`${todayStr} ${outStr}`) : new Date();
+    const outTime = (outStr && outStr !== '--') ? new Date(`${todayStr} ${outStr}`) : now;
     const diffMs = outTime.getTime() - inTime.getTime();
     if (isNaN(diffMs) || diffMs < 0) return '--';
     const hrs = Math.floor(diffMs / 3600000);
     const mins = Math.floor((diffMs % 3600000) / 60000);
     return `${hrs}h ${mins}m`;
-  }
+  });
 
   getDayFromDate(dateStr?: string): string {
     if (!dateStr) return '15';
@@ -332,8 +324,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const allMyRequests = this.hrms.profileChangeRequests();
     const currentUser = this.auth.currentUser();
 
-    console.log('All my requests from service:', allMyRequests);
-    console.log('Current user:', currentUser);
+//     console.log('All my requests from service:', allMyRequests);
+//     console.log('Current user:', currentUser);
 
     const filtered = allMyRequests.filter(req => {
       const isMyRequest = req.employeeName === currentUser?.name ||
@@ -374,16 +366,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const allMyRequests = this.hrms.profileChangeRequests();
     const currentUser = this.auth.currentUser();
 
-    console.log('=== Employee Pending Requests Debug ===');
-    console.log('All requests from service:', allMyRequests);
-    console.log('Current user:', currentUser);
-    console.log('Current user name:', currentUser?.name);
-    console.log('Current user name trimmed:', currentUser?.name?.trim());
-    console.log('Current user id:', currentUser?.id);
-    console.log('Current user employeeId:', currentUser?.employeeId);
-
     if (!allMyRequests || allMyRequests.length === 0) {
-      console.log('No requests found in service');
+
       return [];
     }
 
@@ -468,8 +452,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const allRequests = this.hrms.pendingProfileChangeRequests();
     const currentUser = this.auth.currentUser();
 
-    console.log('All requests from pendingProfileChangeRequests:', allRequests);
-    console.log('Current user:', currentUser);
+//     console.log('All requests from pendingProfileChangeRequests:', allRequests);
+//     console.log('Current user:', currentUser);
 
     const filtered = allRequests.filter(req => {
       // Show ALL pending requests (both own and other employees') for HR/Manager
@@ -482,7 +466,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       return isPending;
     });
 
-    console.log('Filtered all pending requests for HR/Manager:', filtered);
+//     console.log('Filtered all pending requests for HR/Manager:', filtered);
 
     // Apply pagination
     const start = this.profileChangeCurrentPage() * this.profileChangePageSize;

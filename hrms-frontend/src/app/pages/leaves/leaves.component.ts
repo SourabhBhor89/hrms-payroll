@@ -91,13 +91,13 @@ export class LeavesComponent implements OnInit {
     if (this.isAdmin()) {
       this.activeTab = 'pending_approvals';
     }
-    
+
     // Debug: log leave requests after loading
     setTimeout(() => {
-      console.log('Leave requests after load:', this.hrms.leaveRequests());
-      console.log('Current user:', this.auth.currentUser());
-      console.log('Active tab:', this.activeTab);
-      console.log('Filtered requests:', this.filteredRequests());
+//       console.log('Leave requests after load:', this.hrms.leaveRequests());
+//       console.log('Current user:', this.auth.currentUser());
+//       console.log('Active tab:', this.activeTab);
+//       console.log('Filtered requests:', this.filteredRequests());
     }, 1000);
   }
 
@@ -161,41 +161,41 @@ export class LeavesComponent implements OnInit {
     } else {
       const currentUserEmail = this.auth.currentUser()?.email;
       const currentUserName = this.auth.currentUser()?.name?.trim();
-      
-      console.log('Filtering for current user:', { currentUserEmail, currentUserName });
-      console.log('Available leave requests:', this.hrms.leaveRequests());
-      
+
+//       console.log('Filtering for current user:', { currentUserEmail, currentUserName });
+//       console.log('Available leave requests:', this.hrms.leaveRequests());
+
       // Get current user's employee record for better matching
-      const currentUserEmployee = this.hrms.employees().find(e => 
+      const currentUserEmployee = this.hrms.employees().find(e =>
         e.email === currentUserEmail || e.name === currentUserName
       );
-      
+
       sourceList = this.hrms.leaveRequests().filter(r => {
         const requestName = r.employeeName?.trim() || '';
         const requestCode = r.employeeCode?.trim() || '';
-        
+
         // Match by employee ID if we have the current user's employee record
         const idMatch = currentUserEmployee && r.employeeId && String(r.employeeId) === currentUserEmployee.id;
-        
+
         // Match by email (employeeCode might contain email in some systems)
         const emailMatch = currentUserEmail && requestCode === currentUserEmail;
-        
+
         // Match by name (with trimming and case-insensitive comparison)
         const nameMatch = currentUserName && requestName.toLowerCase() === currentUserName.toLowerCase();
-        
+
         // Match by employee code if we have the current user's employee record
         const codeMatch = currentUserEmployee && requestCode === currentUserEmployee.employeeId;
-        
-        console.log('Request filtering check:', { 
-          request: r.employeeName, 
+
+        console.log('Request filtering check:', {
+          request: r.employeeName,
           requestCode,
-          idMatch, 
-          emailMatch, 
+          idMatch,
+          emailMatch,
           nameMatch,
           codeMatch,
           currentUserEmployeeId: currentUserEmployee?.id
         });
-        
+
         return idMatch || emailMatch || nameMatch || codeMatch;
       });
     }

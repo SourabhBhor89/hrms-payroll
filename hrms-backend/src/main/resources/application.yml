@@ -84,7 +84,7 @@ springdoc:
 
 security:
   jwt:
-    secret: ${JWT_SECRET:bXktZGV2LWhybXMtc2VjcmV0LWtleS1tdXN0LWJlLWxvbmctZW5vdWdoLTEyMzQ1Njc4OTA=}
+    secret: ${JWT_SECRET}
     access-token-expiration: ${ACCESS_TOKEN_EXPIRATION:15m}
     refresh-token-idle-timeout: ${REFRESH_TOKEN_IDLE_TIMEOUT:30m}
     activity-update-interval: ${ACTIVITY_UPDATE_INTERVAL:5m}
@@ -93,8 +93,13 @@ security:
 
 app:
   admin:
-    email: ${ADMIN_EMAIL:admin@hrms.local}
-    password: ${ADMIN_PASSWORD:Admin@12345}
+    email: ${ADMIN_EMAIL}
+    password: ${ADMIN_PASSWORD}
+  geofence:
+    enabled: ${GEOFENCE_ENABLED:true}
+    office-latitude: ${GEOFENCE_OFFICE_LATITUDE}
+    office-longitude: ${GEOFENCE_OFFICE_LONGITUDE}
+    allowed-radius-meters: ${GEOFENCE_ALLOWED_RADIUS_METERS:50}
 
 google:
   calendar:

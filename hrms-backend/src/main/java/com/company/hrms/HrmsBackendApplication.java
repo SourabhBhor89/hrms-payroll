@@ -1,5 +1,6 @@
 package com.company.hrms;
 
+import com.company.hrms.config.GeofenceProperties;
 import com.company.hrms.config.JwtProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -9,7 +10,7 @@ import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication
-@EnableConfigurationProperties(JwtProperties.class)
+@EnableConfigurationProperties({JwtProperties.class, GeofenceProperties.class})
 @EnableScheduling
 @EnableCaching
 @EnableAsync

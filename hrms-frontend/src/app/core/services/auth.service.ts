@@ -107,7 +107,7 @@ export class AuthService {
             employeeId: `EMP-00${res.user?.id || 1}`,
             name: res.user?.name || email.split('@')[0],
             email: email,
-            phone: '+91 9876543210',
+            phone: '',
             role: this.mapRole(res.user?.role),
             avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
             department: res.user?.role === 'ADMIN' ? 'Executive' : 'Operations',

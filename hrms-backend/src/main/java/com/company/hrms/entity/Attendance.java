@@ -49,4 +49,22 @@ public class Attendance extends BaseEntity {
 
     @Column(length = 255)
     private String notes;
+
+    @Column(name = "clock_in_latitude")
+    private Double clockInLatitude;
+
+    @Column(name = "clock_in_longitude")
+    private Double clockInLongitude;
+
+    @Column(name = "clock_in_distance_meters")
+    private Double clockInDistanceMeters;
+
+    @Column(name = "clock_out_latitude")
+    private Double clockOutLatitude;
+
+    @Column(name = "clock_out_longitude")
+    private Double clockOutLongitude;
+
+    @Column(name = "clock_out_distance_meters")
+    private Double clockOutDistanceMeters;
 }

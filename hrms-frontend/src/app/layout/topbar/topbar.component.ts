@@ -58,13 +58,13 @@ export class TopbarComponent {
     const userCode = (user.employeeId || '').toLowerCase().trim();
     const userId = String(user.id || '').trim();
 
-    console.log('=== Employee Matching Debug ===');
-    console.log('Current user:', user);
-    console.log('Available employees:', employees);
-    console.log('User email:', userEmail);
-    console.log('User name:', userName);
-    console.log('User employeeId:', userCode);
-    console.log('User id:', userId);
+//     console.log('=== Employee Matching Debug ===');
+//     console.log('Current user:', user);
+//     console.log('Available employees:', employees);
+//     console.log('User email:', userEmail);
+//     console.log('User name:', userName);
+//     console.log('User employeeId:', userCode);
+//     console.log('User id:', userId);
 
     // Log all available employeeIds for debugging
     const availableEmployeeIds = employees.map(e => e.employeeId);
@@ -163,19 +163,14 @@ export class TopbarComponent {
   }
 
   openProfileModal() {
-    // Load all employees to ensure we find the current user
-    this.hrms.loadEmployees(0, 1000, 'id', 'asc');
 
     const user = this.auth.currentUser();
-    const employee = this.currentEmployee();
+    const employees = this.hrms.employees();
+    let employee = this.currentEmployee();
 
     console.log('=== Profile Modal Debug ===');
     console.log('User data:', user);
     console.log('Employee data:', employee);
-    console.log('User role:', this.auth.currentRole());
-    console.log('Has employee data:', !!employee);
-
-    // Immediate initialization with available data
     this.profileForm = {
       phone: employee?.phone || user?.phone || '',
       address: employee?.address || '',
@@ -184,16 +179,36 @@ export class TopbarComponent {
       avatar: user?.avatar || employee?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'
     };
 
-    console.log('Initial profile form (immediate):', this.profileForm);
+    console.log('Profile form (immediate):', this.profileForm);
+    console.log('Final phone value:', this.profileForm.phone);
+    this.showProfileModal.set(true);
+    this.showUserDropdown.set(false);
 
-    // If no employee data found, try to match again after delay
+    // If employee not found initially, load and update form in background
     if (!employee) {
-      console.log('No employee found immediately, retrying after delay...');
-      setTimeout(() => {
+      console.log('No employee found, loading employees in background...');
+
+      // Load employees if not already loaded
+      if (!employees || employees.length === 0) {
+        this.hrms.loadEmployees(0, 1000, 'id', 'asc');
+      }
+
+      let retryCount = 0;
+      const maxRetries = 20;
+      const checkInterval = setInterval(() => {
+        retryCount++;
+        const currentEmployees = this.hrms.employees();
         const loadedEmployee = this.currentEmployee();
-        console.log('Loaded employee after retry:', loadedEmployee);
+
+        console.log(`Background update ${retryCount}/${maxRetries}`);
+        console.log(`Employees array length: ${currentEmployees?.length}`);
+        console.log(`Loaded employee:`, loadedEmployee);
+        console.log(`Loaded employee phone:`, loadedEmployee?.phone);
 
         if (loadedEmployee) {
+          clearInterval(checkInterval);
+
+          // Update form with employee data
           this.profileForm = {
             phone: loadedEmployee.phone || user?.phone || '',
             address: loadedEmployee.address || '',
@@ -201,16 +216,17 @@ export class TopbarComponent {
             permanentAddress: loadedEmployee.permanentAddress || '',
             avatar: user?.avatar || loadedEmployee.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'
           };
-          console.log('Profile form updated with employee data:', this.profileForm);
-        } else {
-          console.log('Still no employee found, using user data only');
-        }
-      }, 500);
-    }
 
-    this.showProfileModal.set(true);
-    this.showUserDropdown.set(false);
-    console.log('=== End Debug ===');
+          console.log('Profile form updated with employee data:', this.profileForm);
+          console.log('Updated phone value:', this.profileForm.phone);
+        } else if (retryCount >= maxRetries) {
+          clearInterval(checkInterval);
+          console.log('Max retries reached, keeping current form data');
+          console.log('Final employees array length:', currentEmployees?.length);
+        }
+      }, 200);
+    }
+//     console.log('=== End Debug ===');
   }
 
   onFileSelected(event: any) {
