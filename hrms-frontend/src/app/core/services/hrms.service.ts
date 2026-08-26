@@ -1364,4 +1364,36 @@ export class HrmsService {
     );
   }
 
+  // Employee Leave & WFH Report APIs
+  searchEmployees(query: string): Observable<EmployeeSearchResult[]> {
+    return this.http.get<EmployeeSearchResult[]>(`/api/v1/leaves/employee-search?query=${encodeURIComponent(query)}`);
+  }
+
+  getEmployeeLeaveWfhSummary(employeeId: number | string, year?: number, month?: number): Observable<EmployeeLeaveWfhSummary> {
+    let url = `/api/v1/leaves/employee-summary/${employeeId}`;
+    const params: string[] = [];
+    if (year) params.push(`year=${year}`);
+    if (month) params.push(`month=${month}`);
+    if (params.length > 0) {
+      url += '?' + params.join('&');
+    }
+    return this.http.get<EmployeeLeaveWfhSummary>(url);
+  }
+
+  updateEmployeeDayStatus(payload: {
+    employeeId: number | string;
+    date: string;
+    status: string;
+    leaveTypeId?: number;
+    reason?: string;
+  }): Observable<any> {
+    return this.http.put<any>('/api/v1/leaves/employee-status', payload).pipe(
+      catchError(err => {
+        const msg = err?.error?.message || err?.error?.error || 'Failed to update day status.';
+        this.notify.showAlert(msg);
+        return of(null);
+      })
+    );
+  }
+
 }

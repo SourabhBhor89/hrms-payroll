@@ -23,10 +23,10 @@ spring:
       cache-null-values: false
 
   datasource:
-    url: jdbc:postgresql:///postgres
+    url: ${DB_URL}
     databse: postgres
     username: postgres
-    password: '1111'
+    password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 15
@@ -55,7 +55,7 @@ spring:
   mail:
     host: smtp.gmail.com
     port: 587
-    username: ${MAIL_USERNAME}
+    username: ${MAIL_USERNAME}  
     password: ${MAIL_PASSWORD}
     properties:
       mail:
@@ -105,3 +105,4 @@ google:
   calendar:
     api-key: ${GOOGLE_CALENDAR_API_KEY:}
     calendar-id: ${GOOGLE_CALENDAR_ID:en.indian#holiday@group.v.calendar.google.com}
+
