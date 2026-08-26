@@ -1,5 +1,6 @@
 package com.company.hrms.controller;
 
+import com.company.hrms.config.RateLimit;
 import com.company.hrms.dto.request.CreateEmployeeRequest;
 import com.company.hrms.dto.response.EmployeeDto;
 import com.company.hrms.dto.response.NextEmployeeCodeResponse;
@@ -28,6 +29,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/employees")
 @RequiredArgsConstructor
+@RateLimit(requests = 50, period = 60, type = RateLimit.RateLimitType.USER)
 public class EmployeeController {
 
     private final EmployeeService employeeService;

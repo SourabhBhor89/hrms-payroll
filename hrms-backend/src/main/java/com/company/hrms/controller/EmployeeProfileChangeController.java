@@ -1,5 +1,6 @@
 package com.company.hrms.controller;
 
+import com.company.hrms.config.RateLimit;
 import com.company.hrms.constants.CacheNames;
 import com.company.hrms.dto.request.CreateProfileChangeRequest;
 import com.company.hrms.dto.response.ProfileChangeRequestResponse;
@@ -27,6 +28,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/v1/profile-changes")
 @RequiredArgsConstructor
+@RateLimit(requests = 50, period = 60, type = RateLimit.RateLimitType.USER)
 public class EmployeeProfileChangeController {
 
     private final EmployeeProfileChangeService profileChangeService;

@@ -1,5 +1,7 @@
 package com.company.hrms.controller;
 
+import com.company.hrms.config.RateLimit;
+
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,6 +17,7 @@ import com.company.hrms.service.Google_Calendar_Service.GoogleCalendarService;
 
 @RestController
 @RequestMapping("/api/v1/holidays")
+@RateLimit(requests = 50, period = 60, type = RateLimit.RateLimitType.USER)
 public class HolidayController {
 
     @Autowired

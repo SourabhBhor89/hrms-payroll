@@ -1,5 +1,6 @@
 package com.company.hrms.controller;
 
+import com.company.hrms.config.RateLimit;
 import com.company.hrms.dto.response.AttendanceDto;
 import com.company.hrms.entity.Attendance;
 import com.company.hrms.entity.AttendanceRegularization;
@@ -49,6 +50,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 @RestController
 @RequestMapping("/api/v1/attendance")
 @RequiredArgsConstructor
+@RateLimit(requests = 50, period = 60, type = RateLimit.RateLimitType.USER)
 public class AttendanceController {
 
     private final AttendanceRepository attendanceRepository;

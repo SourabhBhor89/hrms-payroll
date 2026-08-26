@@ -1,5 +1,6 @@
 package com.company.hrms.controller;
 
+import com.company.hrms.config.RateLimit;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -22,6 +23,7 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequestMapping("/api/v1/dashboard")
 @RequiredArgsConstructor
+@RateLimit(requests = 50, period = 60, type = RateLimit.RateLimitType.USER)
 public class DashboardController {
 
     private final EmployeeRepository employeeRepository;

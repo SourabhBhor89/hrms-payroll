@@ -1,5 +1,6 @@
 package com.company.hrms.controller;
 
+import com.company.hrms.config.RateLimit;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -12,6 +13,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/timesheets")
+@RateLimit(requests = 50, period = 60, type = RateLimit.RateLimitType.USER)
 public class TimesheetController {
 
     @GetMapping
