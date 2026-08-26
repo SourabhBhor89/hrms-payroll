@@ -163,20 +163,14 @@ export class TopbarComponent {
   }
 
   openProfileModal() {
+
     const user = this.auth.currentUser();
     const employees = this.hrms.employees();
     let employee = this.currentEmployee();
-
+    
     console.log('=== Profile Modal Debug ===');
     console.log('User data:', user);
     console.log('Employee data:', employee);
-    console.log('Employees array length:', employees?.length);
-    console.log('User role:', this.auth.currentRole());
-    console.log('Has employee data:', !!employee);
-    console.log('Employee phone if found:', employee?.phone);
-    console.log('User phone:', user?.phone);
-
-    // Show modal immediately with available data
     this.profileForm = {
       phone: employee?.phone || user?.phone || '',
       address: employee?.address || '',
@@ -232,8 +226,7 @@ export class TopbarComponent {
         }
       }, 200);
     }
-
-    console.log('=== End Debug ===');
+//     console.log('=== End Debug ===');
   }
 
   onFileSelected(event: any) {
