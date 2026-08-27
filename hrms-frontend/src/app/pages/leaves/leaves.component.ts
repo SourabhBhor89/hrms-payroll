@@ -115,18 +115,27 @@ export class LeavesComponent implements OnInit {
 
   get activeLeaveTypes() {
     const types = this.hrms.leaveTypes();
+    const isBench = this.auth.currentUser()?.benchStatus === 'YES';
+
     if (types && types.length > 0) {
-      // Filter out ineligible leave types
-      return types.filter(type => this.isLeaveTypeEligible(type));
+      // Filter out ineligible leave types and filter out WFH for Bench Employees
+      return types.filter(type => {
+        if (isBench && type.code === 'WFH') {
+          return false;
+        }
+        return this.isLeaveTypeEligible(type);
+      });
     }
 
     const balances = this.hrms.leaveBalances();
     if (balances && balances.length > 0) {
-      return balances.map(b => ({
-        id: b.leaveTypeId,
-        code: b.leaveTypeCode,
-        name: b.leaveTypeName
-      }));
+      return balances
+        .filter(b => !(isBench && b.leaveTypeCode === 'WFH'))
+        .map(b => ({
+          id: b.leaveTypeId,
+          code: b.leaveTypeCode,
+          name: b.leaveTypeName
+        }));
     }
     return [];
   }

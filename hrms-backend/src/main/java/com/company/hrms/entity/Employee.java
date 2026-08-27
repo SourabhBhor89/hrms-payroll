@@ -121,6 +121,9 @@ public class Employee extends BaseEntity {
     @Column(name = "marriage_date")
     private LocalDate marriageDate;
 
+    @Column(name = "bench_status", nullable = false, length = 10)
+    private String benchStatus = "NO";
+
     @Column(nullable = false)
     private Boolean active = true;
 

@@ -59,7 +59,9 @@ public class GlobalExceptionHandler {
         for (FieldError error : ex.getBindingResult().getFieldErrors()) {
             errors.put(error.getField(), error.getDefaultMessage());
         }
+        String firstMessage = errors.values().stream().findFirst().orElse("Validation failed");
         body.put("error", "Validation Failed");
+        body.put("message", firstMessage);
         body.put("details", errors);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
     }

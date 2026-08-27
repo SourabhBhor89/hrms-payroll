@@ -50,4 +50,5 @@ public class EmployeeDto {
     private String permanentAddress;
     private String maritalStatus;
     private LocalDate marriageDate;
+    private String benchStatus;
 }

@@ -13,6 +13,7 @@ export interface LoginResponse {
     id: number;
     name: string;
     role: string;
+    benchStatus?: 'YES' | 'NO';
   };
 }
 
@@ -111,7 +112,8 @@ export class AuthService {
             role: this.mapRole(res.user?.role),
             avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
             department: res.user?.role === 'ADMIN' ? 'Executive' : 'Operations',
-            designation: res.user?.role === 'ADMIN' ? 'Administrator' : 'Staff Member'
+            designation: res.user?.role === 'ADMIN' ? 'Administrator' : 'Staff Member',
+            benchStatus: (res.user?.benchStatus as 'YES' | 'NO') || 'NO'
           };
 
           this.currentUser.set(mappedUser);

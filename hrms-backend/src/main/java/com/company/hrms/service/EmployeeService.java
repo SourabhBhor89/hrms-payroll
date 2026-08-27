@@ -19,5 +19,7 @@ public interface EmployeeService {
 
     void deleteEmployee(Long id);
 
+    EmployeeDto updateBenchStatus(Long id, String benchStatus, String updatedBy);
+
     com.company.hrms.dto.response.NextEmployeeCodeResponse getNextEmployeeCode();
 }
