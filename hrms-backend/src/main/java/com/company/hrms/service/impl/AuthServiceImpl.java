@@ -93,14 +93,20 @@ public class AuthServiceImpl implements AuthService {
             setRefreshTokenCookie(httpResponse, rawRefreshToken, jwtProperties.getRefreshTokenIdleTimeout().getSeconds());
         }
 
-        String name = employeeRepository.findByUserId(user.getId())
-                .map(emp -> {
-                    if (emp.getLastName() != null && !emp.getLastName().isBlank()) {
-                        return emp.getFirstName() + " " + emp.getLastName();
-                    }
-                    return emp.getFirstName();
-                })
-                .orElse(user.getEmail());
+        com.company.hrms.entity.Employee emp = employeeRepository.findByUserId(user.getId()).orElse(null);
+        String name = user.getEmail();
+        String benchStatus = "NO";
+
+        if (emp != null) {
+            if (emp.getLastName() != null && !emp.getLastName().isBlank()) {
+                name = emp.getFirstName() + " " + emp.getLastName();
+            } else if (emp.getFirstName() != null) {
+                name = emp.getFirstName();
+            }
+            if (emp.getBenchStatus() != null) {
+                benchStatus = emp.getBenchStatus();
+            }
+        }
 
         long expiresInSeconds = jwtProperties.getAccessTokenExpiration().getSeconds();
 
@@ -112,6 +118,7 @@ public class AuthServiceImpl implements AuthService {
                         .id(user.getId())
                         .name(name)
                         .role(user.getRole().getName().name())
+                        .benchStatus(benchStatus)
                         .build())
                 .build();
     }

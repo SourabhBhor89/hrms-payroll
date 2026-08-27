@@ -38,11 +38,11 @@ class EmployeeControllerNextCodeTest {
     @Test
     @DisplayName("GET /api/v1/employees/next-code should return 200 OK with expected next employee code")
     void testGetNextEmployeeCodeEndpoint() throws Exception {
-        when(employeeService.getNextEmployeeCode()).thenReturn(new NextEmployeeCodeResponse("EMP-066"));
+        when(employeeService.getNextEmployeeCode()).thenReturn(new NextEmployeeCodeResponse("TRHPL-066"));
 
         mockMvc.perform(get("/api/v1/employees/next-code")
                 .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.employeeCode").value("EMP-066"));
+                .andExpect(jsonPath("$.employeeCode").value("TRHPL-066"));
     }
 }

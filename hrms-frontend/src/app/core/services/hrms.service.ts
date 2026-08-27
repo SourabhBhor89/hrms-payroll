@@ -505,6 +505,7 @@ export class HrmsService {
         permanentAddress: e.permanentAddress || e.address,
         maritalStatus: e.maritalStatus || 'Single',
         marriageDate: e.marriageDate,
+        benchStatus: e.benchStatus || 'NO',
         leaveBalance: { casual: 10, sick: 7, paid: 15, wfh: 8 }
       }));
 
@@ -562,6 +563,14 @@ export class HrmsService {
     }).pipe(
       tap(() => {
         this.loadEmployees(0, 10, 'id', 'asc');
+      })
+    );
+  }
+
+  updateBenchStatus(id: string | number, benchStatus: 'YES' | 'NO'): Observable<any> {
+    return this.http.patch<any>(`/api/v1/employees/${id}/bench-status`, { benchStatus }).pipe(
+      tap(() => {
+        this.loadEmployees(this.employeePagination().currentPage, this.employeePagination().pageSize, 'id', 'asc');
       })
     );
   }

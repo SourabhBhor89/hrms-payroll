@@ -84,6 +84,14 @@ public class LeaveServiceImpl implements LeaveService {
         LeaveType leaveType = leaveTypeRepository.findById(request.getLeaveTypeId())
                 .orElseThrow(() -> new IllegalArgumentException("Leave type not found with ID: " + request.getLeaveTypeId()));
 
+        // WFH Bench Status Restriction
+        if ("WFH".equalsIgnoreCase(leaveType.getCode())) {
+            String dbBenchStatus = employeeRepository.findBenchStatusByEmployeeId(employeeId).orElse("NO");
+            if ("YES".equalsIgnoreCase(dbBenchStatus)) {
+                throw new IllegalArgumentException("Employees currently on Bench are not eligible to apply for Work From Home (WFH).");
+            }
+        }
+
         // Check 6-month employment rule for paid leaves (skip for unlimited leave types)
         if (leaveType.getDefaultDaysPerYear() > 0 && leaveType.getPaid() && !isEmployeeEligibleForPaidLeaves(employee)) {
             throw new IllegalArgumentException("You are not eligible for paid leaves yet. Paid leaves are available after 6 months of employment. Please use LOP instead.");
@@ -797,6 +805,14 @@ public class LeaveServiceImpl implements LeaveService {
             LeaveType leaveType = leaveTypeRepository.findById(request.getLeaveTypeId())
                     .orElseThrow(() -> new IllegalArgumentException("Leave type not found with ID: " + request.getLeaveTypeId()));
             leave.setLeaveType(leaveType);
+        }
+
+        // WFH Bench Status Restriction
+        if (leave.getLeaveType() != null && "WFH".equalsIgnoreCase(leave.getLeaveType().getCode())) {
+            String dbBenchStatus = employeeRepository.findBenchStatusByEmployeeId(employeeId).orElse("NO");
+            if ("YES".equalsIgnoreCase(dbBenchStatus)) {
+                throw new IllegalArgumentException("Employees currently on Bench are not eligible to apply for Work From Home (WFH).");
+            }
         }
 
         boolean datesChanged = false;

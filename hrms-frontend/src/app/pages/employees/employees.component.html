@@ -139,6 +139,7 @@
               </span>
             </div>
           </th>
+          <th>Bench Status</th>
           <th>Actions</th>
         </tr>
       </thead>
@@ -163,6 +164,24 @@
               [class.badge-purple]="emp.status === 'Remote'">
               {{ emp.status }}
             </span>
+          </td>
+          <td>
+            <ng-container *ngIf="isEligibleForBenchStatus(emp); else nonEmployeeBenchStatus">
+              <ng-container *ngIf="canUpdateBenchStatus(); else viewOnlyBenchStatus">
+                <select class="form-select form-select-sm" [ngModel]="emp.benchStatus || 'NO'" (ngModelChange)="onBenchStatusChange(emp, $event)" style="width: 110px; padding: 2px 6px; font-size: 0.8rem;">
+                  <option value="NO">PROJECT</option>
+                  <option value="YES">BENCH</option>
+                </select>
+              </ng-container>
+              <ng-template #viewOnlyBenchStatus>
+                <span class="badge" [class.badge-warning]="emp.benchStatus === 'YES'" [class.badge-info]="emp.benchStatus !== 'YES'">
+                  {{ emp.benchStatus === 'YES' ? 'BENCH' : 'PROJECT' }}
+                </span>
+              </ng-template>
+            </ng-container>
+            <ng-template #nonEmployeeBenchStatus>
+              <span class="text-muted" style="font-weight: 500;">-</span>
+            </ng-template>
           </td>
           <td>
             <div class="table-actions">
@@ -229,13 +248,25 @@
       <!-- Modal Tabs Navigation -->
       <div class="modal-tabs">
         <button type="button" class="tab-btn" [class.active]="activeTab() === 'basic'"
-          (click)="activeTab.set('basic')">1. Basic Details</button>
+          (click)="activeTab.set('basic')">
+          1. Basic Details
+          <span class="tab-badge-error" *ngIf="tabErrors().basic > 0">{{ tabErrors().basic }}</span>
+        </button>
         <button type="button" class="tab-btn" [class.active]="activeTab() === 'experience'"
-          (click)="activeTab.set('experience')">2. Experience & Salary</button>
+          (click)="activeTab.set('experience')">
+          2. Experience & Salary
+          <span class="tab-badge-error" *ngIf="tabErrors().experience > 0">{{ tabErrors().experience }}</span>
+        </button>
         <button type="button" class="tab-btn" [class.active]="activeTab() === 'education'"
-          (click)="activeTab.set('education')">3. Education & Gap</button>
+          (click)="activeTab.set('education')">
+          3. Education & Gap
+          <span class="tab-badge-error" *ngIf="tabErrors().education > 0">{{ tabErrors().education }}</span>
+        </button>
         <button type="button" class="tab-btn" [class.active]="activeTab() === 'contact'"
-          (click)="activeTab.set('contact')">4. Address & Contacts</button>
+          (click)="activeTab.set('contact')">
+          4. Address & Contacts
+          <span class="tab-badge-error" *ngIf="tabErrors().contact > 0">{{ tabErrors().contact }}</span>
+        </button>
       </div>
 
       <form (ngSubmit)="saveNewEmployee()" class="mt-2">
@@ -244,94 +275,117 @@
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">Employee Code *</label>
-              <input type="text" class="form-input" [(ngModel)]="newEmp.employeeCode" name="employeeCode" required
-                placeholder="e.g. EMP-001" />
+              <input type="text" class="form-input" [class.is-invalid]="getFieldError('employeeCode')" [(ngModel)]="newEmp.employeeCode" name="employeeCode" required
+                placeholder="e.g. TRHPL-001" />
+              <span class="field-error" *ngIf="getFieldError('employeeCode')">{{ getFieldError('employeeCode') }}</span>
             </div>
 
             <div class="form-group">
-              <label class="form-label">Joining Date</label>
-              <input type="date" class="form-input" [(ngModel)]="newEmp.joiningDate" name="joiningDate" />
+              <label class="form-label">Joining Date *</label>
+              <input type="date" class="form-input" [class.is-invalid]="getFieldError('joiningDate')" [(ngModel)]="newEmp.joiningDate" name="joiningDate" />
+              <span class="field-error" *ngIf="getFieldError('joiningDate')">{{ getFieldError('joiningDate') }}</span>
             </div>
           </div>
 
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">First Name *</label>
-              <input type="text" class="form-input" [(ngModel)]="newEmp.firstName" name="firstName" required
+              <input type="text" class="form-input" [class.is-invalid]="getFieldError('firstName')" [(ngModel)]="newEmp.firstName" name="firstName" required
                 placeholder="e.g. Jordan" />
+              <span class="field-error" *ngIf="getFieldError('firstName')">{{ getFieldError('firstName') }}</span>
             </div>
 
             <div class="form-group">
               <label class="form-label">Last Name</label>
-              <input type="text" class="form-input" [(ngModel)]="newEmp.lastName" name="lastName"
+              <input type="text" class="form-input" [class.is-invalid]="getFieldError('lastName')" [(ngModel)]="newEmp.lastName" name="lastName"
                 placeholder="e.g. Miller" />
+              <span class="field-error" *ngIf="getFieldError('lastName')">{{ getFieldError('lastName') }}</span>
             </div>
           </div>
 
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">Work Email *</label>
-              <input type="email" class="form-input" [(ngModel)]="newEmp.email" name="email" required
+              <input type="email" class="form-input" [class.is-invalid]="getFieldError('email')" [(ngModel)]="newEmp.email" name="email" required
                 placeholder="jordan@company.io" />
+              <span class="field-error" *ngIf="getFieldError('email')">{{ getFieldError('email') }}</span>
             </div>
 
             <div class="form-group">
-              <label class="form-label">Phone Number</label>
-              <input type="text" class="form-input" [(ngModel)]="newEmp.phone" name="phone"
-                placeholder="+1 (555) 000-1122" />
+              <label class="form-label">Phone Number *</label>
+              <input type="text" class="form-input" [class.is-invalid]="getFieldError('phone')" [(ngModel)]="newEmp.phone" name="phone"
+                placeholder="9876543210" />
+              <span class="field-error" *ngIf="getFieldError('phone')">{{ getFieldError('phone') }}</span>
             </div>
           </div>
 
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label">Date of Birth</label>
-              <input type="date" class="form-input" [(ngModel)]="newEmp.dateOfBirth" name="dateOfBirth" />
+              <label class="form-label">Date of Birth *</label>
+              <input type="date" class="form-input" [class.is-invalid]="getFieldError('dateOfBirth')" [(ngModel)]="newEmp.dateOfBirth" name="dateOfBirth" />
+              <span class="field-error" *ngIf="getFieldError('dateOfBirth')">{{ getFieldError('dateOfBirth') }}</span>
             </div>
 
             <div class="form-group">
-              <label class="form-label">Department</label>
-              <select class="form-select" [(ngModel)]="newEmp.department" name="department">
+              <label class="form-label">Department *</label>
+              <select class="form-select" [class.is-invalid]="getFieldError('department')" [(ngModel)]="newEmp.department" name="department">
                 <option value="Engineering">Engineering</option>
                 <option value="Human Resources">Human Resources</option>
                 <option value="Design">Design</option>
                 <option value="Marketing">Marketing</option>
                 <option value="Finance">Finance</option>
               </select>
+              <span class="field-error" *ngIf="getFieldError('department')">{{ getFieldError('department') }}</span>
             </div>
           </div>
 
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label">Marital Status</label>
-              <select class="form-select" [(ngModel)]="newEmp.maritalStatus" (change)="onMaritalStatusChange()"
+              <label class="form-label">Marital Status *</label>
+              <select class="form-select" [class.is-invalid]="getFieldError('maritalStatus')" [(ngModel)]="newEmp.maritalStatus" (change)="onMaritalStatusChange()"
                 name="maritalStatus">
-                <option value="Single">Single / Non-Married</option>
+                <option value="Single">Single</option>
                 <option value="Married">Married</option>
+                <option value="Divorced">Divorced</option>
+                <option value="Widowed">Widowed</option>
               </select>
+              <span class="field-error" *ngIf="getFieldError('maritalStatus')">{{ getFieldError('maritalStatus') }}</span>
             </div>
 
             <div class="form-group" *ngIf="newEmp.maritalStatus === 'Married'">
-              <label class="form-label">Date of Marriage</label>
-              <input type="date" class="form-input" [(ngModel)]="newEmp.marriageDate" name="marriageDate" />
+              <label class="form-label">Date of Marriage *</label>
+              <input type="date" class="form-input" [class.is-invalid]="getFieldError('marriageDate')" [(ngModel)]="newEmp.marriageDate" name="marriageDate" />
+              <span class="field-error" *ngIf="getFieldError('marriageDate')">{{ getFieldError('marriageDate') }}</span>
             </div>
           </div>
 
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label">Designation</label>
-              <input type="text" class="form-input" [(ngModel)]="newEmp.designation" name="designation"
+              <label class="form-label">Designation *</label>
+              <input type="text" class="form-input" [class.is-invalid]="getFieldError('designation')" [(ngModel)]="newEmp.designation" name="designation"
                 placeholder="e.g. Senior Backend Engineer" />
+              <span class="field-error" *ngIf="getFieldError('designation')">{{ getFieldError('designation') }}</span>
             </div>
 
             <div class="form-group">
-              <label class="form-label">Role</label>
-              <select class="form-select" [(ngModel)]="newEmp.role" name="role">
+              <label class="form-label">Role *</label>
+              <select class="form-select" [class.is-invalid]="getFieldError('role')" [(ngModel)]="newEmp.role" name="role">
                 <option value="EMPLOYEE">EMPLOYEE</option>
                 <option value="HR">HR</option>
                 <option value="MANAGER">MANAGER</option>
                 <option value="COORDINATOR">COORDINATOR</option>
                 <option value="ADMIN" *ngIf="auth.currentRole() === 'Admin'">ADMIN</option>
               </select>
+              <span class="field-error" *ngIf="getFieldError('role')">{{ getFieldError('role') }}</span>
+            </div>
+
+            <div class="form-group" *ngIf="canUpdateBenchStatus() && (newEmp.role === 'EMPLOYEE' || !newEmp.role)">
+              <label class="form-label">Bench Status</label>
+              <select class="form-select" [class.is-invalid]="getFieldError('benchStatus')" [(ngModel)]="newEmp.benchStatus" name="benchStatus">
+                <option value="NO">PROJECT (NO)</option>
+                <option value="YES">BENCH (YES)</option>
+              </select>
+              <span class="field-error" *ngIf="getFieldError('benchStatus')">{{ getFieldError('benchStatus') }}</span>
             </div>
           </div>
 
@@ -339,7 +393,7 @@
             <div class="form-group">
               <label class="form-label">Password</label>
               <div class="password-wrapper">
-                <input [type]="showPassword() ? 'text' : 'password'" class="form-input" [(ngModel)]="newEmp.password"
+                <input [type]="showPassword() ? 'text' : 'password'" class="form-input" [class.is-invalid]="getFieldError('password')" [(ngModel)]="newEmp.password"
                   name="password" placeholder="Default: Employee@12345" />
                 <button type="button" class="btn-toggle-password" (click)="togglePasswordVisibility()"
                   [title]="showPassword() ? 'Hide password' : 'Show password'">
@@ -357,12 +411,14 @@
                   </svg>
                 </button>
               </div>
+              <span class="field-error" *ngIf="getFieldError('password')">{{ getFieldError('password') }}</span>
             </div>
 
             <div class="form-group">
               <label class="form-label">Photo URL / Avatar</label>
-              <input type="text" class="form-input" [(ngModel)]="newEmp.photoUrl" name="photoUrl"
+              <input type="text" class="form-input" [class.is-invalid]="getFieldError('photoUrl')" [(ngModel)]="newEmp.photoUrl" name="photoUrl"
                 placeholder="https://images.unsplash.com/..." />
+              <span class="field-error" *ngIf="getFieldError('photoUrl')">{{ getFieldError('photoUrl') }}</span>
             </div>
           </div>
         </div>
@@ -378,43 +434,49 @@
 
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label">Total Experience</label>
-              <input type="text" class="form-input" [(ngModel)]="newEmp.totalExperience" name="totalExperience"
-                [disabled]="newEmp.isFresher" placeholder="e.g. 3.5 Years" />
+              <label class="form-label">Total Experience (Years) <span *ngIf="!newEmp.isFresher">*</span></label>
+              <input type="text" class="form-input" [class.is-invalid]="getFieldError('totalExperience')" [(ngModel)]="newEmp.totalExperience" name="totalExperience"
+                [disabled]="newEmp.isFresher" placeholder="e.g. 3.5" />
+              <span class="field-error" *ngIf="getFieldError('totalExperience')">{{ getFieldError('totalExperience') }}</span>
             </div>
 
             <div class="form-group">
               <label class="form-label">Tech Stack / Skills</label>
-              <input type="text" class="form-input" [(ngModel)]="newEmp.techStack" name="techStack"
+              <input type="text" class="form-input" [class.is-invalid]="getFieldError('techStack')" [(ngModel)]="newEmp.techStack" name="techStack"
                 placeholder="e.g. Java, Spring Boot, Angular" />
+              <span class="field-error" *ngIf="getFieldError('techStack')">{{ getFieldError('techStack') }}</span>
             </div>
           </div>
 
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label">Current Salary (LPA / Annual)</label>
-              <input type="text" class="form-input" [(ngModel)]="newEmp.currentSalary" name="currentSalary"
-                placeholder="e.g. 7,50,000" />
+              <label class="form-label">Current Salary *</label>
+              <input type="text" class="form-input" [class.is-invalid]="getFieldError('currentSalary')" [(ngModel)]="newEmp.currentSalary" name="currentSalary"
+                placeholder="e.g. 750000" />
+              <span class="field-error" *ngIf="getFieldError('currentSalary')">{{ getFieldError('currentSalary') }}</span>
             </div>
 
             <div class="form-group">
               <label class="form-label">Previous Salary</label>
-              <input type="text" class="form-input" [(ngModel)]="newEmp.previousSalary" name="previousSalary"
-                [disabled]="newEmp.isFresher" placeholder="e.g. 5,00,000" />
+              <input type="text" class="form-input" [class.is-invalid]="getFieldError('previousSalary')" [(ngModel)]="newEmp.previousSalary" name="previousSalary"
+                [disabled]="newEmp.isFresher" placeholder="e.g. 500000" />
+              <span class="field-error" *ngIf="getFieldError('previousSalary')">{{ getFieldError('previousSalary') }}</span>
             </div>
           </div>
 
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label">Previous Company</label>
-              <input type="text" class="form-input" [(ngModel)]="newEmp.previousCompany" name="previousCompany"
+              <label class="form-label">Previous Company <span *ngIf="!newEmp.isFresher">*</span></label>
+              <input type="text" class="form-input" [class.is-invalid]="getFieldError('previousCompany')" [(ngModel)]="newEmp.previousCompany" name="previousCompany"
                 [disabled]="newEmp.isFresher" placeholder="e.g. Acme Corp Tech" />
+              <span class="field-error" *ngIf="getFieldError('previousCompany')">{{ getFieldError('previousCompany') }}</span>
             </div>
 
             <div class="form-group">
-              <label class="form-label">Previous Designation</label>
-              <input type="text" class="form-input" [(ngModel)]="newEmp.previousDesignation" name="previousDesignation"
+              <label class="form-label">Previous Designation <span *ngIf="!newEmp.isFresher">*</span></label>
+              <input type="text" class="form-input" [class.is-invalid]="getFieldError('previousDesignation')" [(ngModel)]="newEmp.previousDesignation" name="previousDesignation"
                 [disabled]="newEmp.isFresher" placeholder="e.g. Junior Developer" />
+              <span class="field-error" *ngIf="getFieldError('previousDesignation')">{{ getFieldError('previousDesignation') }}</span>
             </div>
           </div>
         </div>
@@ -423,20 +485,23 @@
         <div *ngIf="activeTab() === 'education'">
           <div class="form-group">
             <label class="form-label">10th Qualification *</label>
-            <input type="text" class="form-input" [(ngModel)]="newEmp.tenthQualification" name="tenthQualification"
+            <input type="text" class="form-input" [class.is-invalid]="getFieldError('tenthQualification')" [(ngModel)]="newEmp.tenthQualification" name="tenthQualification"
               required placeholder="e.g. CBSE - 85% (2015)" />
+            <span class="field-error" *ngIf="getFieldError('tenthQualification')">{{ getFieldError('tenthQualification') }}</span>
           </div>
 
           <div class="form-group">
             <label class="form-label">12th Qualification *</label>
-            <input type="text" class="form-input" [(ngModel)]="newEmp.twelfthQualification" name="twelfthQualification"
+            <input type="text" class="form-input" [class.is-invalid]="getFieldError('twelfthQualification')" [(ngModel)]="newEmp.twelfthQualification" name="twelfthQualification"
               required placeholder="e.g. CBSE Science - 78% (2017)" />
+            <span class="field-error" *ngIf="getFieldError('twelfthQualification')">{{ getFieldError('twelfthQualification') }}</span>
           </div>
 
           <div class="form-group">
             <label class="form-label">Bachelor's Qualification *</label>
-            <input type="text" class="form-input" [(ngModel)]="newEmp.bachelorQualification"
+            <input type="text" class="form-input" [class.is-invalid]="getFieldError('bachelorQualification')" [(ngModel)]="newEmp.bachelorQualification"
               name="bachelorQualification" required placeholder="e.g. B.Tech Computer Science - 7.8 CGPA (2021)" />
+            <span class="field-error" *ngIf="getFieldError('bachelorQualification')">{{ getFieldError('bachelorQualification') }}</span>
           </div>
 
           <div class="form-group mb-3">
@@ -449,9 +514,10 @@
 
           <div class="form-group" *ngIf="newEmp.hasHighestQualification">
             <label class="form-label">Highest Qualification *</label>
-            <input type="text" class="form-input" [(ngModel)]="newEmp.highestQualification" name="highestQualification"
+            <input type="text" class="form-input" [class.is-invalid]="getFieldError('highestQualification')" [(ngModel)]="newEmp.highestQualification" name="highestQualification"
               [required]="newEmp.hasHighestQualification"
               placeholder="e.g. M.Tech Computer Science - 8.2 CGPA (2023)" />
+            <span class="field-error" *ngIf="getFieldError('highestQualification')">{{ getFieldError('highestQualification') }}</span>
           </div>
 
           <div class="form-group mb-3">
@@ -462,9 +528,10 @@
           </div>
 
           <div class="form-group" *ngIf="newEmp.hasGap">
-            <label class="form-label">Gap Reason & Details</label>
-            <textarea class="form-input" rows="3" [(ngModel)]="newEmp.gapReason" name="gapReason"
+            <label class="form-label">Gap Reason & Details *</label>
+            <textarea class="form-input" [class.is-invalid]="getFieldError('gapReason')" rows="3" [(ngModel)]="newEmp.gapReason" name="gapReason"
               placeholder="Explain the reason for career gap..."></textarea>
+            <span class="field-error" *ngIf="getFieldError('gapReason')">{{ getFieldError('gapReason') }}</span>
           </div>
         </div>
 
@@ -472,16 +539,18 @@
         <div *ngIf="activeTab() === 'contact'">
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label">Current Address</label>
-              <textarea class="form-input" rows="3" [(ngModel)]="newEmp.currentAddress" (input)="onSameAddressToggle()"
+              <label class="form-label">Current Address *</label>
+              <textarea class="form-input" [class.is-invalid]="getFieldError('currentAddress')" rows="3" [(ngModel)]="newEmp.currentAddress" (input)="onSameAddressToggle()"
                 name="currentAddress" placeholder="Present residence flat, street, city, state, pincode..."></textarea>
+              <span class="field-error" *ngIf="getFieldError('currentAddress')">{{ getFieldError('currentAddress') }}</span>
             </div>
 
             <div class="form-group">
-              <label class="form-label">Permanent Address</label>
-              <textarea class="form-input" rows="3" [(ngModel)]="newEmp.permanentAddress"
+              <label class="form-label">Permanent Address *</label>
+              <textarea class="form-input" [class.is-invalid]="getFieldError('permanentAddress')" rows="3" [(ngModel)]="newEmp.permanentAddress"
                 [disabled]="newEmp.sameAsCurrentAddress" name="permanentAddress"
                 placeholder="Permanent residence address..."></textarea>
+              <span class="field-error" *ngIf="getFieldError('permanentAddress')">{{ getFieldError('permanentAddress') }}</span>
             </div>
           </div>
 
@@ -495,22 +564,25 @@
 
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label">Emergency Contact 1 (Name & Phone)</label>
-              <input type="text" class="form-input" [(ngModel)]="newEmp.emergencyContact1" name="emergencyContact1"
+              <label class="form-label">Emergency Contact 1 (Name & Phone) *</label>
+              <input type="text" class="form-input" [class.is-invalid]="getFieldError('emergencyContact1')" [(ngModel)]="newEmp.emergencyContact1" name="emergencyContact1"
                 placeholder="e.g. Father: John Miller - 9876543210" />
+              <span class="field-error" *ngIf="getFieldError('emergencyContact1')">{{ getFieldError('emergencyContact1') }}</span>
             </div>
 
             <div class="form-group">
               <label class="form-label">Emergency Contact 2 (Name & Phone)</label>
-              <input type="text" class="form-input" [(ngModel)]="newEmp.emergencyContact2" name="emergencyContact2"
+              <input type="text" class="form-input" [class.is-invalid]="getFieldError('emergencyContact2')" [(ngModel)]="newEmp.emergencyContact2" name="emergencyContact2"
                 placeholder="e.g. Spouse: Sarah Miller - 9123456789" />
+              <span class="field-error" *ngIf="getFieldError('emergencyContact2')">{{ getFieldError('emergencyContact2') }}</span>
             </div>
           </div>
 
           <div class="form-group">
             <label class="form-label">Professional Reference (if any)</label>
-            <input type="text" class="form-input" [(ngModel)]="newEmp.referenceDetails" name="referenceDetails"
+            <input type="text" class="form-input" [class.is-invalid]="getFieldError('referenceDetails')" [(ngModel)]="newEmp.referenceDetails" name="referenceDetails"
               placeholder="e.g. Dr. Alex Vance (Ex Manager, Acme Corp) - alex@acme.io" />
+            <span class="field-error" *ngIf="getFieldError('referenceDetails')">{{ getFieldError('referenceDetails') }}</span>
           </div>
         </div>
 
@@ -536,13 +608,25 @@
       <!-- Modal Tabs Navigation -->
       <div class="modal-tabs">
         <button type="button" class="tab-btn" [class.active]="activeTab() === 'basic'"
-          (click)="activeTab.set('basic')">1. Basic Details</button>
+          (click)="activeTab.set('basic')">
+          1. Basic Details
+          <span class="tab-badge-error" *ngIf="tabErrors().basic > 0">{{ tabErrors().basic }}</span>
+        </button>
         <button type="button" class="tab-btn" [class.active]="activeTab() === 'experience'"
-          (click)="activeTab.set('experience')">2. Experience & Salary</button>
+          (click)="activeTab.set('experience')">
+          2. Experience & Salary
+          <span class="tab-badge-error" *ngIf="tabErrors().experience > 0">{{ tabErrors().experience }}</span>
+        </button>
         <button type="button" class="tab-btn" [class.active]="activeTab() === 'education'"
-          (click)="activeTab.set('education')">3. Education & Gap</button>
+          (click)="activeTab.set('education')">
+          3. Education & Gap
+          <span class="tab-badge-error" *ngIf="tabErrors().education > 0">{{ tabErrors().education }}</span>
+        </button>
         <button type="button" class="tab-btn" [class.active]="activeTab() === 'contact'"
-          (click)="activeTab.set('contact')">4. Address & Contacts</button>
+          (click)="activeTab.set('contact')">
+          4. Address & Contacts
+          <span class="tab-badge-error" *ngIf="tabErrors().contact > 0">{{ tabErrors().contact }}</span>
+        </button>
       </div>
 
       <form (ngSubmit)="saveUpdatedEmployee()" class="mt-2">
@@ -551,101 +635,125 @@
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">Employee Code *</label>
-              <input type="text" class="form-input" [(ngModel)]="editEmp.employeeCode" name="editEmployeeCode" required
-                placeholder="e.g. EMP-001" />
+              <input type="text" class="form-input" [class.is-invalid]="getFieldError('employeeCode')" [(ngModel)]="editEmp.employeeCode" name="editEmployeeCode" required
+                placeholder="e.g. TRHPL-001" />
+              <span class="field-error" *ngIf="getFieldError('employeeCode')">{{ getFieldError('employeeCode') }}</span>
             </div>
 
             <div class="form-group">
-              <label class="form-label">Joining Date</label>
-              <input type="date" class="form-input" [(ngModel)]="editEmp.joiningDate" name="editJoiningDate" />
+              <label class="form-label">Joining Date *</label>
+              <input type="date" class="form-input" [class.is-invalid]="getFieldError('joiningDate')" [(ngModel)]="editEmp.joiningDate" name="editJoiningDate" />
+              <span class="field-error" *ngIf="getFieldError('joiningDate')">{{ getFieldError('joiningDate') }}</span>
             </div>
           </div>
 
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">First Name *</label>
-              <input type="text" class="form-input" [(ngModel)]="editEmp.firstName" name="editFirstName" required
+              <input type="text" class="form-input" [class.is-invalid]="getFieldError('firstName')" [(ngModel)]="editEmp.firstName" name="editFirstName" required
                 placeholder="e.g. Jordan" />
+              <span class="field-error" *ngIf="getFieldError('firstName')">{{ getFieldError('firstName') }}</span>
             </div>
 
             <div class="form-group">
               <label class="form-label">Last Name</label>
-              <input type="text" class="form-input" [(ngModel)]="editEmp.lastName" name="editLastName"
+              <input type="text" class="form-input" [class.is-invalid]="getFieldError('lastName')" [(ngModel)]="editEmp.lastName" name="editLastName"
                 placeholder="e.g. Miller" />
+              <span class="field-error" *ngIf="getFieldError('lastName')">{{ getFieldError('lastName') }}</span>
             </div>
           </div>
 
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">Work Email *</label>
-              <input type="email" class="form-input" [(ngModel)]="editEmp.email" name="editEmail" required
+              <input type="email" class="form-input" [class.is-invalid]="getFieldError('email')" [(ngModel)]="editEmp.email" name="editEmail" required
                 placeholder="jordan@company.io" />
+              <span class="field-error" *ngIf="getFieldError('email')">{{ getFieldError('email') }}</span>
             </div>
 
             <div class="form-group">
-              <label class="form-label">Phone Number</label>
-              <input type="text" class="form-input" [(ngModel)]="editEmp.phone" name="editPhone"
-                placeholder="+1 (555) 000-1122" />
+              <label class="form-label">Phone Number *</label>
+              <input type="text" class="form-input" [class.is-invalid]="getFieldError('phone')" [(ngModel)]="editEmp.phone" name="editPhone"
+                placeholder="9876543210" />
+              <span class="field-error" *ngIf="getFieldError('phone')">{{ getFieldError('phone') }}</span>
             </div>
           </div>
 
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label">Date of Birth</label>
-              <input type="date" class="form-input" [(ngModel)]="editEmp.dateOfBirth" name="editDateOfBirth" />
+              <label class="form-label">Date of Birth *</label>
+              <input type="date" class="form-input" [class.is-invalid]="getFieldError('dateOfBirth')" [(ngModel)]="editEmp.dateOfBirth" name="editDateOfBirth" />
+              <span class="field-error" *ngIf="getFieldError('dateOfBirth')">{{ getFieldError('dateOfBirth') }}</span>
             </div>
 
             <div class="form-group">
-              <label class="form-label">Department</label>
-              <select class="form-select" [(ngModel)]="editEmp.department" name="editDepartment">
+              <label class="form-label">Department *</label>
+              <select class="form-select" [class.is-invalid]="getFieldError('department')" [(ngModel)]="editEmp.department" name="editDepartment">
                 <option value="Engineering">Engineering</option>
                 <option value="Human Resources">Human Resources</option>
                 <option value="Design">Design</option>
                 <option value="Marketing">Marketing</option>
                 <option value="Finance">Finance</option>
               </select>
+              <span class="field-error" *ngIf="getFieldError('department')">{{ getFieldError('department') }}</span>
             </div>
           </div>
 
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label">Marital Status</label>
-              <select class="form-select" [(ngModel)]="editEmp.maritalStatus" (change)="onEditMaritalStatusChange()"
+              <label class="form-label">Marital Status *</label>
+              <select class="form-select" [class.is-invalid]="getFieldError('maritalStatus')" [(ngModel)]="editEmp.maritalStatus" (change)="onEditMaritalStatusChange()"
                 name="editMaritalStatus">
-                <option value="Single">Single / Non-Married</option>
+                <option value="Single">Single</option>
                 <option value="Married">Married</option>
+                <option value="Divorced">Divorced</option>
+                <option value="Widowed">Widowed</option>
               </select>
+              <span class="field-error" *ngIf="getFieldError('maritalStatus')">{{ getFieldError('maritalStatus') }}</span>
             </div>
 
             <div class="form-group" *ngIf="editEmp.maritalStatus === 'Married'">
-              <label class="form-label">Date of Marriage</label>
-              <input type="date" class="form-input" [(ngModel)]="editEmp.marriageDate" name="editMarriageDate" />
+              <label class="form-label">Date of Marriage *</label>
+              <input type="date" class="form-input" [class.is-invalid]="getFieldError('marriageDate')" [(ngModel)]="editEmp.marriageDate" name="editMarriageDate" />
+              <span class="field-error" *ngIf="getFieldError('marriageDate')">{{ getFieldError('marriageDate') }}</span>
             </div>
           </div>
 
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label">Designation</label>
-              <input type="text" class="form-input" [(ngModel)]="editEmp.designation" name="editDesignation"
+              <label class="form-label">Designation *</label>
+              <input type="text" class="form-input" [class.is-invalid]="getFieldError('designation')" [(ngModel)]="editEmp.designation" name="editDesignation"
                 placeholder="e.g. Senior Backend Engineer" />
+              <span class="field-error" *ngIf="getFieldError('designation')">{{ getFieldError('designation') }}</span>
             </div>
 
             <div class="form-group">
-              <label class="form-label">Role</label>
-              <select class="form-select" [(ngModel)]="editEmp.role" name="editRole">
+              <label class="form-label">Role *</label>
+              <select class="form-select" [class.is-invalid]="getFieldError('role')" [(ngModel)]="editEmp.role" name="editRole">
                 <option value="EMPLOYEE">EMPLOYEE</option>
                 <option value="HR">HR</option>
                 <option value="MANAGER">MANAGER</option>
                 <option value="COORDINATOR">COORDINATOR</option>
                 <option value="ADMIN" *ngIf="auth.currentRole() === 'Admin'">ADMIN</option>
               </select>
+              <span class="field-error" *ngIf="getFieldError('role')">{{ getFieldError('role') }}</span>
+            </div>
+
+            <div class="form-group" *ngIf="canUpdateBenchStatus() && (editEmp.role === 'EMPLOYEE' || !editEmp.role)">
+              <label class="form-label">Bench Status</label>
+              <select class="form-select" [class.is-invalid]="getFieldError('benchStatus')" [(ngModel)]="editEmp.benchStatus" name="editBenchStatus">
+                <option value="NO">PROJECT (NO)</option>
+                <option value="YES">BENCH (YES)</option>
+              </select>
+              <span class="field-error" *ngIf="getFieldError('benchStatus')">{{ getFieldError('benchStatus') }}</span>
             </div>
           </div>
 
           <div class="form-group">
             <label class="form-label">Photo URL / Avatar</label>
-            <input type="text" class="form-input" [(ngModel)]="editEmp.photoUrl" name="editPhotoUrl"
+            <input type="text" class="form-input" [class.is-invalid]="getFieldError('photoUrl')" [(ngModel)]="editEmp.photoUrl" name="editPhotoUrl"
               placeholder="https://images.unsplash.com/..." />
+            <span class="field-error" *ngIf="getFieldError('photoUrl')">{{ getFieldError('photoUrl') }}</span>
           </div>
         </div>
 
@@ -661,43 +769,49 @@
 
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label">Total Experience</label>
-              <input type="text" class="form-input" [(ngModel)]="editEmp.totalExperience" name="editTotalExperience"
-                [disabled]="editEmp.isFresher" placeholder="e.g. 3.5 Years" />
+              <label class="form-label">Total Experience (Years) <span *ngIf="!editEmp.isFresher">*</span></label>
+              <input type="text" class="form-input" [class.is-invalid]="getFieldError('totalExperience')" [(ngModel)]="editEmp.totalExperience" name="editTotalExperience"
+                [disabled]="editEmp.isFresher" placeholder="e.g. 3.5" />
+              <span class="field-error" *ngIf="getFieldError('totalExperience')">{{ getFieldError('totalExperience') }}</span>
             </div>
 
             <div class="form-group">
               <label class="form-label">Tech Stack / Skills</label>
-              <input type="text" class="form-input" [(ngModel)]="editEmp.techStack" name="editTechStack"
+              <input type="text" class="form-input" [class.is-invalid]="getFieldError('techStack')" [(ngModel)]="editEmp.techStack" name="editTechStack"
                 placeholder="e.g. Java, Spring Boot, Angular" />
+              <span class="field-error" *ngIf="getFieldError('techStack')">{{ getFieldError('techStack') }}</span>
             </div>
           </div>
 
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label">Current Salary (LPA / Annual)</label>
-              <input type="text" class="form-input" [(ngModel)]="editEmp.currentSalary" name="editCurrentSalary"
-                placeholder="e.g. 7,50,000" />
+              <label class="form-label">Current Salary *</label>
+              <input type="text" class="form-input" [class.is-invalid]="getFieldError('currentSalary')" [(ngModel)]="editEmp.currentSalary" name="editCurrentSalary"
+                placeholder="e.g. 750000" />
+              <span class="field-error" *ngIf="getFieldError('currentSalary')">{{ getFieldError('currentSalary') }}</span>
             </div>
 
             <div class="form-group">
               <label class="form-label">Previous Salary</label>
-              <input type="text" class="form-input" [(ngModel)]="editEmp.previousSalary" name="editPreviousSalary"
-                [disabled]="editEmp.isFresher" placeholder="e.g. 5,00,000" />
+              <input type="text" class="form-input" [class.is-invalid]="getFieldError('previousSalary')" [(ngModel)]="editEmp.previousSalary" name="editPreviousSalary"
+                [disabled]="editEmp.isFresher" placeholder="e.g. 500000" />
+              <span class="field-error" *ngIf="getFieldError('previousSalary')">{{ getFieldError('previousSalary') }}</span>
             </div>
           </div>
 
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label">Previous Company</label>
-              <input type="text" class="form-input" [(ngModel)]="editEmp.previousCompany" name="editPreviousCompany"
+              <label class="form-label">Previous Company <span *ngIf="!editEmp.isFresher">*</span></label>
+              <input type="text" class="form-input" [class.is-invalid]="getFieldError('previousCompany')" [(ngModel)]="editEmp.previousCompany" name="editPreviousCompany"
                 [disabled]="editEmp.isFresher" placeholder="e.g. Acme Corp Tech" />
+              <span class="field-error" *ngIf="getFieldError('previousCompany')">{{ getFieldError('previousCompany') }}</span>
             </div>
 
             <div class="form-group">
-              <label class="form-label">Previous Designation</label>
-              <input type="text" class="form-input" [(ngModel)]="editEmp.previousDesignation"
+              <label class="form-label">Previous Designation <span *ngIf="!editEmp.isFresher">*</span></label>
+              <input type="text" class="form-input" [class.is-invalid]="getFieldError('previousDesignation')" [(ngModel)]="editEmp.previousDesignation"
                 name="editPreviousDesignation" [disabled]="editEmp.isFresher" placeholder="e.g. Junior Developer" />
+              <span class="field-error" *ngIf="getFieldError('previousDesignation')">{{ getFieldError('previousDesignation') }}</span>
             </div>
           </div>
         </div>
@@ -705,9 +819,39 @@
         <!-- TAB 3: EDUCATION & GAP -->
         <div *ngIf="activeTab() === 'education'">
           <div class="form-group">
-            <label class="form-label">Highest Education</label>
-            <input type="text" class="form-input" [(ngModel)]="editEmp.education" name="editEducation"
-              placeholder="e.g. B.Tech Computer Science & Eng. (2020)" />
+            <label class="form-label">10th Qualification *</label>
+            <input type="text" class="form-input" [class.is-invalid]="getFieldError('tenthQualification')" [(ngModel)]="editEmp.tenthQualification" name="editTenthQualification"
+              required placeholder="e.g. CBSE - 85% (2015)" />
+            <span class="field-error" *ngIf="getFieldError('tenthQualification')">{{ getFieldError('tenthQualification') }}</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">12th Qualification *</label>
+            <input type="text" class="form-input" [class.is-invalid]="getFieldError('twelfthQualification')" [(ngModel)]="editEmp.twelfthQualification" name="editTwelfthQualification"
+              required placeholder="e.g. CBSE Science - 78% (2017)" />
+            <span class="field-error" *ngIf="getFieldError('twelfthQualification')">{{ getFieldError('twelfthQualification') }}</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Bachelor's Qualification *</label>
+            <input type="text" class="form-input" [class.is-invalid]="getFieldError('bachelorQualification')" [(ngModel)]="editEmp.bachelorQualification" name="editBachelorQualification"
+              required placeholder="e.g. B.Tech Computer Science - 7.8 CGPA (2021)" />
+            <span class="field-error" *ngIf="getFieldError('bachelorQualification')">{{ getFieldError('bachelorQualification') }}</span>
+          </div>
+
+          <div class="form-group mb-3">
+            <label class="checkbox-label">
+              <input type="checkbox" [(ngModel)]="editEmp.hasHighestQualification"
+                (change)="onHighestQualificationToggle()" name="editHasHighestQualification" />
+              <span>Candidate Has Highest Qualification</span>
+            </label>
+          </div>
+
+          <div class="form-group" *ngIf="editEmp.hasHighestQualification">
+            <label class="form-label">Highest Qualification *</label>
+            <input type="text" class="form-input" [class.is-invalid]="getFieldError('highestQualification')" [(ngModel)]="editEmp.highestQualification" name="editHighestQualification"
+              placeholder="e.g. M.Tech Computer Science - 8.2 CGPA (2023)" />
+            <span class="field-error" *ngIf="getFieldError('highestQualification')">{{ getFieldError('highestQualification') }}</span>
           </div>
 
           <div class="form-group mb-3">
@@ -718,9 +862,10 @@
           </div>
 
           <div class="form-group" *ngIf="editEmp.hasGap">
-            <label class="form-label">Gap Reason & Details</label>
-            <textarea class="form-input" rows="3" [(ngModel)]="editEmp.gapReason" name="editGapReason"
+            <label class="form-label">Gap Reason & Details *</label>
+            <textarea class="form-input" [class.is-invalid]="getFieldError('gapReason')" rows="3" [(ngModel)]="editEmp.gapReason" name="editGapReason"
               placeholder="Explain the reason for career gap..."></textarea>
+            <span class="field-error" *ngIf="getFieldError('gapReason')">{{ getFieldError('gapReason') }}</span>
           </div>
         </div>
 
@@ -728,17 +873,19 @@
         <div *ngIf="activeTab() === 'contact'">
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label">Current Address</label>
-              <textarea class="form-input" rows="3" [(ngModel)]="editEmp.currentAddress"
+              <label class="form-label">Current Address *</label>
+              <textarea class="form-input" [class.is-invalid]="getFieldError('currentAddress')" rows="3" [(ngModel)]="editEmp.currentAddress"
                 (input)="onEditSameAddressToggle()" name="editCurrentAddress"
                 placeholder="Present residence flat, street, city, state, pincode..."></textarea>
+              <span class="field-error" *ngIf="getFieldError('currentAddress')">{{ getFieldError('currentAddress') }}</span>
             </div>
 
             <div class="form-group">
-              <label class="form-label">Permanent Address</label>
-              <textarea class="form-input" rows="3" [(ngModel)]="editEmp.permanentAddress"
+              <label class="form-label">Permanent Address *</label>
+              <textarea class="form-input" [class.is-invalid]="getFieldError('permanentAddress')" rows="3" [(ngModel)]="editEmp.permanentAddress"
                 [disabled]="editEmp.sameAsCurrentAddress" name="editPermanentAddress"
                 placeholder="Permanent residence address..."></textarea>
+              <span class="field-error" *ngIf="getFieldError('permanentAddress')">{{ getFieldError('permanentAddress') }}</span>
             </div>
           </div>
 
@@ -752,22 +899,25 @@
 
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label">Emergency Contact 1 (Name & Phone)</label>
-              <input type="text" class="form-input" [(ngModel)]="editEmp.emergencyContact1" name="editEmergencyContact1"
+              <label class="form-label">Emergency Contact 1 (Name & Phone) *</label>
+              <input type="text" class="form-input" [class.is-invalid]="getFieldError('emergencyContact1')" [(ngModel)]="editEmp.emergencyContact1" name="editEmergencyContact1"
                 placeholder="e.g. Father: John Miller - 9876543210" />
+              <span class="field-error" *ngIf="getFieldError('emergencyContact1')">{{ getFieldError('emergencyContact1') }}</span>
             </div>
 
             <div class="form-group">
               <label class="form-label">Emergency Contact 2 (Name & Phone)</label>
-              <input type="text" class="form-input" [(ngModel)]="editEmp.emergencyContact2" name="editEmergencyContact2"
+              <input type="text" class="form-input" [class.is-invalid]="getFieldError('emergencyContact2')" [(ngModel)]="editEmp.emergencyContact2" name="editEmergencyContact2"
                 placeholder="e.g. Spouse: Sarah Miller - 9123456789" />
+              <span class="field-error" *ngIf="getFieldError('emergencyContact2')">{{ getFieldError('emergencyContact2') }}</span>
             </div>
           </div>
 
           <div class="form-group">
             <label class="form-label">Professional Reference (if any)</label>
-            <input type="text" class="form-input" [(ngModel)]="editEmp.referenceDetails" name="editReferenceDetails"
+            <input type="text" class="form-input" [class.is-invalid]="getFieldError('referenceDetails')" [(ngModel)]="editEmp.referenceDetails" name="editReferenceDetails"
               placeholder="e.g. Dr. Alex Vance (Ex Manager, Acme Corp) - alex@acme.io" />
+            <span class="field-error" *ngIf="getFieldError('referenceDetails')">{{ getFieldError('referenceDetails') }}</span>
           </div>
         </div>
 

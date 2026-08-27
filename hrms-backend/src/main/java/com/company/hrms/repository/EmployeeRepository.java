@@ -21,7 +21,7 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long>, JpaSp
 
     boolean existsByEmployeeCode(String employeeCode);
 
-    @Query(value = "SELECT COALESCE(MAX(CAST(SUBSTRING(employee_code FROM '[0-9]+') AS INTEGER)), 0) FROM employees", nativeQuery = true)
+    @Query(value = "SELECT COALESCE(MAX(CAST(SUBSTRING(employee_code FROM 'TRHPL-([0-9]{3})') AS INTEGER)), 0) FROM employees WHERE employee_code LIKE 'TRHPL-%'", nativeQuery = true)
     Integer findMaxEmployeeCodeNumericSuffix();
 
     @Query("SELECT e.employeeCode FROM Employee e")
@@ -51,4 +51,7 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long>, JpaSp
 
     @Query("SELECT e FROM Employee e WHERE LOWER(e.employeeCode) LIKE LOWER(CONCAT('%', :query, '%')) OR LOWER(e.firstName) LIKE LOWER(CONCAT('%', :query, '%')) OR LOWER(e.lastName) LIKE LOWER(CONCAT('%', :query, '%')) OR LOWER(CONCAT(e.firstName, ' ', COALESCE(e.lastName, ''))) LIKE LOWER(CONCAT('%', :query, '%'))")
     List<Employee> searchEmployees(@Param("query") String query, Pageable pageable);
+
+    @Query("SELECT e.benchStatus FROM Employee e WHERE e.id = :id")
+    Optional<String> findBenchStatusByEmployeeId(@Param("id") Long id);
 }

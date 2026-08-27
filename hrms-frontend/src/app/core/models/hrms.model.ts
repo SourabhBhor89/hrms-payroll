@@ -10,6 +10,7 @@ export interface User {
   department: string;
   designation: string;
   employeeId: string;
+  benchStatus?: 'YES' | 'NO';
 }
 
 export interface Employee {
@@ -51,6 +52,7 @@ export interface Employee {
   permanentAddress?: string;
   maritalStatus?: string;
   marriageDate?: string;
+  benchStatus?: 'YES' | 'NO';
   leaveBalance: {
     casual: number;
     sick: number;

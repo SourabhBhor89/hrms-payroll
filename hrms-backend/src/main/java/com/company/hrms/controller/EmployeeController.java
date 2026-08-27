@@ -1,6 +1,7 @@
 package com.company.hrms.controller;
 
 import com.company.hrms.dto.request.CreateEmployeeRequest;
+import com.company.hrms.dto.request.UpdateBenchStatusRequest;
 import com.company.hrms.dto.response.EmployeeDto;
 import com.company.hrms.dto.response.NextEmployeeCodeResponse;
 import com.company.hrms.service.EmployeeService;
@@ -13,8 +14,10 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -92,5 +95,16 @@ public class EmployeeController {
     public ResponseEntity<Void> deleteEmployee(@PathVariable Long id) {
         employeeService.deleteEmployee(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @PatchMapping("/{id}/bench-status")
+    @PreAuthorize("hasAuthority('EMPLOYEE_BENCH_STATUS_UPDATE')")
+    public ResponseEntity<EmployeeDto> updateBenchStatus(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateBenchStatusRequest request,
+            Authentication authentication
+    ) {
+        String updatedBy = authentication != null ? authentication.getName() : "SYSTEM";
+        return ResponseEntity.ok(employeeService.updateBenchStatus(id, request.getBenchStatus(), updatedBy));
     }
 }
