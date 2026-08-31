@@ -1,5 +1,6 @@
 package com.company.hrms.controller;
 
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,13 +48,20 @@ public class AdminTestController
     }
 
     @PostMapping("/file")
-    public String saveFile(@RequestParam("id") Long id, @RequestParam ("file") MultipartFile file) 
+    public String saveFile(@RequestParam("id") String emp_code, @RequestParam ("file") MultipartFile file) 
     {
         System.out.println("File received: " + file.getOriginalFilename() + ", Size: " + file.getSize() + " bytes");
-       employeeDocumentService.uploadDocument(id,"Adhar","1234", file);
+       employeeDocumentService.uploadDocument(emp_code,"Adharuu","1234", file);
         
         return "File uploaded successfully: " + file.getOriginalFilename();
     }
+
+    @GetMapping("/list")
+    public List<?> getMethodName() 
+    {
+        return employeeDocumentService.getEmployeeDocuments("EMP-004");
+    }
+    
     
     
 }

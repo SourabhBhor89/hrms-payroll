@@ -86,7 +86,8 @@ public class GoogleCalendarService {
         return getEventsFromApi(LocalDate.now().getYear());
     }
 
-    public GoogleCalendarResponse getEventsFromApi(int year) {
+    public GoogleCalendarResponse getEventsFromApi(int year) 
+    {
         if (apiKey == null || apiKey.isBlank() || "xyz_Api_Key".equalsIgnoreCase(apiKey)) {
             log.info("Google Calendar API key not set or invalid placeholder. Skipping REST API call.");
             return null;
