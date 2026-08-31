@@ -1,11 +1,10 @@
 package com.company.hrms.service;
 
-import com.company.hrms.dto.request.CreateEmployeeRequest;
-import com.company.hrms.dto.response.EmployeeDto;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
-import java.util.List;
+import com.company.hrms.dto.request.CreateEmployeeRequest;
+import com.company.hrms.dto.response.EmployeeDto;
 
 public interface EmployeeService {
 
@@ -20,6 +19,8 @@ public interface EmployeeService {
     void deleteEmployee(Long id);
 
     EmployeeDto updateBenchStatus(Long id, String benchStatus, String updatedBy);
+    
+    boolean employeeExists(String employeeCode);
 
     com.company.hrms.dto.response.NextEmployeeCodeResponse getNextEmployeeCode();
 }

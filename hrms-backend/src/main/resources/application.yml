@@ -23,13 +23,12 @@ spring:
       cache-null-values: false
 
   datasource:
-    url: ${DB_URL}
-    databse: postgres
+    url: jdbc:postgresql://db.xpjtliwteybzoczamafk.supabase.co:5432/postgres
     username: postgres
-    password: ${DB_PASSWORD}
+    password: '@Trhhrms@1234'
     driver-class-name: org.postgresql.Driver
     hikari:
-      maximum-pool-size: 15
+      maximum-pool-size: 20
       minimum-idle: 5
       idle-timeout: 300000
       connection-timeout: 20000
@@ -42,7 +41,7 @@ spring:
     clean-disabled: false
     clean-on-validation-error: true
     ignore-migration-patterns: "*:*"
-
+  
   jpa:
     hibernate:
       ddl-auto: validate
@@ -55,8 +54,8 @@ spring:
   mail:
     host: smtp.gmail.com
     port: 587
-    username: ${MAIL_USERNAME}  
-    password: ${MAIL_PASSWORD}
+    username: ${MAIL_USERNAME:trh072026@gmail.com}  
+    password: ${MAIL_PASSWORD:hwmv ralv zbdr yfrx}
     properties:
       mail:
         smtp:
@@ -93,15 +92,19 @@ security:
 
 app:
   admin:
-    email: ${ADMIN_EMAIL}
-    password: ${ADMIN_PASSWORD}
+    email: ${ADMIN_EMAIL:admin@hrms.local}
+    password: ${ADMIN_PASSWORD:Admin@12345}}
   geofence:
     enabled: ${GEOFENCE_ENABLED:true}
-    office-latitude: ${GEOFENCE_OFFICE_LATITUDE}
-    office-longitude: ${GEOFENCE_OFFICE_LONGITUDE}
+    office-latitude: ${GEOFENCE_OFFICE_LATITUDE:22.7528376043815}
+    office-longitude: ${GEOFENCE_OFFICE_LONGITUDE:75.86748476315944}
     allowed-radius-meters: ${GEOFENCE_ALLOWED_RADIUS_METERS:50}
+  file-storage:
+    location: ${FILE_STORAGE_LOCATION:D:\Spring\TRH Project\HRMS\Documents}
 
 google:
   calendar:
     api-key: ${GOOGLE_CALENDAR_API_KEY:}
     calendar-id: ${GOOGLE_CALENDAR_ID:en.indian#holiday@group.v.calendar.google.com}
+
+  

@@ -487,4 +487,9 @@ public class EmployeeServiceImpl implements EmployeeService {
         String nextCode = String.format("TRHPL-%03d", maxNum + 1);
         return new NextEmployeeCodeResponse(nextCode);
     }
+
+    @Override
+    public boolean employeeExists(Long employeeId) {
+        return employeeRepository.existsById(employeeId);
+    }
 }
