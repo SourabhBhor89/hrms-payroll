@@ -1,9 +1,10 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { HrmsService } from '../../core/services/hrms.service';
 import { ThemeService } from '../../core/services/theme.service';
+import { EmployeeDocumentService } from '../../core/services/employee-document.service';
 
 interface NavItem {
   path: string;
@@ -20,18 +21,30 @@ interface NavItem {
   templateUrl: './sidebar.component.html',
   styleUrl: './sidebar.component.css'
 })
-export class SidebarComponent {
+export class SidebarComponent implements OnInit {
   auth = inject(AuthService);
   hrms = inject(HrmsService);
   theme = inject(ThemeService);
+  documentsApi = inject(EmployeeDocumentService);
 
   isCollapsed = signal<boolean>(false);
+
+  ngOnInit(): void {
+    if (this.auth.hasPermission('EMPLOYEE_DOCUMENT_REVIEW')) {
+      this.documentsApi.getReviewQueue().subscribe();
+    }
+  }
 
   navItems: NavItem[] = [
     {
       path: '/dashboard',
       title: 'Dashboard',
       icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>`
+    },
+    {
+      path: '/my-documents',
+      title: 'My Documents',
+      icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>`
     },
     {
       path: '/employees',
@@ -64,13 +77,13 @@ export class SidebarComponent {
       icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/><path d="M8 14h4"/><path d="M8 18h8"/></svg>`,
       permission: 'EMPLOYEE_LEAVE_WFH_VIEW'
     },
-    // {
-    //   path: '/timesheets',
-    //   title: 'Timesheets',
-    //   icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
-    //   permission: 'TIMESHEET_CATEGORIES_VIEW',
-    //   badge: () => this.hrms.pendingTimesheetsCount()
-    // }
+    {
+      path: '/document-review',
+      title: 'Document Review',
+      icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>`,
+      permission: 'EMPLOYEE_DOCUMENT_REVIEW',
+      badge: () => this.documentsApi.pendingReviewsCount()
+    }
   ];
 
   toggleCollapse() {

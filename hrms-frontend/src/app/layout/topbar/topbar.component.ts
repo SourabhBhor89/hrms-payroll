@@ -2,9 +2,11 @@ import { Component, inject, signal, computed, HostListener, ElementRef } from '@
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { AuthService } from '../../core/services/auth.service';
 import { ThemeService } from '../../core/services/theme.service';
 import { HrmsService } from '../../core/services/hrms.service';
+import { EmployeeDocumentService, EmployeeDocument } from '../../core/services/employee-document.service';
 
 @Component({
   selector: 'app-topbar',
@@ -19,12 +21,21 @@ export class TopbarComponent {
   hrms = inject(HrmsService);
   router = inject(Router);
   elementRef = inject(ElementRef);
+  documentsApi = inject(EmployeeDocumentService);
+  sanitizer = inject(DomSanitizer);
 
   showNotifDropdown = signal<boolean>(false);
   showUserDropdown = signal<boolean>(false);
   showProfileModal = signal<boolean>(false);
   isUpdatingProfile = signal<boolean>(false);
-  activeProfileTab = signal<'details' | 'password'>('details');
+  activeProfileTab = signal<'details' | 'password' | 'documents'>('details');
+  documents = signal<EmployeeDocument[]>([]);
+  documentsStatus = signal<string>('NOT_SUBMITTED');
+
+  // Preview sub-modal state
+  previewDocUrl = signal<SafeResourceUrl | null>(null);
+  previewDocType = signal<string | null>(null);
+  previewDocIsPdf = signal<boolean>(false);
   isChangingPassword = signal<boolean>(false);
   popupMessage = signal<{ text: string; type: 'success' | 'error' } | null>(null);
 
@@ -184,6 +195,21 @@ export class TopbarComponent {
     this.showProfileModal.set(true);
     this.showUserDropdown.set(false);
 
+    // Fetch documents if employee profile exists
+    if (employee) {
+      this.documentsApi.getMyStatus().subscribe({
+        next: (status) => this.documentsStatus.set(status),
+        error: () => this.documentsStatus.set('NOT_SUBMITTED')
+      });
+      this.documentsApi.getMyDocuments().subscribe({
+        next: (docs) => this.documents.set(docs),
+        error: () => this.documents.set([])
+      });
+    } else {
+      this.documents.set([]);
+      this.documentsStatus.set('NOT_SUBMITTED');
+    }
+
     // If employee not found initially, load and update form in background
     if (!employee) {
       console.log('No employee found, loading employees in background...');
@@ -219,6 +245,16 @@ export class TopbarComponent {
 
           console.log('Profile form updated with employee data:', this.profileForm);
           console.log('Updated phone value:', this.profileForm.phone);
+
+          // Fetch documents for the loaded employee
+          this.documentsApi.getMyStatus().subscribe({
+            next: (status) => this.documentsStatus.set(status),
+            error: () => this.documentsStatus.set('NOT_SUBMITTED')
+          });
+          this.documentsApi.getMyDocuments().subscribe({
+            next: (docs) => this.documents.set(docs),
+            error: () => this.documents.set([])
+          });
         } else if (retryCount >= maxRetries) {
           clearInterval(checkInterval);
           console.log('Max retries reached, keeping current form data');
@@ -366,5 +402,24 @@ export class TopbarComponent {
       this.showUserDropdown.set(false);
       this.showNotifDropdown.set(false);
     }
+  }
+
+  previewMyDoc(doc: EmployeeDocument) {
+    this.documentsApi.getDocumentFileBlob(doc.employeeCode, doc.id).subscribe({
+      next: (blob) => {
+        const isPdf = doc.fileName.toLowerCase().endsWith('.pdf');
+        const fileBlob = new Blob([blob], { type: isPdf ? 'application/pdf' : 'image/png' });
+        const url = URL.createObjectURL(fileBlob);
+        this.previewDocIsPdf.set(isPdf);
+        this.previewDocType.set(doc.documentType);
+        this.previewDocUrl.set(this.sanitizer.bypassSecurityTrustResourceUrl(url));
+      },
+      error: () => this.showPopup('Failed to load document preview.', 'error')
+    });
+  }
+
+  closePreviewModal() {
+    this.previewDocUrl.set(null);
+    this.previewDocType.set(null);
   }
 }

@@ -1,0 +1,161 @@
+<main class="review-page">
+  <!-- Top header / actions -->
+  <header class="page-header">
+    <div class="header-info">
+      <h1>Document Verification Review</h1>
+      <p class="subtitle">Review and verify onboarding documents uploaded by new employees.</p>
+    </div>
+    <div class="search-bar">
+      <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      <input type="text" placeholder="Search by name, employee code..." [value]="searchQuery()" (input)="searchQuery.set($any($event.target).value)" />
+    </div>
+  </header>
+
+  <!-- Status notifications -->
+  <div class="alert error" *ngIf="errorMessage()">{{ errorMessage() }}</div>
+  <div class="alert success" *ngIf="successMessage()">{{ successMessage() }}</div>
+
+  <div class="workspace-grid">
+    <!-- Left Column: Grouped Queue -->
+    <aside class="sidebar-panel card">
+      <div class="panel-header">
+        <h2>Pending Employees ({{ filteredGroups().length }})</h2>
+        <button class="refresh-btn" (click)="loadQueue()" title="Refresh Queue">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+          </svg>
+        </button>
+      </div>
+
+      <div *ngIf="isLoading()" class="loading-state">
+        <div class="spinner"></div>
+        <span>Loading queue...</span>
+      </div>
+
+      <div *ngIf="!isLoading() && filteredGroups().length === 0" class="empty-state">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4L12 14.01l-3-3"/>
+        </svg>
+        <p>No employees pending review</p>
+      </div>
+
+      <ul class="queue-list" *ngIf="!isLoading() && filteredGroups().length > 0">
+        <li *ngFor="let group of filteredGroups()" 
+            [class.active]="selectedEmployeeGroup()?.employeeCode === group.employeeCode"
+            (click)="selectEmployeeGroup(group)">
+          <div class="doc-card-info">
+            <h3>{{ group.employeeName }}</h3>
+            <p class="emp-code">Code: {{ group.employeeCode }}</p>
+            <div class="meta-row">
+              <span class="pending-badge">{{ group.documents.length }} pending file(s)</span>
+            </div>
+          </div>
+          <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="9 18 15 12 9 6"/>
+          </svg>
+        </li>
+      </ul>
+    </aside>
+
+    <!-- Main Workspace (Preview + Details) -->
+    <section class="preview-panel card">
+      <!-- Active Workspace -->
+      <ng-container *ngIf="selectedEmployeeGroup() as group; else noSelection">
+        <div class="preview-header-tabs">
+          <div class="employee-meta">
+            <h2>{{ group.employeeName }} ({{ group.employeeCode }})</h2>
+            <p>Select a pending document below to review:</p>
+          </div>
+          
+          <!-- Document Tabs for selected Employee -->
+          <div class="doc-tabs-list">
+            <button *ngFor="let doc of group.documents"
+                    class="tab-item"
+                    [class.active]="selectedDocument()?.id === doc.id"
+                    (click)="selectDocument(doc)">
+              {{ doc.documentType.replace('_', ' ') }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Selected Document Actions & Details -->
+        <div class="document-review-bar" *ngIf="selectedDocument() as doc">
+          <div class="document-summary">
+            <h3>{{ doc.documentType.replace('_', ' ') }} File Details</h3>
+            <p>Filename: <strong>{{ doc.fileName }}</strong> · Uploaded: {{ doc.uploadedAt | date:'short' }}</p>
+            <p class="doc-num" *ngIf="doc.documentNumber">Entered Number: <strong>{{ doc.documentNumber }}</strong></p>
+          </div>
+
+          <div class="action-buttons">
+            <button class="btn btn-approve" (click)="approveDocument()" [disabled]="isSubmitting()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              Approve
+            </button>
+            <button class="btn btn-reject" (click)="openRejectDialog()" [disabled]="isSubmitting()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+              Reject
+            </button>
+          </div>
+        </div>
+
+        <!-- Document File Display -->
+        <div class="file-container" *ngIf="selectedDocument()">
+          <div *ngIf="!selectedFileUrl()" class="loading-state-dark">
+            <div class="spinner"></div>
+            <span>Fetching document file...</span>
+          </div>
+
+          <ng-container *ngIf="selectedFileUrl()">
+            <iframe *ngIf="selectedFileType() === 'pdf'" 
+                    [src]="selectedFileUrl()!" 
+                    class="file-view pdf-view"></iframe>
+
+            <div *ngIf="selectedFileType() === 'image'" class="image-view-wrapper">
+              <img [src]="selectedFileUrl()!" alt="Document Preview" class="file-view image-view" />
+            </div>
+          </ng-container>
+        </div>
+      </ng-container>
+
+      <!-- Empty Workspace -->
+      <ng-template #noSelection>
+        <div class="no-selection-placeholder">
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
+          </svg>
+          <h3>No Employee Selected</h3>
+          <p>Choose an employee from the queue on the left to start the document verification review.</p>
+        </div>
+      </ng-template>
+    </section>
+  </div>
+
+  <!-- Rejection Reason Dialog Modal -->
+  <div class="modal-backdrop" *ngIf="showRejectModal()">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Reject Document</h3>
+        <button class="close-btn" (click)="closeRejectDialog()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p>Please enter the reason for rejecting this document. This note will be visible to the employee to help them correct and resubmit.</p>
+        <textarea placeholder="e.g. Aadhaar image is blurry, document number does not match..." 
+                  rows="4" 
+                  [(ngModel)]="rejectionReason"
+                  class="reject-reason-input"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" (click)="closeRejectDialog()">Cancel</button>
+        <button class="btn btn-reject-submit" 
+                [disabled]="!rejectionReason.trim() || isSubmitting()" 
+                (click)="rejectDocument()">Submit Rejection</button>
+      </div>
+    </div>
+  </div>
+</main>

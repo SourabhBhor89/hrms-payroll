@@ -3,6 +3,7 @@ package com.company.hrms.service.impl;
 import com.company.hrms.dto.request.AttendancePunchRequest;
 import com.company.hrms.entity.Attendance;
 import com.company.hrms.entity.Employee;
+import com.company.hrms.entity.DocumentVerificationStatus;
 import com.company.hrms.entity.Leave;
 import com.company.hrms.entity.User;
 import com.company.hrms.repository.AttendanceRepository;
@@ -43,6 +44,7 @@ public class AttendanceServiceImpl implements AttendanceService {
                         .orElseThrow(() -> new IllegalArgumentException("User not found: " + userEmail)));
 
         Employee emp = getOrCreateEmployee(user);
+        requireApprovedDocuments(emp);
         LocalDate today = LocalDate.now();
 
         // 1. WFH / Leave check
@@ -97,6 +99,7 @@ public class AttendanceServiceImpl implements AttendanceService {
                         .orElseThrow(() -> new IllegalArgumentException("User not found: " + userEmail)));
 
         Employee emp = getOrCreateEmployee(user);
+        requireApprovedDocuments(emp);
         LocalDate today = LocalDate.now();
 
         // 1. WFH / Leave check
@@ -149,6 +152,12 @@ public class AttendanceServiceImpl implements AttendanceService {
 
         if (isOnLeaveOrWfh) {
             throw new IllegalStateException("Clock in and clock out are disabled for today because you are on approved Work From Home (WFH) or Leave.");
+        }
+    }
+
+    private void requireApprovedDocuments(Employee employee) {
+        if (employee.getDocumentVerificationStatus() != DocumentVerificationStatus.APPROVED) {
+            throw new IllegalStateException("Document verification is required before check-in or check-out");
         }
     }
 

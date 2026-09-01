@@ -6,6 +6,7 @@ import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import com.company.hrms.entity.EmployeeDocument;
+import com.company.hrms.entity.EmployeeDocumentStatus;
 
 public interface EmployeeDocumentRepository extends JpaRepository<EmployeeDocument, Long> 
 {
@@ -16,5 +17,7 @@ public interface EmployeeDocumentRepository extends JpaRepository<EmployeeDocume
     List<EmployeeDocument> findByEmployeeCode(String employeeCode);
 
     Optional<EmployeeDocument> findByIdAndEmployeeCode(Long documentId, String employeeCode);
+
+    List<EmployeeDocument> findByReviewStatus(EmployeeDocumentStatus reviewStatus);
 
 }

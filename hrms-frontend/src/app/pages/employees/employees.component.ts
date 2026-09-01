@@ -5,6 +5,8 @@ import { Router } from '@angular/router';
 import { HrmsService } from '../../core/services/hrms.service';
 import { AuthService } from '../../core/services/auth.service';
 import { Employee, UserRole } from '../../core/models/hrms.model';
+import { EmployeeDocumentService, EmployeeDocument } from '../../core/services/employee-document.service';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 
 @Component({
   selector: 'app-employees',
@@ -17,6 +19,15 @@ export class EmployeesComponent implements OnInit {
   hrms = inject(HrmsService);
   auth = inject(AuthService);
   router = inject(Router);
+  documentsApi = inject(EmployeeDocumentService);
+  sanitizer = inject(DomSanitizer);
+
+  selectedEmployeeDocuments = signal<EmployeeDocument[]>([]);
+
+  // Preview sub-modal state
+  previewDocUrl = signal<SafeResourceUrl | null>(null);
+  previewDocType = signal<string | null>(null);
+  previewDocIsPdf = signal<boolean>(false);
 
   ngOnInit() {
     this.loadEmployeesPage();
@@ -814,5 +825,44 @@ export class EmployeesComponent implements OnInit {
   viewEmployeeDetails(emp: Employee) {
     this.selectedEmployee.set(emp);
     this.isEditMode.set(false);
+    this.selectedEmployeeDocuments.set([]);
+    
+    this.documentsApi.getEmployeeDocuments(emp.employeeId).subscribe({
+      next: (docs) => this.selectedEmployeeDocuments.set(docs),
+      error: () => this.selectedEmployeeDocuments.set([])
+    });
+  }
+
+  downloadEmployeeFile(doc: EmployeeDocument) {
+    this.documentsApi.getDocumentFileBlob(doc.employeeCode, doc.id).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = doc.fileName;
+        a.click();
+        URL.revokeObjectURL(url);
+      },
+      error: () => this.showPopup('Failed to download document file.', 'error')
+    });
+  }
+
+  previewEmployeeDoc(doc: EmployeeDocument) {
+    this.documentsApi.getDocumentFileBlob(doc.employeeCode, doc.id).subscribe({
+      next: (blob) => {
+        const isPdf = doc.fileName.toLowerCase().endsWith('.pdf');
+        const fileBlob = new Blob([blob], { type: isPdf ? 'application/pdf' : 'image/png' });
+        const url = URL.createObjectURL(fileBlob);
+        this.previewDocIsPdf.set(isPdf);
+        this.previewDocType.set(doc.documentType);
+        this.previewDocUrl.set(this.sanitizer.bypassSecurityTrustResourceUrl(url));
+      },
+      error: () => this.showPopup('Failed to load document preview.', 'error')
+    });
+  }
+
+  closePreviewModal() {
+    this.previewDocUrl.set(null);
+    this.previewDocType.set(null);
   }
 }

@@ -1,0 +1,367 @@
+<div class="documents-page">
+  <!-- Page Header -->
+  <header class="page-header">
+    <div class="header-left">
+      <div class="eyebrow-tag">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+        </svg>
+        <span>Employee Onboarding & Compliance</span>
+      </div>
+      <h1>My Documents & Verification</h1>
+      <p class="subtitle">Upload, manage, and track your organizational verification documents.</p>
+    </div>
+    
+    <div class="header-status-badge" *ngIf="!isLoading">
+      <span class="status-indicator-pill" 
+            [class.pill-approved]="status === 'APPROVED'" 
+            [class.pill-pending]="status === 'PENDING_REVIEW'" 
+            [class.pill-rejected]="status === 'REJECTED'"
+            [class.pill-unsubmitted]="status === 'NOT_SUBMITTED'">
+        <span class="pulse-dot"></span>
+        <span>{{ status.replace('_', ' ') }}</span>
+      </span>
+    </div>
+  </header>
+
+  <!-- Notification Alerts -->
+  <div class="alert-box error-alert" *ngIf="errorMessage">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+    </svg>
+    <span>{{ errorMessage }}</span>
+  </div>
+
+  <div class="alert-box success-alert" *ngIf="successMessage">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polyline points="20 6 9 17 4 12"/>
+    </svg>
+    <span>{{ successMessage }}</span>
+  </div>
+
+  <!-- Admin Without Profile Info Card -->
+  <div class="status-banner banner-info" *ngIf="isAdminWithoutProfile">
+    <div class="banner-icon blue">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+      </svg>
+    </div>
+    <div class="banner-text">
+      <h3>Administrator Account</h3>
+      <p>You are signed in with an administrative role ({{ auth.currentRole() }}). Document onboarding verification is not required for system administrators.</p>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="loading-container">
+    <div class="spinner"></div>
+    <p>Loading your documents and verification status...</p>
+  </div>
+
+  <ng-container *ngIf="!isLoading && !isAdminWithoutProfile">
+    <!-- Status Action Banner -->
+    <div class="status-banner banner-approved" *ngIf="status === 'APPROVED'">
+      <div class="banner-icon green">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+        </svg>
+      </div>
+      <div class="banner-text">
+        <h3>Verification Approved</h3>
+        <p>All mandatory onboarding documents have been reviewed and approved by HR. Attendance clock-in, leave requests, and payroll records are fully activated.</p>
+      </div>
+    </div>
+
+    <div class="status-banner banner-pending" *ngIf="status === 'PENDING_REVIEW'">
+      <div class="banner-icon amber">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+        </svg>
+      </div>
+      <div class="banner-text">
+        <h3>Under HR Review</h3>
+        <p>Your documents have been submitted and are currently awaiting review by the HR department. You can preview your submitted files below.</p>
+      </div>
+    </div>
+
+    <div class="status-banner banner-rejected" *ngIf="status === 'REJECTED'">
+      <div class="banner-icon red">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+        </svg>
+      </div>
+      <div class="banner-text">
+        <h3>Action Required: Correct & Resubmit</h3>
+        <p>One or more documents were rejected by HR. Please check the feedback notes on the rejected cards below, attach a corrected document, and resubmit.</p>
+      </div>
+    </div>
+
+    <div class="status-banner banner-info" *ngIf="status === 'NOT_SUBMITTED'">
+      <div class="banner-icon blue">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+        </svg>
+      </div>
+      <div class="banner-text">
+        <h3>Upload Required Documents</h3>
+        <p>Please upload clear scanned copies or clear photos (PDF, PNG, JPG format, max 1MB) of all mandatory identity and academic documents.</p>
+      </div>
+    </div>
+
+    <!-- Summary Metrics Strip -->
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-icon blue">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+          </svg>
+        </div>
+        <div class="metric-content">
+          <span class="metric-label">Uploaded Files</span>
+          <div class="metric-value">{{ uploadedCount }} <span class="metric-total">/ {{ totalRequiredCount }} req</span></div>
+        </div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-icon green">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+        </div>
+        <div class="metric-content">
+          <span class="metric-label">Verified & Approved</span>
+          <div class="metric-value text-green">{{ approvedCount }} <span class="metric-total">/ {{ totalRequiredCount }}</span></div>
+        </div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-icon amber">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+          </svg>
+        </div>
+        <div class="metric-content">
+          <span class="metric-label">In Review Queue</span>
+          <div class="metric-value text-amber">{{ pendingCount }}</div>
+        </div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-icon red">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/>
+            <line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+        </div>
+        <div class="metric-content">
+          <span class="metric-label">Rejected / Attention</span>
+          <div class="metric-value text-red">{{ rejectedCount }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Document Cards Section -->
+    <div class="cards-section-header">
+      <h2>Document Checklist</h2>
+      <span class="section-hint">PDF or Images (.jpg, .jpeg, .png) up to 1 MB</span>
+    </div>
+
+    <div class="document-cards-grid">
+      <div class="doc-card" *ngFor="let required of requiredDocuments" 
+           [class.card-approved]="existingDocument(required.type)?.reviewStatus === 'APPROVED'"
+           [class.card-rejected]="existingDocument(required.type)?.reviewStatus === 'REJECTED'"
+           [class.card-pending]="existingDocument(required.type)?.reviewStatus === 'PENDING_REVIEW'">
+        
+        <!-- Card Top Header -->
+        <div class="card-header">
+          <div class="header-meta">
+            <div class="doc-type-icon" 
+                 [class.icon-id]="required.type === 'AADHAAR' || required.type === 'PAN'"
+                 [class.icon-edu]="required.type.includes('MARKSHEET') || required.type.includes('DEGREE')">
+              
+              <!-- ID Card Icon -->
+              <svg *ngIf="required.type === 'AADHAAR' || required.type === 'PAN'" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="2" y="5" width="20" height="14" rx="2"/><circle cx="8" cy="12" r="2"/><path d="M14 9h4m-4 3h4m-4 3h2"/>
+              </svg>
+
+              <!-- Education / Degree Icon -->
+              <svg *ngIf="required.type.includes('MARKSHEET') || required.type.includes('DEGREE')" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/>
+              </svg>
+            </div>
+
+            <div>
+              <div class="category-text">{{ required.category }}</div>
+              <h3 class="doc-title">
+                {{ required.label }}
+                <span *ngIf="required.isOptional" class="optional-tag">Optional</span>
+              </h3>
+            </div>
+          </div>
+
+          <!-- Status Pill -->
+          <div class="card-status-wrapper">
+            <ng-container *ngIf="existingDocument(required.type) as existing; else notUploadedBadge">
+              <span class="chip-status" [class.chip-approved]="existing.reviewStatus === 'APPROVED'"
+                                        [class.chip-pending]="existing.reviewStatus === 'PENDING_REVIEW'"
+                                        [class.chip-rejected]="existing.reviewStatus === 'REJECTED'">
+                <span class="chip-dot"></span>
+                {{ existing.reviewStatus.replace('_', ' ') }}
+              </span>
+            </ng-container>
+            <ng-template #notUploadedBadge>
+              <span class="chip-status chip-empty">
+                <span class="chip-dot"></span>
+                Not Uploaded
+              </span>
+            </ng-template>
+          </div>
+        </div>
+
+        <p class="card-desc">{{ required.description }}</p>
+
+        <!-- Existing Upload Details & Actions -->
+        <div class="existing-doc-box" *ngIf="existingDocument(required.type) as existing">
+          <div class="file-info-row">
+            <div class="file-details">
+              <svg class="file-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+              </svg>
+              <span class="file-name" [title]="existing.fileName">{{ existing.fileName }}</span>
+              <span class="file-date">{{ existing.uploadedAt | date:'mediumDate' }}</span>
+            </div>
+
+            <!-- Action Buttons: Preview & Download -->
+            <div class="file-actions">
+              <button type="button" class="btn-action btn-preview" (click)="previewDocument(existing)" title="Preview Document">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                </svg>
+                <span>Preview</span>
+              </button>
+
+              <button type="button" class="btn-action btn-download" (click)="downloadFile(existing.id, existing.fileName)" title="Download File">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="doc-number-row" *ngIf="existing.documentNumber">
+            <span class="label">Document ID:</span>
+            <span class="val">{{ existing.documentNumber }}</span>
+          </div>
+
+          <!-- Rejection Alert Callout -->
+          <div class="rejection-callout" *ngIf="existing.reviewStatus === 'REJECTED' && existing.reviewNote">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <div>
+              <strong>HR Rejection Note:</strong> {{ existing.reviewNote }}
+            </div>
+          </div>
+        </div>
+
+        <!-- Upload Form Controls (Visible when not uploaded OR when rejected) -->
+        <div class="upload-controls" *ngIf="!existingDocument(required.type) || existingDocument(required.type)?.reviewStatus === 'REJECTED'">
+          
+          <!-- Document Number Input for Aadhaar & PAN -->
+          <div class="input-field-group" *ngIf="required.hasNumber">
+            <label class="field-label">{{ required.numberLabel }} *</label>
+            <input type="text" 
+                   class="text-input" 
+                   [placeholder]="required.numberLabel" 
+                   [(ngModel)]="documentNumbers[required.type]" />
+          </div>
+
+          <!-- File Upload Zone -->
+          <div class="file-drop-zone" [class.has-file]="!!required.file">
+            <input type="file" 
+                   [id]="'file-upload-' + required.type" 
+                   class="file-input-hidden" 
+                   accept=".pdf,.jpg,.jpeg,.png" 
+                   (change)="onFileSelected(required, $event)" />
+            
+            <label [for]="'file-upload-' + required.type" class="drop-zone-label">
+              <ng-container *ngIf="!required.file">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+                <span class="upload-prompt">Click to select file</span>
+                <span class="upload-hint">PDF, JPG, PNG (Max 1 MB)</span>
+              </ng-container>
+
+              <ng-container *ngIf="required.file">
+                <div class="selected-file-pill">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                  <span class="sel-filename">{{ required.file.name }}</span>
+                  <span class="sel-size">({{ (required.file.size / 1024).toFixed(0) }} KB)</span>
+                </div>
+              </ng-container>
+            </label>
+              
+            <button *ngIf="required.file" type="button" class="remove-file-btn" (click)="removeSelectedFile(required)" title="Remove file">
+              &times;
+            </button>
+            </div>
+
+            <!-- Single Quick Upload Button -->
+            <div class="single-upload-action" *ngIf="required.file">
+              <button type="button" 
+                      class="btn-single-upload" 
+                      [disabled]="isSingleUploading[required.type] || isSubmitting"
+                      (click)="uploadSingle(required)">
+                <span *ngIf="isSingleUploading[required.type]" class="btn-spinner"></span>
+                <span>{{ isSingleUploading[required.type] ? 'Uploading...' : (existingDocument(required.type) ? 'Resubmit Document' : 'Upload Document') }}</span>
+              </button>
+            </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Bulk Submit Bottom Bar (Visible when files are staged) -->
+    <div class="bulk-submit-bar" *ngIf="hasPendingFiles && status !== 'APPROVED'">
+      <div class="bulk-info">
+        <span class="count-badge">{{ pendingFilesCount }}</span>
+        <span>document(s) ready to submit for HR review</span>
+      </div>
+      <button type="button" class="btn-submit-all" (click)="submitAll()" [disabled]="isSubmitting">
+        <span *ngIf="isSubmitting" class="btn-spinner"></span>
+        <span>{{ isSubmitting ? 'Uploading Documents...' : 'Submit All Documents' }}</span>
+      </button>
+    </div>
+  </ng-container>
+
+  <!-- Document Preview Sub-Modal -->
+  <div class="modal-backdrop" *ngIf="previewDocUrl()">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <h3>{{ previewDocType()?.replace('_', ' ') }}</h3>
+          <span class="modal-filename">{{ previewDocName() }}</span>
+        </div>
+        <button class="modal-close-btn" (click)="closePreviewModal()">&times;</button>
+      </div>
+
+      <div class="modal-body-preview">
+        <iframe *ngIf="previewDocIsPdf()" 
+                [src]="previewDocUrl()!" 
+                class="preview-iframe"></iframe>
+
+        <div *ngIf="!previewDocIsPdf()" class="image-preview-container">
+          <img [src]="previewDocUrl()!" alt="Document Preview" class="preview-image" />
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-modal-close" (click)="closePreviewModal()">Close Preview</button>
+      </div>
+    </div>
+  </div>
+</div>
+

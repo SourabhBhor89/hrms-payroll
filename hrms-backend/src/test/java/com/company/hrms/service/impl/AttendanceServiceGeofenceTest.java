@@ -62,6 +62,7 @@ class AttendanceServiceGeofenceTest {
         testEmp.setId(10L);
         testEmp.setUser(testUser);
         testEmp.setEmployeeCode("EMP-001");
+        testEmp.setDocumentVerificationStatus(com.company.hrms.entity.DocumentVerificationStatus.APPROVED);
 
         when(userRepository.findByEmail(testUser.getEmail())).thenReturn(Optional.of(testUser));
         when(employeeRepository.findByUserId(testUser.getId())).thenReturn(Optional.of(testEmp));

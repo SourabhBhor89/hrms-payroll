@@ -4,6 +4,8 @@ import java.time.LocalDateTime;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -46,5 +48,16 @@ public class EmployeeDocument {
     @Column(name = "uploaded_by")
     private Long uploadedBy;
 
-    // getters and setters
+    @Enumerated(EnumType.STRING)
+    @Column(name = "review_status", nullable = false, length = 30)
+    private EmployeeDocumentStatus reviewStatus = EmployeeDocumentStatus.PENDING_REVIEW;
+
+    @Column(name = "review_note", length = 1000)
+    private String reviewNote;
+
+    @Column(name = "reviewed_at")
+    private LocalDateTime reviewedAt;
+
+    @Column(name = "reviewed_by")
+    private String reviewedBy;
 }

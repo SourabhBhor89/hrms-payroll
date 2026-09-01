@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
+import { EmployeeDocumentService } from '../../../core/services/employee-document.service';
 
 @Component({
   selector: 'app-login',
@@ -13,6 +14,7 @@ import { AuthService } from '../../../core/services/auth.service';
 })
 export class LoginComponent {
   auth = inject(AuthService);
+  documents = inject(EmployeeDocumentService);
   router = inject(Router);
 
   email: string = '';
@@ -24,7 +26,7 @@ export class LoginComponent {
 
   constructor() {
     if (this.auth.isAuthenticated()) {
-      this.router.navigate(['/dashboard']);
+      this.navigateAfterLogin();
     }
   }
 
@@ -49,7 +51,7 @@ export class LoginComponent {
     this.auth.login(this.email, this.password).subscribe({
       next: () => {
         this.isLoading = false;
-        this.router.navigate(['/dashboard']);
+        this.navigateAfterLogin();
       },
       error: (err) => {
         this.isLoading = false;
@@ -59,6 +61,13 @@ export class LoginComponent {
           this.errorMessage = err.error?.message || 'Authentication failed. Please check server connection.';
         }
       }
+    });
+  }
+
+  private navigateAfterLogin() {
+    this.documents.getMyStatus().subscribe({
+      next: (status) => this.router.navigate([status === 'APPROVED' ? '/dashboard' : '/my-documents']),
+      error: () => this.router.navigate(['/dashboard'])
     });
   }
 }

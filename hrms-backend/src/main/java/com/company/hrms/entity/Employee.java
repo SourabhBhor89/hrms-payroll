@@ -2,6 +2,8 @@ package com.company.hrms.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToOne;
@@ -126,6 +128,10 @@ public class Employee extends BaseEntity {
 
     @Column(nullable = false)
     private Boolean active = true;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "document_verification_status", nullable = false, length = 30)
+    private DocumentVerificationStatus documentVerificationStatus = DocumentVerificationStatus.NOT_SUBMITTED;
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
